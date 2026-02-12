@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+from app.utils.audio._errors import AudioValidationError
 from app.utils.audio._types import AudioSignal
 
 _MIN_DURATION_S = 1.0
@@ -48,15 +49,15 @@ def load_audio(
 
 
 def validate_audio(signal: AudioSignal) -> None:
-    """Raise ValueError if the audio signal is silence or too short."""
+    """Raise AudioValidationError if the audio signal is silence or too short."""
     if signal.duration_s < _MIN_DURATION_S:
         msg = f"Audio too short ({signal.duration_s:.2f}s < {_MIN_DURATION_S}s)"
-        raise ValueError(msg)
+        raise AudioValidationError(msg)
 
     if np.max(np.abs(signal.samples)) < _SILENCE_THRESHOLD:
         msg = "Audio is silence (max amplitude < threshold)"
-        raise ValueError(msg)
+        raise AudioValidationError(msg)
 
     if np.any(np.isnan(signal.samples)) or np.any(np.isinf(signal.samples)):
         msg = "Audio contains NaN or Inf samples"
-        raise ValueError(msg)
+        raise AudioValidationError(msg)

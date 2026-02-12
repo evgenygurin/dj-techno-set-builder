@@ -1,3 +1,4 @@
+from app.utils.audio._errors import AudioAnalysisError, AudioError, AudioValidationError
 from app.utils.audio._types import (
     AudioSignal,
     BandEnergyResult,
@@ -12,7 +13,10 @@ from app.utils.audio.loader import load_audio, validate_audio
 from app.utils.audio.pipeline import extract_all_features
 
 __all__ = [
+    "AudioAnalysisError",
+    "AudioError",
     "AudioSignal",
+    "AudioValidationError",
     "BandEnergyResult",
     "BpmResult",
     "KeyResult",

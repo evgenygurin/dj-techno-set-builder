@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import math
 from pathlib import Path
 
 from app.errors import NotFoundError
@@ -40,6 +42,9 @@ class TrackAnalysisService(BaseService):
 
         # Utils layer — pure computation, no DB
         features = extract_all_features(audio_path)
+
+        # Validate no NaN/Inf before persisting
+        self._validate_features(features)
 
         # Persist via repository
         await self.features_repo.create(
@@ -90,8 +95,23 @@ class TrackAnalysisService(BaseService):
             key_code=features.key.key_code,
             key_confidence=features.key.confidence,
             is_atonal=features.key.is_atonal,
-            chroma=",".join(f"{v:.6f}" for v in features.key.chroma),
+            chroma=json.dumps([float(v) for v in features.key.chroma]),
         )
 
         self.logger.info("Features persisted for track %d, run %d", track_id, run_id)
         return features
+
+    @staticmethod
+    def _validate_features(features: TrackFeatures) -> None:
+        """Check that no NaN/Inf values leak into DB columns."""
+        checks = [
+            ("bpm", features.bpm.bpm),
+            ("confidence", features.bpm.confidence),
+            ("lufs_i", features.loudness.lufs_i),
+            ("rms_dbfs", features.loudness.rms_dbfs),
+            ("centroid_mean_hz", features.spectral.centroid_mean_hz),
+        ]
+        for name, val in checks:
+            if math.isnan(val) or math.isinf(val):
+                msg = f"Feature '{name}' is NaN or Inf — cannot persist"
+                raise ValueError(msg)

@@ -53,6 +53,22 @@ class TestCamelotDistance:
                 assert camelot_distance(a, b) == camelot_distance(b, a)
 
 
+class TestKeyCodeValidation:
+    def test_rejects_negative(self) -> None:
+        with pytest.raises(ValueError, match="0-23"):
+            key_code_to_camelot(-1)
+
+    def test_rejects_too_large(self) -> None:
+        with pytest.raises(ValueError, match="0-23"):
+            key_code_to_camelot(24)
+
+    def test_distance_rejects_invalid(self) -> None:
+        with pytest.raises(ValueError, match="0-23"):
+            camelot_distance(-1, 0)
+        with pytest.raises(ValueError, match="0-23"):
+            camelot_distance(0, 25)
+
+
 class TestIsCompatible:
     def test_same_key_compatible(self) -> None:
         assert is_compatible(0, 0)

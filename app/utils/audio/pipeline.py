@@ -3,7 +3,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from app.utils.audio._types import TrackFeatures
+from app.utils.audio._errors import AudioAnalysisError, AudioValidationError
+from app.utils.audio._types import AudioSignal, TrackFeatures
 from app.utils.audio.bpm import estimate_bpm
 from app.utils.audio.energy import compute_band_energies
 from app.utils.audio.key_detect import detect_key
@@ -14,6 +15,16 @@ from app.utils.audio.spectral import extract_spectral_features
 logger = logging.getLogger(__name__)
 
 
+def _run_stage(stage: str, path: str, fn: object, signal: AudioSignal) -> object:
+    """Run an analysis stage, wrapping unexpected errors in AudioAnalysisError."""
+    try:
+        return fn(signal)  # type: ignore[operator]
+    except (AudioValidationError, FileNotFoundError):
+        raise
+    except Exception as exc:
+        raise AudioAnalysisError(stage, path, exc) from exc
+
+
 def extract_all_features(
     path: str | Path,
     *,
@@ -21,32 +32,36 @@ def extract_all_features(
 ) -> TrackFeatures:
     """Load audio file and extract all analysis features.
 
-    Raises FileNotFoundError if the file does not exist.
-    Raises ValueError if the audio is silence or too short.
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        AudioValidationError: If the audio is silence, too short, or corrupt.
+        AudioAnalysisError: If any analysis stage fails unexpectedly.
     """
+    path_str = str(path)
+
     signal = load_audio(path, target_sr=target_sr)
     validate_audio(signal)
 
     logger.info("Extracting features from %s (%.1fs)", path, signal.duration_s)
 
-    bpm_result = estimate_bpm(signal)
-    key_result = detect_key(signal)
-    loudness_result = measure_loudness(signal)
-    band_energy_result = compute_band_energies(signal)
-    spectral_result = extract_spectral_features(signal)
+    bpm_result = _run_stage("bpm", path_str, estimate_bpm, signal)
+    key_result = _run_stage("key", path_str, detect_key, signal)
+    loudness_result = _run_stage("loudness", path_str, measure_loudness, signal)
+    band_energy_result = _run_stage("band_energy", path_str, compute_band_energies, signal)
+    spectral_result = _run_stage("spectral", path_str, extract_spectral_features, signal)
 
     logger.info(
         "Extraction complete: BPM=%.1f key=%s%s loudness=%.1f LUFS",
-        bpm_result.bpm,
-        key_result.key,
-        key_result.scale[0],
-        loudness_result.lufs_i,
+        bpm_result.bpm,  # type: ignore[attr-defined]
+        key_result.key,  # type: ignore[attr-defined]
+        key_result.scale[0],  # type: ignore[attr-defined]
+        loudness_result.lufs_i,  # type: ignore[attr-defined]
     )
 
     return TrackFeatures(
-        bpm=bpm_result,
-        key=key_result,
-        loudness=loudness_result,
-        band_energy=band_energy_result,
-        spectral=spectral_result,
+        bpm=bpm_result,  # type: ignore[arg-type]
+        key=key_result,  # type: ignore[arg-type]
+        loudness=loudness_result,  # type: ignore[arg-type]
+        band_energy=band_energy_result,  # type: ignore[arg-type]
+        spectral=spectral_result,  # type: ignore[arg-type]
     )

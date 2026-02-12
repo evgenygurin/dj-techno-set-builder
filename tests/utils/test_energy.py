@@ -40,16 +40,12 @@ class TestComputeBandEnergies:
             val = getattr(result, field)
             assert 0.0 <= val <= 1.0, f"{field}={val} out of range"
 
-    def test_low_freq_concentrated_in_low_band(
-        self, low_freq_signal: AudioSignal
-    ) -> None:
+    def test_low_freq_concentrated_in_low_band(self, low_freq_signal: AudioSignal) -> None:
         result = compute_band_energies(low_freq_signal)
         assert result.low > result.high
         assert result.low > result.mid
 
-    def test_high_freq_concentrated_in_high_band(
-        self, high_freq_signal: AudioSignal
-    ) -> None:
+    def test_high_freq_concentrated_in_high_band(self, high_freq_signal: AudioSignal) -> None:
         result = compute_band_energies(high_freq_signal)
         assert result.high > result.low
         assert result.high > result.sub

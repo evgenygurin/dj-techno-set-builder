@@ -40,8 +40,15 @@ _KEY_CODE_TO_CAMELOT: dict[int, tuple[int, str]] = {
 }
 
 
+def _validate_key_code(key_code: int) -> None:
+    if not 0 <= key_code <= 23:
+        msg = f"key_code must be 0-23, got {key_code}"
+        raise ValueError(msg)
+
+
 def key_code_to_camelot(key_code: int) -> str:
     """Convert key_code (0-23) to Camelot notation (e.g. '5A')."""
+    _validate_key_code(key_code)
     num, letter = _KEY_CODE_TO_CAMELOT[key_code]
     return f"{num}{letter}"
 
@@ -52,6 +59,9 @@ def camelot_distance(a_key_code: int, b_key_code: int) -> int:
     Returns 0 for same key, 1 for compatible keys (adjacent on wheel
     or relative major/minor), up to 6 for maximally distant keys.
     """
+    _validate_key_code(a_key_code)
+    _validate_key_code(b_key_code)
+
     if a_key_code == b_key_code:
         return 0
 
