@@ -1,3 +1,4 @@
+from app.models.assets import AudioAsset
 from app.models.base import Base, CreatedAtMixin, TimestampMixin
 from app.models.catalog import (
     Artist,
@@ -30,11 +31,13 @@ from app.models.enums import (
     TargetApp,
 )
 from app.models.providers import Provider
+from app.models.runs import FeatureExtractionRun, TransitionRun
 
 __all__ = [
     "Artist",
     "ArtistRole",
     "AssetType",
+    "AudioAsset",
     "Base",
     "BeatportMetadata",
     "CreatedAtMixin",
@@ -45,6 +48,7 @@ __all__ = [
     "Provider",
     "ProviderTrackId",
     "RawProviderResponse",
+    "FeatureExtractionRun",
     "Release",
     "RunStatus",
     "SectionType",
@@ -61,4 +65,5 @@ __all__ = [
     "TrackArtist",
     "TrackGenre",
     "TrackRelease",
+    "TransitionRun",
 ]
