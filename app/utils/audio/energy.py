@@ -19,7 +19,7 @@ _FILTER_ORDER = 4
 
 
 def _bandpass_energy(
-    samples: np.ndarray,  # type: ignore[type-arg]
+    samples: np.ndarray,
     sr: int,
     low_hz: float,
     high_hz: float,

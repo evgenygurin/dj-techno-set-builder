@@ -27,7 +27,7 @@ def _key_to_key_code(key: str, scale: str) -> int:
     return pitch * 2 + mode
 
 
-def _chroma_entropy(chroma: np.ndarray) -> float:  # type: ignore[type-arg]
+def _chroma_entropy(chroma: np.ndarray) -> float:
     """Compute Shannon entropy of a chroma vector (normalized)."""
     chroma = chroma / (chroma.sum() + 1e-10)
     chroma = chroma[chroma > 0]
@@ -65,7 +65,7 @@ def detect_key(
         maxFrequency=3500.0,
     )
 
-    chroma_frames: list[np.ndarray] = []  # type: ignore[type-arg]
+    chroma_frames: list[np.ndarray] = []
     for frame in es.FrameGenerator(signal.samples, frameSize=4096, hopSize=2048):
         windowed = w(frame)
         spec = spectrum(windowed)

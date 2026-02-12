@@ -8,12 +8,12 @@ from app.utils.audio._types import AudioSignal, LoudnessResult
 _TRUE_PEAK_OVERSAMPLE = 4
 
 
-def _mono_to_stereo(samples: np.ndarray) -> np.ndarray:  # type: ignore[type-arg]
+def _mono_to_stereo(samples: np.ndarray) -> np.ndarray:
     """Convert mono samples to stereo (Nx2) for essentia LoudnessEBUR128."""
     return np.column_stack([samples, samples]).astype(np.float32)
 
 
-def _true_peak_dbtp(samples: np.ndarray) -> float:  # type: ignore[type-arg]
+def _true_peak_dbtp(samples: np.ndarray) -> float:
     """Compute true peak (dBTP) via 4x oversampling per ITU-R BS.1770."""
     oversampled = resample(samples, len(samples) * _TRUE_PEAK_OVERSAMPLE)
     peak_linear = float(np.max(np.abs(oversampled)))

@@ -62,7 +62,7 @@ module = ["aiosqlite.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["essentia.*", "soundfile.*"]
+module = ["essentia.*", "soundfile.*", "scipy.*"]
 ignore_missing_imports = true
 
 # ── Pytest ────────────────────────────────────────────────────────────────────
