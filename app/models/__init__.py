@@ -10,6 +10,13 @@ from app.models.catalog import (
     TrackRelease,
 )
 from app.models.ingestion import ProviderTrackId, RawProviderResponse
+from app.models.metadata_spotify import (
+    SpotifyAlbumMetadata,
+    SpotifyArtistMetadata,
+    SpotifyAudioFeatures,
+    SpotifyMetadata,
+    SpotifyPlaylistMetadata,
+)
 from app.models.enums import (
     ArtistRole,
     AssetType,
@@ -39,6 +46,11 @@ __all__ = [
     "RunStatus",
     "SectionType",
     "SourceApp",
+    "SpotifyAlbumMetadata",
+    "SpotifyArtistMetadata",
+    "SpotifyAudioFeatures",
+    "SpotifyMetadata",
+    "SpotifyPlaylistMetadata",
     "TargetApp",
     "TimestampMixin",
     "Track",
