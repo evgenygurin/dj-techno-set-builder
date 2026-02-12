@@ -10,6 +10,8 @@ from app.models.catalog import (
     TrackRelease,
 )
 from app.models.ingestion import ProviderTrackId, RawProviderResponse
+from app.models.metadata_beatport import BeatportMetadata
+from app.models.metadata_soundcloud import SoundCloudMetadata
 from app.models.metadata_spotify import (
     SpotifyAlbumMetadata,
     SpotifyArtistMetadata,
@@ -34,6 +36,7 @@ __all__ = [
     "ArtistRole",
     "AssetType",
     "Base",
+    "BeatportMetadata",
     "CreatedAtMixin",
     "CueKind",
     "FeedbackType",
@@ -45,6 +48,7 @@ __all__ = [
     "Release",
     "RunStatus",
     "SectionType",
+    "SoundCloudMetadata",
     "SourceApp",
     "SpotifyAlbumMetadata",
     "SpotifyArtistMetadata",
