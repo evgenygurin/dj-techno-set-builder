@@ -1,56 +1,10 @@
-# ── Python ──
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
 *.egg-info/
-*.egg
 dist/
-build/
-wheels/
-
-# ── Virtual environments ──
 .venv/
-venv/
-env/
-
-# ── IDE ──
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# ── Testing / QA ──
-.pytest_cache/
-pytest-cache-files-*/
-htmlcov/
-.coverage
-.coverage.*
-coverage.xml
-*.cover
-
-# ── mypy ──
-.mypy_cache/
-
-# ── ruff ──
-.ruff_cache/
-
-# ── Alembic ──
-migrations/versions/*.pyc
-
-# ── Database (dev) ──
 *.db
-*.db-journal
-
-# ── Environment ──
 .env
-.env.*
-!.env.example
-
-# ── uv ──
-# uv.lock is tracked — it pins exact versions for reproducibility
-
-# ── OS ──
-Thumbs.db
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/

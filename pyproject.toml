@@ -1,73 +1,60 @@
 [project]
 name = "dj-techno-set-builder"
 version = "0.1.0"
-description = "DJ Techno Set Builder — audio analysis, transition matching & set construction"
+description = "DJ Techno Set Builder — automated set construction from track analysis"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
-    "orjson>=3.10",
+    "uvicorn[standard]>=0.34",
     "sqlalchemy[asyncio]>=2.0",
-    "aiosqlite>=0.20",
-    "asyncpg>=0.29",
+    "aiosqlite>=0.21",
     "pydantic>=2.10",
-    "pydantic-settings>=2.6",
+    "pydantic-settings>=2.7",
     "alembic>=1.14",
-    "fastmcp>=3.0.0b2",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8.3",
-    "pytest-asyncio>=0.24",
-    "httpx>=0.27",
-    "mypy>=1.13",
-    "ruff>=0.8",
+    "pytest-asyncio>=0.25",
+    "httpx>=0.28",
+    "ruff>=0.9",
+    "mypy>=1.14",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.hatch.build.targets.wheel]
-packages = ["app"]
+# ── Ruff ──────────────────────────────────────────────────────────────────────
 
-# ── uv ──────────────────────────────────────────────────────────
-[tool.uv]
-prerelease = "if-necessary-or-explicit"
-
-# ── Ruff ────────────────────────────────────────────────────────
 [tool.ruff]
 target-version = "py312"
-line-length = 88
-
-[tool.ruff.format]
-# Keep Black-compatible behavior where a trailing comma forces multiline layout.
-skip-magic-trailing-comma = false
-docstring-code-format = true
+line-length = 99
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "PLW", "RUF"]
-ignore = ["A003"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
-split-on-trailing-comma = true
 
-# ── Mypy ────────────────────────────────────────────────────────
+# ── MyPy ──────────────────────────────────────────────────────────────────────
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-warn_return_any = true
-warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["fastmcp.*", "alembic.*"]
+module = ["aiosqlite.*"]
 ignore_missing_imports = true
 
-# ── Pytest ──────────────────────────────────────────────────────
+# ── Pytest ────────────────────────────────────────────────────────────────────
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-filterwarnings = ["ignore::DeprecationWarning"]
+filterwarnings = ["error", "ignore::DeprecationWarning"]
