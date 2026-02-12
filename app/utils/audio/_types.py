@@ -68,6 +68,18 @@ class SpectralResult:
 
 
 @dataclass(frozen=True, slots=True)
+class BeatsResult:
+    beat_times: NDArray[np.float32]  # seconds, sorted
+    downbeat_times: NDArray[np.float32]  # every 4th beat (4/4 assumption)
+    onset_rate_mean: float  # onsets per second, mean
+    onset_rate_max: float  # onsets per second, max (windowed)
+    pulse_clarity: float  # 0-1, how clear the pulse is
+    kick_prominence: float  # 0-1, how prominent kick is at beat positions
+    hp_ratio: float  # harmonic / percussive energy ratio
+    onset_envelope: NDArray[np.float32]  # frame-level onset strength
+
+
+@dataclass(frozen=True, slots=True)
 class TrackFeatures:
     """Complete feature set for one track."""
 
@@ -76,3 +88,4 @@ class TrackFeatures:
     loudness: LoudnessResult
     band_energy: BandEnergyResult
     spectral: SpectralResult
+    beats: BeatsResult | None = None  # Phase 2: optional
