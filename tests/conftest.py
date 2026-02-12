@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.database import get_session
 from app.main import create_app
-from app.models.base import Base
+from app.models import Base
 
 
 @pytest.fixture
