@@ -33,6 +33,7 @@ from app.models.enums import (
     TargetApp,
 )
 from app.models.providers import Provider
+from app.models.sections import TrackSection
 from app.models.runs import FeatureExtractionRun, TransitionRun
 
 __all__ = [
@@ -70,5 +71,6 @@ __all__ = [
     "TrackArtist",
     "TrackGenre",
     "TrackRelease",
+    "TrackSection",
     "TransitionRun",
 ]
