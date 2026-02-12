@@ -8,9 +8,7 @@ from app.models.base import Base
 
 class TrackSection(Base):
     __tablename__ = "track_sections"
-    __table_args__ = (
-        UniqueConstraint("section_id", "track_id", name="uq_sections_track"),
-    )
+    __table_args__ = (UniqueConstraint("section_id", "track_id", name="uq_sections_track"),)
 
     section_id: Mapped[int] = mapped_column(primary_key=True)
     track_id: Mapped[int] = mapped_column(ForeignKey("tracks.track_id", ondelete="CASCADE"))

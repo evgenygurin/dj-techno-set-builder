@@ -1,0 +1,39 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Local development — auto-loaded by `docker compose up`
+#
+# - Volume mount: код монтируется из хоста, изменения применяются мгновенно
+# - Hot reload через uvicorn --reload
+# - uv доступен внутри контейнера (можно ставить пакеты)
+# - Debug mode включён
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  app:
+    image: python:3.12-slim
+    volumes:
+      # Монтируем весь проект — изменения в коде подхватываются моментально
+      - .:/app
+      # Именованный volume для .venv — не перезаписывается хостовым .venv
+      - app-venv:/app/.venv
+      # Кэш uv между перезапусками контейнера
+      - uv-cache:/root/.cache/uv
+    working_dir: /app
+    command: >
+      bash -c "
+        pip install uv -q &&
+        uv sync --frozen &&
+        uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://dj:${POSTGRES_PASSWORD:-dj_local_pass}@db:5432/dj_set_builder
+      DEBUG: "true"
+      LOG_LEVEL: DEBUG
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  app-venv:
+  uv-cache:

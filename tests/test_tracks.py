@@ -2,9 +2,7 @@ from httpx import AsyncClient
 
 
 async def test_create_track(client: AsyncClient) -> None:
-    resp = await client.post(
-        "/api/v1/tracks", json={"title": "Acid Rain", "duration_ms": 420000}
-    )
+    resp = await client.post("/api/v1/tracks", json={"title": "Acid Rain", "duration_ms": 420000})
     assert resp.status_code == 201
     data = resp.json()
     assert data["title"] == "Acid Rain"

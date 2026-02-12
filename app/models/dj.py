@@ -39,9 +39,7 @@ class DjLibraryItem(Base):
 
 class DjBeatgrid(TimestampMixin, Base):
     __tablename__ = "dj_beatgrid"
-    __table_args__ = (
-        UniqueConstraint("track_id", "source_app", name="uq_beatgrid_track_source"),
-    )
+    __table_args__ = (UniqueConstraint("track_id", "source_app", name="uq_beatgrid_track_source"),)
 
     beatgrid_id: Mapped[int] = mapped_column(primary_key=True)
     track_id: Mapped[int] = mapped_column(ForeignKey("tracks.track_id", ondelete="CASCADE"))

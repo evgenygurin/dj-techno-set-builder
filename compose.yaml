@@ -1,0 +1,29 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Base compose — shared services
+#
+# Использование:
+#   local:  docker compose up                                   (auto-loads compose.override.yaml)
+#   dev:    docker compose -f compose.yaml -f compose.dev.yaml up
+#   prod:   docker compose -f compose.yaml -f compose.prod.yaml up -d
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: dj_set_builder
+      POSTGRES_USER: dj
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dj_local_pass}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dj -d dj_set_builder"]
+      interval: 5s
+      retries: 5
+      start_period: 10s
+      timeout: 5s
+    ports:
+      - "${DB_PORT:-5432}:5432"
+
+volumes:
+  pgdata:
