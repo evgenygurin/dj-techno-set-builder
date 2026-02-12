@@ -33,9 +33,7 @@ class Artist(TimestampMixin, Base):
 
 class TrackArtist(CreatedAtMixin, Base):
     __tablename__ = "track_artists"
-    __table_args__ = (
-        CheckConstraint("role BETWEEN 0 AND 2", name="ck_track_artists_role"),
-    )
+    __table_args__ = (CheckConstraint("role BETWEEN 0 AND 2", name="ck_track_artists_role"),)
 
     track_id: Mapped[int] = mapped_column(
         ForeignKey("tracks.track_id", ondelete="CASCADE"),

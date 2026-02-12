@@ -1,0 +1,31 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Dev / Staging — собранный образ для CI и staging-серверов
+#
+# docker compose -f compose.yaml -f compose.dev.yaml up --build
+#
+# - Образ собирается из Dockerfile (target: dev)
+# - Включает dev-зависимости (pytest, ruff, mypy)
+# - Можно запускать тесты: docker compose exec app pytest -v
+# - Alembic миграции при старте
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  app:
+    build:
+      context: .
+      target: dev
+    command: >
+      bash -c "
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://dj:${POSTGRES_PASSWORD:-dj_local_pass}@db:5432/dj_set_builder
+      DEBUG: "true"
+      LOG_LEVEL: INFO
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped

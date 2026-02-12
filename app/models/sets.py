@@ -55,9 +55,7 @@ class DjSetConstraint(Base):
 
 class DjSetItem(Base):
     __tablename__ = "dj_set_items"
-    __table_args__ = (
-        UniqueConstraint("set_version_id", "sort_index", name="uq_set_items_sort"),
-    )
+    __table_args__ = (UniqueConstraint("set_version_id", "sort_index", name="uq_set_items_sort"),)
 
     set_item_id: Mapped[int] = mapped_column(primary_key=True)
     set_version_id: Mapped[int] = mapped_column(
