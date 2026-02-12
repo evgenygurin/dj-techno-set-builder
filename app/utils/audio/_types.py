@@ -80,6 +80,16 @@ class BeatsResult:
 
 
 @dataclass(frozen=True, slots=True)
+class StemsResult:
+    """Four-stem source separation result."""
+
+    drums: AudioSignal  # asset_type = 1
+    bass: AudioSignal  # asset_type = 2
+    vocals: AudioSignal  # asset_type = 3
+    other: AudioSignal  # asset_type = 4
+
+
+@dataclass(frozen=True, slots=True)
 class TrackFeatures:
     """Complete feature set for one track."""
 

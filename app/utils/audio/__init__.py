@@ -7,6 +7,7 @@ from app.utils.audio._types import (
     KeyResult,
     LoudnessResult,
     SpectralResult,
+    StemsResult,
     TrackFeatures,
 )
 from app.utils.audio.beats import detect_beats
@@ -25,6 +26,7 @@ __all__ = [
     "KeyResult",
     "LoudnessResult",
     "SpectralResult",
+    "StemsResult",
     "TrackFeatures",
     "camelot_distance",
     "detect_beats",
