@@ -160,7 +160,7 @@ run-prod:
 	$(UV) run uvicorn $(APP).main:app --host 0.0.0.0 --port $(PORT) --workers $(WORKERS) --log-level warning
 
 kill:
-	@PIDS=$$(lsof -ti :$(PORT) 2>/dev/null) && \
+	@PIDS=$$(lsof -ti :$(PORT) 2>/dev/null || true); \
 	if [ -n "$$PIDS" ]; then \
 		kill -9 $$PIDS && \
 		echo "Процессы на порту $(PORT) убиты"; \
@@ -178,7 +178,15 @@ db-upgrade:
 	$(UV) run alembic upgrade head
 
 db-downgrade:
-	$(UV) run alembic downgrade -1
+	@OUT=$$($(UV) run alembic downgrade -1 2>&1); RC=$$?; \
+	if [ $$RC -eq 0 ]; then \
+		printf "%s\n" "$$OUT"; \
+	elif echo "$$OUT" | grep -q "Relative revision -1 didn't produce 1 migrations"; then \
+		echo "Нет миграций для отката (уже base)"; \
+	else \
+		printf "%s\n" "$$OUT"; \
+		exit $$RC; \
+	fi
 
 db-revision:
 ifndef M
@@ -221,10 +229,10 @@ docker-ps:
 	$(DC) ps -a
 
 docker-shell:
-	$(DC) exec app bash
+	$(DC) run --rm app bash
 
 docker-test:
-	$(DC_DEV) exec app pytest -v
+	$(DC_DEV) run --rm -e DATABASE_URL=sqlite+aiosqlite:///./dev.db -v $(CURDIR)/tests:/app/tests app pytest -v tests
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CI / All

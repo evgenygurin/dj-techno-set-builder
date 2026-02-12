@@ -1,11 +1,111 @@
+# Python
 __pycache__/
 *.py[cod]
-*.egg-info/
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
 dist/
-.venv/
-*.db
-.env
-.mypy_cache/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
 .pytest_cache/
+cover/
+
+# Environments
+.env
+.venv
+env/
+.env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# FastAPI
+instance/
+.webassets-cache
+
+# SQLAlchemy
+*.db
+*.sqlite
+*.sqlite3
+
+# Alembic
+alembic/versions/*.py.mako
+
+# Logs
+logs/
+*.log
+
+# CI/CD
+.pip-cache/
+.gitlab-ci-local/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Credentials
+.env.local
+.env.*.local
+credentials.json
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ruff
 .ruff_cache/
+
+.cursorignore
+.cursorrules
+.cursor/
+.codegen/
+*.codee-workspace/
+csv_processor/
+
+docs/
+docs/plans/
+
+# GraphQL schema files
+schema.graphql
+
+# Data
 data/
+
+cert/
