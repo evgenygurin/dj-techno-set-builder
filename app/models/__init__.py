@@ -22,6 +22,7 @@ from app.models.metadata_spotify import (
 )
 from app.models.features import TrackAudioFeaturesComputed
 from app.models.harmony import Key, KeyEdge
+from app.models.embeddings import EmbeddingType, TrackEmbedding
 from app.models.enums import (
     ArtistRole,
     AssetType,
@@ -47,6 +48,7 @@ __all__ = [
     "BeatportMetadata",
     "CreatedAtMixin",
     "CueKind",
+    "EmbeddingType",
     "FeedbackType",
     "Genre",
     "Key",
@@ -70,6 +72,7 @@ __all__ = [
     "TimestampMixin",
     "Track",
     "TrackAudioFeaturesComputed",
+    "TrackEmbedding",
     "TrackArtist",
     "TrackGenre",
     "TrackRelease",
