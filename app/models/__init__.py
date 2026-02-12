@@ -20,6 +20,7 @@ from app.models.metadata_spotify import (
     SpotifyMetadata,
     SpotifyPlaylistMetadata,
 )
+from app.models.features import TrackAudioFeaturesComputed
 from app.models.harmony import Key, KeyEdge
 from app.models.enums import (
     ArtistRole,
@@ -65,6 +66,7 @@ __all__ = [
     "TargetApp",
     "TimestampMixin",
     "Track",
+    "TrackAudioFeaturesComputed",
     "TrackArtist",
     "TrackGenre",
     "TrackRelease",
