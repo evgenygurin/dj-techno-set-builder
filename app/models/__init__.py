@@ -20,6 +20,7 @@ from app.models.metadata_spotify import (
     SpotifyMetadata,
     SpotifyPlaylistMetadata,
 )
+from app.models.harmony import Key, KeyEdge
 from app.models.enums import (
     ArtistRole,
     AssetType,
@@ -44,6 +45,8 @@ __all__ = [
     "CueKind",
     "FeedbackType",
     "Genre",
+    "Key",
+    "KeyEdge",
     "Label",
     "Provider",
     "ProviderTrackId",
