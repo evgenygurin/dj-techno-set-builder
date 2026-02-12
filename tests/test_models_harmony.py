@@ -41,7 +41,9 @@ async def test_create_key_edge(session: AsyncSession) -> None:
     k2 = Key(key_code=1, pitch_class=0, mode=1, name="C", camelot="8B")
     session.add_all([k1, k2])
     await session.flush()
-    edge = KeyEdge(from_key_code=0, to_key_code=1, distance=1.0, weight=0.8, rule="relative_major_minor")
+    edge = KeyEdge(
+        from_key_code=0, to_key_code=1, distance=1.0, weight=0.8, rule="relative_major_minor",
+    )
     session.add(edge)
     await session.flush()
     assert edge.from_key_code == 0

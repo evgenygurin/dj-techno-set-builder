@@ -10,18 +10,6 @@ from app.models.catalog import (
     TrackGenre,
     TrackRelease,
 )
-from app.models.ingestion import ProviderTrackId, RawProviderResponse
-from app.models.metadata_beatport import BeatportMetadata
-from app.models.metadata_soundcloud import SoundCloudMetadata
-from app.models.metadata_spotify import (
-    SpotifyAlbumMetadata,
-    SpotifyArtistMetadata,
-    SpotifyAudioFeatures,
-    SpotifyMetadata,
-    SpotifyPlaylistMetadata,
-)
-from app.models.features import TrackAudioFeaturesComputed
-from app.models.harmony import Key, KeyEdge
 from app.models.dj import (
     DjAppExport,
     DjBeatgrid,
@@ -43,10 +31,22 @@ from app.models.enums import (
     SourceApp,
     TargetApp,
 )
+from app.models.features import TrackAudioFeaturesComputed
+from app.models.harmony import Key, KeyEdge
+from app.models.ingestion import ProviderTrackId, RawProviderResponse
+from app.models.metadata_beatport import BeatportMetadata
+from app.models.metadata_soundcloud import SoundCloudMetadata
+from app.models.metadata_spotify import (
+    SpotifyAlbumMetadata,
+    SpotifyArtistMetadata,
+    SpotifyAudioFeatures,
+    SpotifyMetadata,
+    SpotifyPlaylistMetadata,
+)
 from app.models.providers import Provider
+from app.models.runs import FeatureExtractionRun, TransitionRun
 from app.models.sections import TrackSection
 from app.models.sets import DjSet, DjSetConstraint, DjSetFeedback, DjSetItem, DjSetVersion
-from app.models.runs import FeatureExtractionRun, TransitionRun
 from app.models.timeseries import TrackTimeseriesRef
 from app.models.transitions import Transition, TransitionCandidate
 
@@ -73,6 +73,7 @@ __all__ = [
     "DjSetItem",
     "DjSetVersion",
     "EmbeddingType",
+    "FeatureExtractionRun",
     "FeedbackType",
     "Genre",
     "Key",
@@ -81,7 +82,6 @@ __all__ = [
     "Provider",
     "ProviderTrackId",
     "RawProviderResponse",
-    "FeatureExtractionRun",
     "Release",
     "RunStatus",
     "SectionType",
@@ -95,9 +95,9 @@ __all__ = [
     "TargetApp",
     "TimestampMixin",
     "Track",
+    "TrackArtist",
     "TrackAudioFeaturesComputed",
     "TrackEmbedding",
-    "TrackArtist",
     "TrackGenre",
     "TrackRelease",
     "TrackSection",
