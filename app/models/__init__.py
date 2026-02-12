@@ -9,6 +9,7 @@ from app.models.catalog import (
     TrackGenre,
     TrackRelease,
 )
+from app.models.ingestion import ProviderTrackId, RawProviderResponse
 from app.models.enums import (
     ArtistRole,
     AssetType,
@@ -32,6 +33,8 @@ __all__ = [
     "Genre",
     "Label",
     "Provider",
+    "ProviderTrackId",
+    "RawProviderResponse",
     "Release",
     "RunStatus",
     "SectionType",
