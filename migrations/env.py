@@ -7,8 +7,10 @@ from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import pool
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import app.models  # noqa: F401  # Ensure model mappers are imported for metadata
 from app.core.config import settings
 from app.db.base import Base
 
@@ -22,8 +24,15 @@ if config.config_file_name is not None:
 # Set target metadata for autogenerate
 target_metadata = Base.metadata
 
-# Override sqlalchemy.url from app settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Override sqlalchemy.url from app settings.
+# For schema_v6 we require PostgreSQL (pgvector, range funcs, partial indexes, etc.).
+migration_url = settings.alembic_database_url or settings.database_url
+if make_url(migration_url).get_backend_name() == "sqlite":
+    raise RuntimeError(
+        "Alembic migrations for schema_v6 require PostgreSQL. "
+        "Set ALEMBIC_DATABASE_URL (or DATABASE_URL) to a PostgreSQL DSN."
+    )
+config.set_main_option("sqlalchemy.url", migration_url)
 
 
 def run_migrations_offline() -> None:

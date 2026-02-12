@@ -9,6 +9,7 @@ dependencies = [
     "orjson>=3.10",
     "sqlalchemy[asyncio]>=2.0",
     "aiosqlite>=0.20",
+    "asyncpg>=0.29",
     "pydantic>=2.10",
     "pydantic-settings>=2.6",
     "alembic>=1.14",
@@ -38,7 +39,12 @@ prerelease = "if-necessary-or-explicit"
 # ── Ruff ────────────────────────────────────────────────────────
 [tool.ruff]
 target-version = "py312"
-line-length = 120
+line-length = 88
+
+[tool.ruff.format]
+# Keep Black-compatible behavior where a trailing comma forces multiline layout.
+skip-magic-trailing-comma = false
+docstring-code-format = true
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "PLW", "RUF"]
@@ -46,6 +52,7 @@ ignore = ["A003"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
+split-on-trailing-comma = true
 
 # ── Mypy ────────────────────────────────────────────────────────
 [tool.mypy]

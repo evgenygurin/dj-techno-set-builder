@@ -14,7 +14,9 @@ from app.core.monitoring import get_metrics
 class MonitoringMiddleware(BaseHTTPMiddleware):
     """Emits ``http.requests`` counter and ``http.latency`` timing per request."""
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         start = time.perf_counter()
         response = await call_next(request)
         elapsed_ms = (time.perf_counter() - start) * 1000

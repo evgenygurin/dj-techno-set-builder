@@ -24,7 +24,9 @@ request_id_ctx: ContextVar[str] = ContextVar("request_id", default="")
 class RequestIdMiddleware(BaseHTTPMiddleware):
     """Outermost middleware — must be added first (runs last)."""
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         rid = request.headers.get(REQUEST_ID_HEADER) or uuid.uuid4().hex
         token = request_id_ctx.set(rid)
         try:

@@ -25,6 +25,9 @@ uv run python -m app.mcp_server
 ## Database
 
 ```bash
+# schema_v6 migrations are PostgreSQL-only:
+# export ALEMBIC_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/dj_techno
+
 # Create migration
 uv run alembic revision --autogenerate -m "describe change"
 
@@ -45,6 +48,9 @@ uv run pytest -v
 
 ```bash
 uv run ruff check app tests
+uv run ruff check --fix app tests
+uv run ruff format app tests
+python3 scripts/enforce_mapped_column_style.py
 uv run ruff format --check app tests
 uv run mypy app
 ```

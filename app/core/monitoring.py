@@ -14,17 +14,25 @@ from typing import Protocol, runtime_checkable
 class MetricsBackend(Protocol):
     """Minimal metrics interface."""
 
-    def increment(self, name: str, value: float = 1, *, tags: dict[str, str] | None = None) -> None: ...
-    def timing(self, name: str, value_ms: float, *, tags: dict[str, str] | None = None) -> None: ...
+    def increment(
+        self, name: str, value: float = 1, *, tags: dict[str, str] | None = None
+    ) -> None: ...
+    def timing(
+        self, name: str, value_ms: float, *, tags: dict[str, str] | None = None
+    ) -> None: ...
 
 
 class NoopMetrics:
     """Drop-in metrics backend that does nothing."""
 
-    def increment(self, name: str, value: float = 1, *, tags: dict[str, str] | None = None) -> None:
+    def increment(
+        self, name: str, value: float = 1, *, tags: dict[str, str] | None = None
+    ) -> None:
         pass
 
-    def timing(self, name: str, value_ms: float, *, tags: dict[str, str] | None = None) -> None:
+    def timing(
+        self, name: str, value_ms: float, *, tags: dict[str, str] | None = None
+    ) -> None:
         pass
 
 

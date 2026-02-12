@@ -60,7 +60,7 @@ def setup_logging(*, log_level: str = "INFO", json_output: bool = False) -> None
             logging.Formatter(
                 fmt="%(asctime)s | %(levelname)-8s | %(name)s | rid=%(request_id)s | %(message)s",
                 datefmt="%Y-%m-%d %H:%M:%S",
-            )
+            ),
         )
 
     root.addHandler(handler)

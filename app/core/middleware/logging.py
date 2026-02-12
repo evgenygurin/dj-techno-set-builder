@@ -15,7 +15,9 @@ logger = logging.getLogger("app.http")
 class LoggingMiddleware(BaseHTTPMiddleware):
     """Logs method, path, status code and elapsed time for every request."""
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         start = time.perf_counter()
         response = await call_next(request)
         elapsed_ms = (time.perf_counter() - start) * 1000

@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     debug: bool = False
     log_level: str = "INFO"
     database_url: str = "sqlite+aiosqlite:///./dev.db"
+    # Optional dedicated DB URL for Alembic (use PostgreSQL for schema_v6 migrations).
+    alembic_database_url: str | None = None
 
 
 settings = Settings()

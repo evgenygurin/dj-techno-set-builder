@@ -7,6 +7,9 @@ Usage::
         repo.add(entity)
         await uow.commit()
     # auto-rollback if commit() was not called
+
+Pass ``close_on_exit=True`` only when the caller explicitly hands ownership
+of the session to UnitOfWork.
 """
 
 from __future__ import annotations
@@ -19,8 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 class UnitOfWork:
     """Async context-manager that owns a single DB transaction."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, *, close_on_exit: bool = False) -> None:
         self._session = session
+        self._close_on_exit = close_on_exit
         self._committed = False
 
     @property
@@ -43,6 +47,7 @@ class UnitOfWork:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if not self._committed:
+        if exc_type is not None or not self._committed:
             await self.rollback()
-        await self._session.close()
+        if self._close_on_exit:
+            await self._session.close()
