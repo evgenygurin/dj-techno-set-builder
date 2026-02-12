@@ -109,6 +109,22 @@ class SectionResult:
 
 
 @dataclass(frozen=True, slots=True)
+class TransitionScore:
+    """Composite transition quality score between two tracks.
+
+    Maps to Transition model fields.
+    """
+
+    transition_quality: float  # 0-1, composite score (higher = better)
+    bpm_distance: float  # absolute BPM difference
+    key_distance_weighted: float  # Camelot distance * confidence
+    energy_step: float  # signed energy difference (positive = going up)
+    low_conflict_score: float  # 0-1, bass frequency overlap risk
+    overlap_score: float  # 0-1, spectral compatibility
+    groove_similarity: float  # 0-1, rhythmic pattern compatibility
+
+
+@dataclass(frozen=True, slots=True)
 class TrackFeatures:
     """Complete feature set for one track."""
 
