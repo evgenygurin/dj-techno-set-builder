@@ -45,6 +45,7 @@ from app.models.enums import (
 )
 from app.models.providers import Provider
 from app.models.sections import TrackSection
+from app.models.sets import DjSet, DjSetConstraint, DjSetFeedback, DjSetItem, DjSetVersion
 from app.models.runs import FeatureExtractionRun, TransitionRun
 from app.models.timeseries import TrackTimeseriesRef
 from app.models.transitions import Transition, TransitionCandidate
@@ -66,6 +67,11 @@ __all__ = [
     "DjPlaylist",
     "DjPlaylistItem",
     "DjSavedLoop",
+    "DjSet",
+    "DjSetConstraint",
+    "DjSetFeedback",
+    "DjSetItem",
+    "DjSetVersion",
     "EmbeddingType",
     "FeedbackType",
     "Genre",
