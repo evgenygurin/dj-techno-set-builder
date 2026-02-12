@@ -35,6 +35,8 @@ from app.models.enums import (
 from app.models.providers import Provider
 from app.models.sections import TrackSection
 from app.models.runs import FeatureExtractionRun, TransitionRun
+from app.models.timeseries import TrackTimeseriesRef
+from app.models.transitions import Transition, TransitionCandidate
 
 __all__ = [
     "Artist",
@@ -72,5 +74,8 @@ __all__ = [
     "TrackGenre",
     "TrackRelease",
     "TrackSection",
+    "TrackTimeseriesRef",
+    "Transition",
+    "TransitionCandidate",
     "TransitionRun",
 ]
