@@ -90,6 +90,25 @@ class StemsResult:
 
 
 @dataclass(frozen=True, slots=True)
+class SectionResult:
+    """One detected structural section.
+
+    section_type matches SectionType enum (app/models/enums.py):
+      0=intro, 1=buildup, 2=drop, 3=breakdown, 4=outro,
+      5=break, 6=inst, 7=verse, 8=chorus, 9=bridge, 10=solo, 11=unknown
+    """
+
+    section_type: int
+    start_s: float
+    end_s: float
+    duration_s: float
+    energy_mean: float  # 0-1
+    energy_max: float  # 0-1
+    energy_slope: float  # positive = rising, negative = falling
+    boundary_confidence: float  # 0-1
+
+
+@dataclass(frozen=True, slots=True)
 class TrackFeatures:
     """Complete feature set for one track."""
 
