@@ -7,6 +7,7 @@ from app.utils.audio._types import (
     SpectralResult,
     TrackFeatures,
 )
+from app.utils.audio.loader import load_audio, validate_audio
 
 __all__ = [
     "AudioSignal",
@@ -16,4 +17,6 @@ __all__ = [
     "LoudnessResult",
     "SpectralResult",
     "TrackFeatures",
+    "load_audio",
+    "validate_audio",
 ]
