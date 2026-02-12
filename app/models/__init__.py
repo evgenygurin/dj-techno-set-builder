@@ -22,6 +22,16 @@ from app.models.metadata_spotify import (
 )
 from app.models.features import TrackAudioFeaturesComputed
 from app.models.harmony import Key, KeyEdge
+from app.models.dj import (
+    DjAppExport,
+    DjBeatgrid,
+    DjBeatgridChangePoint,
+    DjCuePoint,
+    DjLibraryItem,
+    DjPlaylist,
+    DjPlaylistItem,
+    DjSavedLoop,
+)
 from app.models.embeddings import EmbeddingType, TrackEmbedding
 from app.models.enums import (
     ArtistRole,
@@ -48,6 +58,14 @@ __all__ = [
     "BeatportMetadata",
     "CreatedAtMixin",
     "CueKind",
+    "DjAppExport",
+    "DjBeatgrid",
+    "DjBeatgridChangePoint",
+    "DjCuePoint",
+    "DjLibraryItem",
+    "DjPlaylist",
+    "DjPlaylistItem",
+    "DjSavedLoop",
     "EmbeddingType",
     "FeedbackType",
     "Genre",
