@@ -1,0 +1,78 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+from numpy.typing import NDArray
+
+
+@dataclass(frozen=True, slots=True)
+class AudioSignal:
+    """Raw audio data with metadata."""
+
+    samples: NDArray[np.float32]
+    sample_rate: int
+    duration_s: float
+
+
+@dataclass(frozen=True, slots=True)
+class BpmResult:
+    bpm: float
+    confidence: float  # 0-1
+    stability: float  # 0-1
+    is_variable: bool
+
+
+@dataclass(frozen=True, slots=True)
+class KeyResult:
+    key: str  # e.g. "A"
+    scale: str  # "minor" or "major"
+    key_code: int  # 0-23 (pitch_class * 2 + mode)
+    confidence: float  # 0-1
+    is_atonal: bool
+    chroma: NDArray[np.float32]  # 12-dim mean HPCP vector
+
+
+@dataclass(frozen=True, slots=True)
+class LoudnessResult:
+    lufs_i: float  # Integrated loudness (LUFS)
+    lufs_s_mean: float  # Short-term mean (LUFS)
+    lufs_m_max: float  # Momentary max (LUFS)
+    rms_dbfs: float  # RMS level (dBFS)
+    true_peak_db: float  # True peak (dBTP)
+    crest_factor_db: float  # true_peak_db - rms_dbfs
+    lra_lu: float  # Loudness range (LU)
+
+
+@dataclass(frozen=True, slots=True)
+class BandEnergyResult:
+    sub: float  # 20-60 Hz, normalized 0-1
+    low: float  # 60-200 Hz
+    low_mid: float  # 200-800 Hz
+    mid: float  # 800-3000 Hz
+    high_mid: float  # 3000-6000 Hz
+    high: float  # 6000-12000 Hz
+    low_high_ratio: float  # low / high (or 0 if high ≈ 0)
+    sub_lowmid_ratio: float  # sub / low_mid (or 0 if low_mid ≈ 0)
+
+
+@dataclass(frozen=True, slots=True)
+class SpectralResult:
+    centroid_mean_hz: float
+    rolloff_85_hz: float
+    rolloff_95_hz: float
+    flatness_mean: float  # 0-1
+    flux_mean: float
+    flux_std: float
+    contrast_mean_db: float
+
+
+@dataclass(frozen=True, slots=True)
+class TrackFeatures:
+    """Complete feature set for one track."""
+
+    bpm: BpmResult
+    key: KeyResult
+    loudness: LoudnessResult
+    band_energy: BandEnergyResult
+    spectral: SpectralResult
