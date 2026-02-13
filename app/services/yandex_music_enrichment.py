@@ -276,7 +276,7 @@ class YandexMusicEnrichmentService:
         )
         if (await self.session.execute(stmt)).scalar_one_or_none():
             return
-        self.session.add(TrackArtist(track_id=track_id, artist_id=artist_id, role=role))
+        self.session.add(TrackArtist(track_id=track_id, artist_id=artist_id, role=role.value))
 
     async def _link_track_genre(self, track_id: int, genre_id: int) -> None:
         stmt = select(TrackGenre).where(

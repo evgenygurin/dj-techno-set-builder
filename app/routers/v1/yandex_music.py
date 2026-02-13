@@ -21,21 +21,16 @@ from app.services.yandex_music_enrichment import YandexMusicEnrichmentService
 
 router = APIRouter(tags=["yandex-music"])
 
-_ym_client: YandexMusicClient | None = None
+
+def _ym_client() -> YandexMusicClient:
+    return YandexMusicClient(
+        token=settings.yandex_music_token,
+        base_url=settings.yandex_music_base_url,
+    )
 
 
-def _get_client() -> YandexMusicClient:
-    global _ym_client
-    if _ym_client is None:
-        _ym_client = YandexMusicClient(
-            token=settings.yandex_music_token,
-            base_url=settings.yandex_music_base_url,
-        )
-    return _ym_client
-
-
-def _service(db: DbSession) -> YandexMusicEnrichmentService:
-    return YandexMusicEnrichmentService(session=db, ym_client=_get_client())
+def _service(db: DbSession, ym: YandexMusicClient) -> YandexMusicEnrichmentService:
+    return YandexMusicEnrichmentService(session=db, ym_client=ym)
 
 
 @router.post(
@@ -47,31 +42,35 @@ def _service(db: DbSession) -> YandexMusicEnrichmentService:
     operation_id="search_yandex_music",
 )
 async def search_yandex_music(data: YmSearchRequest) -> YmSearchResponse:
-    raw_results = await _get_client().search_tracks(data.query, page=data.page)
-    items: list[YmSearchResult] = []
-    for r in raw_results:
-        artists = [a["name"] for a in r.get("artists", []) if not a.get("various")]
-        albums = r.get("albums", [])
-        album = albums[0] if albums else {}
-        labels = album.get("labels", [])
-        label = labels[0] if labels else None
-        if isinstance(label, dict):
-            label = label.get("name")
-        items.append(
-            YmSearchResult(
-                yandex_track_id=str(r["id"]),
-                title=r.get("title", ""),
-                artists=artists,
-                album_title=album.get("title"),
-                genre=album.get("genre"),
-                label=label,
-                duration_ms=r.get("durationMs"),
-                year=album.get("year"),
-                release_date=album.get("releaseDate"),
-                cover_uri=r.get("coverUri"),
+    ym = _ym_client()
+    try:
+        raw_results = await ym.search_tracks(data.query, page=data.page)
+        items: list[YmSearchResult] = []
+        for r in raw_results:
+            artists = [a["name"] for a in r.get("artists", []) if not a.get("various")]
+            albums = r.get("albums", [])
+            album = albums[0] if albums else {}
+            labels = album.get("labels", [])
+            label = labels[0] if labels else None
+            if isinstance(label, dict):
+                label = label.get("name")
+            items.append(
+                YmSearchResult(
+                    yandex_track_id=str(r["id"]),
+                    title=r.get("title", ""),
+                    artists=artists,
+                    album_title=album.get("title"),
+                    genre=album.get("genre"),
+                    label=label,
+                    duration_ms=r.get("durationMs"),
+                    year=album.get("year"),
+                    release_date=album.get("releaseDate"),
+                    cover_uri=r.get("coverUri"),
+                )
             )
-        )
-    return YmSearchResponse(results=items, total=len(items), page=data.page)
+        return YmSearchResponse(results=items, total=len(items), page=data.page)
+    finally:
+        await ym.close()
 
 
 @router.post(
@@ -91,9 +90,15 @@ async def enrich_track(
     data: YmEnrichRequest,
     db: DbSession,
 ) -> YmEnrichResponse:
-    result = await _service(db).enrich_track(track_id, yandex_track_id=data.yandex_track_id)
-    await db.commit()
-    return result
+    ym = _ym_client()
+    try:
+        result = await _service(db, ym).enrich_track(
+            track_id, yandex_track_id=data.yandex_track_id
+        )
+        await db.commit()
+        return result
+    finally:
+        await ym.close()
 
 
 @router.post(
@@ -112,22 +117,26 @@ async def batch_enrich(
     data: YmBatchEnrichRequest,
     db: DbSession,
 ) -> YmBatchEnrichResponse:
-    svc = _service(db)
-    total = len(data.track_ids)
-    enriched = 0
-    skipped = 0
+    ym = _ym_client()
+    try:
+        svc = _service(db, ym)
+        total = len(data.track_ids)
+        enriched = 0
+        skipped = 0
 
-    results = await svc.enrich_batch(data.track_ids)
-    for r in results:
-        if r.already_linked:
-            skipped += 1
-        else:
-            enriched += 1
+        results = await svc.enrich_batch(data.track_ids)
+        for r in results:
+            if r.already_linked:
+                skipped += 1
+            else:
+                enriched += 1
 
-    await db.commit()
-    return YmBatchEnrichResponse(
-        total=total,
-        enriched=enriched,
-        skipped=skipped,
-        failed=total - len(results),
-    )
+        await db.commit()
+        return YmBatchEnrichResponse(
+            total=total,
+            enriched=enriched,
+            skipped=skipped,
+            failed=total - len(results),
+        )
+    finally:
+        await ym.close()
