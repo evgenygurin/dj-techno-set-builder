@@ -109,3 +109,10 @@ schema.graphql
 data/
 
 cert/
+
+icloude/
+
+# Generated/temporary files
+openapi.json
+*.bak
+db_schema.md

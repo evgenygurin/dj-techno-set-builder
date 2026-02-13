@@ -63,35 +63,21 @@ def _key_score(key_a: KeyResult, key_b: KeyResult) -> tuple[float, float]:
     return score, float(weighted)
 
 
-def _energy_score(
-    energy_a: BandEnergyResult, energy_b: BandEnergyResult
-) -> tuple[float, float]:
+def _energy_score(energy_a: BandEnergyResult, energy_b: BandEnergyResult) -> tuple[float, float]:
     """Returns (score_0_1, signed_step).
 
     Small energy steps are preferred. Step sign: positive = going up.
     """
     # Global energy proxy: weighted mean of bands
-    e_a = (
-        0.3 * energy_a.sub
-        + 0.3 * energy_a.low
-        + 0.2 * energy_a.mid
-        + 0.2 * energy_a.high
-    )
-    e_b = (
-        0.3 * energy_b.sub
-        + 0.3 * energy_b.low
-        + 0.2 * energy_b.mid
-        + 0.2 * energy_b.high
-    )
+    e_a = 0.3 * energy_a.sub + 0.3 * energy_a.low + 0.2 * energy_a.mid + 0.2 * energy_a.high
+    e_b = 0.3 * energy_b.sub + 0.3 * energy_b.low + 0.2 * energy_b.mid + 0.2 * energy_b.high
 
     step = e_b - e_a
     score = float(np.clip(1.0 - abs(step) / _ENERGY_MAX_STEP, 0.0, 1.0))
     return score, float(step)
 
 
-def _bass_conflict_score(
-    energy_a: BandEnergyResult, energy_b: BandEnergyResult
-) -> float:
+def _bass_conflict_score(energy_a: BandEnergyResult, energy_b: BandEnergyResult) -> float:
     """0-1 score: 1 = no bass conflict, 0 = maximum bass clash.
 
     Both tracks having high sub/low energy = conflict risk during transition.
@@ -102,9 +88,7 @@ def _bass_conflict_score(
     return float(np.clip(1.0 - conflict, 0.0, 1.0))
 
 
-def _spectral_overlap_score(
-    spec_a: SpectralResult, spec_b: SpectralResult
-) -> float:
+def _spectral_overlap_score(spec_a: SpectralResult, spec_b: SpectralResult) -> float:
     """0-1 score: 1 = similar spectral profile, 0 = very different.
 
     Based on centroid proximity — tracks with similar spectral centroids

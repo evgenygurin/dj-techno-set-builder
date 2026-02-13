@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+from typing import Any
+
+from sqlalchemy import select
 
 from app.models.features import TrackAudioFeaturesComputed
 from app.repositories.base import BaseRepository
@@ -9,6 +12,50 @@ from app.utils.audio._types import TrackFeatures
 
 class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
     model = TrackAudioFeaturesComputed
+
+    async def get_by_track(
+        self,
+        track_id: int,
+        run_id: int | None = None,
+    ) -> TrackAudioFeaturesComputed | None:
+        """Get features for a track, optionally filtered by run."""
+        stmt = select(self.model).where(self.model.track_id == track_id)
+        if run_id is not None:
+            stmt = stmt.where(self.model.run_id == run_id)
+        stmt = stmt.order_by(self.model.created_at.desc()).limit(1)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def list_by_track(
+        self,
+        track_id: int,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[TrackAudioFeaturesComputed], int]:
+        filters: list[Any] = [self.model.track_id == track_id]
+        return await self.list(offset=offset, limit=limit, filters=filters)
+
+    async def list_all(self) -> list[TrackAudioFeaturesComputed]:
+        """Get latest features for every track (one row per track_id)."""
+        from sqlalchemy import func as sa_func
+
+        # Subquery: max(created_at) per track_id
+        latest = (
+            select(
+                self.model.track_id,
+                sa_func.max(self.model.created_at).label("max_created"),
+            )
+            .group_by(self.model.track_id)
+            .subquery()
+        )
+        stmt = select(self.model).join(
+            latest,
+            (self.model.track_id == latest.c.track_id)
+            & (self.model.created_at == latest.c.max_created),
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def save_features(
         self,
@@ -44,7 +91,7 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
                 features.band_energy.high_mid,
                 features.band_energy.high,
             ),
-            energy_std=0.0,  # TODO: compute from frame-level data
+            energy_std=features.band_energy.energy_std,
             # Band energies
             sub_energy=features.band_energy.sub,
             low_energy=features.band_energy.low,
@@ -54,6 +101,8 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
             high_energy=features.band_energy.high,
             low_high_ratio=features.band_energy.low_high_ratio,
             sub_lowmid_ratio=features.band_energy.sub_lowmid_ratio,
+            # Energy slope
+            energy_slope_mean=features.band_energy.energy_slope_mean,
             # Spectral
             centroid_mean_hz=features.spectral.centroid_mean_hz,
             rolloff_85_hz=features.spectral.rolloff_85_hz,
@@ -61,7 +110,9 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
             flatness_mean=features.spectral.flatness_mean,
             flux_mean=features.spectral.flux_mean,
             flux_std=features.spectral.flux_std,
+            slope_db_per_oct=features.spectral.slope_db_per_oct,
             contrast_mean_db=features.spectral.contrast_mean_db,
+            hnr_mean_db=features.spectral.hnr_mean_db,
             # Key
             key_code=features.key.key_code,
             key_confidence=features.key.confidence,

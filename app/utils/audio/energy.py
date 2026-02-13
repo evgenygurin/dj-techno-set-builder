@@ -35,6 +35,28 @@ def _bandpass_energy(
     return float(np.sqrt(np.mean(filtered**2)))
 
 
+def _frame_rms_stats(
+    samples: np.ndarray, frame_size: int = 2048, hop_size: int = 512
+) -> tuple[float, float]:
+    """Compute slope and std of frame-level RMS energy.
+
+    Returns (slope, std). Slope via linear regression, std via numpy.
+    """
+    n_frames = 1 + (len(samples) - frame_size) // hop_size
+    if n_frames < 2:
+        return 0.0, 0.0
+    energies = np.array(
+        [
+            float(np.sqrt(np.mean(samples[i * hop_size : i * hop_size + frame_size] ** 2)))
+            for i in range(n_frames)
+        ]
+    )
+    x = np.arange(n_frames, dtype=np.float64)
+    slope = float(np.polyfit(x, energies.astype(np.float64), 1)[0])
+    std = float(np.std(energies))
+    return slope, std
+
+
 def compute_band_energies(signal: AudioSignal) -> BandEnergyResult:
     """Compute energy in 6 frequency bands, normalized to 0-1."""
     raw: dict[str, float] = {}
@@ -50,6 +72,8 @@ def compute_band_energies(signal: AudioSignal) -> BandEnergyResult:
     sub_val = normed["sub"]
     lowmid_val = normed["low_mid"]
 
+    energy_slope, energy_std = _frame_rms_stats(signal.samples)
+
     return BandEnergyResult(
         sub=normed["sub"],
         low=normed["low"],
@@ -59,4 +83,6 @@ def compute_band_energies(signal: AudioSignal) -> BandEnergyResult:
         high=normed["high"],
         low_high_ratio=low_val / high_val if high_val > 1e-10 else 0.0,
         sub_lowmid_ratio=sub_val / lowmid_val if lowmid_val > 1e-10 else 0.0,
+        energy_slope_mean=energy_slope,
+        energy_std=energy_std,
     )

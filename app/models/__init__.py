@@ -43,6 +43,7 @@ from app.models.metadata_spotify import (
     SpotifyMetadata,
     SpotifyPlaylistMetadata,
 )
+from app.models.metadata_yandex import YandexMetadata
 from app.models.providers import Provider
 from app.models.runs import FeatureExtractionRun, TransitionRun
 from app.models.sections import TrackSection
@@ -105,4 +106,5 @@ __all__ = [
     "Transition",
     "TransitionCandidate",
     "TransitionRun",
+    "YandexMetadata",
 ]

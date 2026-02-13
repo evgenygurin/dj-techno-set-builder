@@ -44,9 +44,7 @@ def _frame_energies(signal: AudioSignal) -> np.ndarray:
     import essentia.standard as es
 
     energies: list[float] = []
-    for frame in es.FrameGenerator(
-        signal.samples, frameSize=_FRAME_SIZE, hopSize=_HOP_SIZE
-    ):
+    for frame in es.FrameGenerator(signal.samples, frameSize=_FRAME_SIZE, hopSize=_HOP_SIZE):
         energies.append(float(np.sqrt(np.mean(frame**2))))
     return np.array(energies, dtype=np.float32)
 
@@ -101,13 +99,88 @@ def _label_section(
     return UNKNOWN
 
 
+def _compute_section_spectral(
+    signal: AudioSignal,
+    start_s: float,
+    end_s: float,
+) -> tuple[float, float]:
+    """Compute lightweight per-section spectral metrics: centroid_hz, flux.
+
+    Only computes cheap frame-level spectral features.
+    Onset rate and pulse clarity are derived from beat_times in the service layer.
+    """
+    import essentia.standard as es
+
+    sr = signal.sample_rate
+    start_sample = int(start_s * sr)
+    end_sample = min(int(end_s * sr), len(signal.samples))
+    segment = signal.samples[start_sample:end_sample]
+
+    if len(segment) < _FRAME_SIZE:
+        return 0.0, 0.0
+
+    centroids: list[float] = []
+    fluxes: list[float] = []
+    prev_spectrum = np.zeros(_FRAME_SIZE // 2 + 1, dtype=np.float32)
+    spectrum_fn = es.Spectrum(size=_FRAME_SIZE)
+    centroid_fn = es.SpectralCentroidTime(sampleRate=float(sr))
+    windowing_fn = es.Windowing(type="hann")
+
+    for frame in es.FrameGenerator(segment, frameSize=_FRAME_SIZE, hopSize=_HOP_SIZE):
+        windowed = windowing_fn(frame)
+        spectrum = spectrum_fn(windowed)
+        centroids.append(float(centroid_fn(frame)))
+        diff = spectrum - prev_spectrum
+        fluxes.append(float(np.sqrt(np.sum(diff**2))))
+        prev_spectrum = spectrum
+
+    centroid_hz = float(np.mean(centroids)) if centroids else 0.0
+    flux_mean = float(np.mean(fluxes)) if fluxes else 0.0
+
+    return centroid_hz, flux_mean
+
+
+def _compute_section_pulse_clarity(
+    section_beats: np.ndarray,
+    *,
+    track_pulse_clarity: float | None,
+) -> float:
+    """Estimate section pulse clarity from beat interval regularity.
+
+    Formula:
+      - >=3 beats: local = clip(1 - std(IOI)/mean(IOI), 0, 1)
+      - blend with track pulse when available: 0.7*local + 0.3*track
+      - short sections (<3 beats): fallback to track pulse, else 0.0
+    """
+    if len(section_beats) >= 3:
+        ioi = np.diff(section_beats.astype(np.float64))
+        ioi_mean = float(np.mean(ioi))
+        if ioi_mean > 0:
+            cv = float(np.std(ioi)) / ioi_mean
+            local = float(np.clip(1.0 - cv, 0.0, 1.0))
+        else:
+            local = 0.0
+
+        if track_pulse_clarity is not None:
+            return float(np.clip(0.7 * local + 0.3 * track_pulse_clarity, 0.0, 1.0))
+        return local
+
+    if track_pulse_clarity is not None:
+        return float(np.clip(track_pulse_clarity, 0.0, 1.0))
+
+    return 0.0
+
+
 def segment_structure(
     signal: AudioSignal,
     *,
     min_section_s: float = _MIN_SECTION_S,
+    beat_times: np.ndarray | None = None,
+    track_pulse_clarity: float | None = None,
 ) -> list[SectionResult]:
     """Segment track into structural sections.
 
+    If beat_times is provided, computes per-section onset_rate and pulse_clarity.
     Returns list of SectionResult sorted by start time.
     """
     sr = signal.sample_rate
@@ -160,15 +233,11 @@ def segment_structure(
         # Boundary confidence: novelty height at this boundary
         boundary_conf = 0.5  # default for first/last
         if 0 < i < len(all_boundaries) - 1:
-            smooth = uniform_filter1d(
-                norm_energy.astype(np.float64), size=_SMOOTH_WINDOW
-            )
+            smooth = uniform_filter1d(norm_energy.astype(np.float64), size=_SMOOTH_WINDOW)
             novelty = np.abs(np.diff(smooth))
             nov_max = novelty.max() or 1.0
             if start_frame < len(novelty):
-                boundary_conf = float(
-                    np.clip(novelty[start_frame] / nov_max, 0.0, 1.0)
-                )
+                boundary_conf = float(np.clip(novelty[start_frame] / nov_max, 0.0, 1.0))
 
         section_type = _label_section(
             e_mean,
@@ -178,6 +247,20 @@ def segment_structure(
             high_threshold=high_thresh,
             low_threshold=low_thresh,
         )
+
+        # Per-section spectral metrics (lightweight: centroid + flux only)
+        centroid_hz, flux = _compute_section_spectral(signal, start_s, end_s)
+
+        # Onset rate and pulse clarity from pre-computed beat_times
+        onset_rate: float | None = None
+        pulse_clarity: float | None = None
+        if beat_times is not None and duration_s > 0:
+            section_beats = beat_times[(beat_times >= start_s) & (beat_times < end_s)]
+            onset_rate = float(len(section_beats) / duration_s)
+            pulse_clarity = _compute_section_pulse_clarity(
+                section_beats,
+                track_pulse_clarity=track_pulse_clarity,
+            )
 
         sections.append(
             SectionResult(
@@ -189,11 +272,25 @@ def segment_structure(
                 energy_max=float(np.clip(e_max_val, 0.0, 1.0)),
                 energy_slope=slope,
                 boundary_confidence=boundary_conf,
+                centroid_hz=centroid_hz,
+                flux=flux,
+                onset_rate=onset_rate,
+                pulse_clarity=pulse_clarity,
             )
         )
 
     # Fallback: if no sections found, return one UNKNOWN section
     if not sections:
+        centroid_hz, flux = _compute_section_spectral(signal, 0.0, signal.duration_s)
+        fallback_onset_rate: float | None = None
+        fallback_pulse_clarity: float | None = None
+        if beat_times is not None and signal.duration_s > 0:
+            fallback_onset_rate = float(len(beat_times) / signal.duration_s)
+            fallback_pulse_clarity = _compute_section_pulse_clarity(
+                beat_times,
+                track_pulse_clarity=track_pulse_clarity,
+            )
+
         sections.append(
             SectionResult(
                 section_type=UNKNOWN,
@@ -204,6 +301,10 @@ def segment_structure(
                 energy_max=float(np.max(norm_energy)),
                 energy_slope=0.0,
                 boundary_confidence=0.0,
+                centroid_hz=centroid_hz,
+                flux=flux,
+                onset_rate=fallback_onset_rate,
+                pulse_clarity=fallback_pulse_clarity,
             )
         )
 

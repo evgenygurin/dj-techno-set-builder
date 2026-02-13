@@ -54,6 +54,8 @@ class BandEnergyResult:
     high: float  # 6000-12000 Hz
     low_high_ratio: float  # low / high (or 0 if high ≈ 0)
     sub_lowmid_ratio: float  # sub / low_mid (or 0 if low_mid ≈ 0)
+    energy_slope_mean: float = 0.0  # mean slope of frame-level RMS energy
+    energy_std: float = 0.0  # std of frame-level RMS energy
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +67,8 @@ class SpectralResult:
     flux_mean: float
     flux_std: float
     contrast_mean_db: float
+    slope_db_per_oct: float = 0.0
+    hnr_mean_db: float = 0.0  # harmonics-to-noise ratio in dB
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +110,10 @@ class SectionResult:
     energy_max: float  # 0-1
     energy_slope: float  # positive = rising, negative = falling
     boundary_confidence: float  # 0-1
+    centroid_hz: float | None = None  # spectral centroid mean for section
+    flux: float | None = None  # spectral flux mean for section
+    onset_rate: float | None = None  # onsets per second in section
+    pulse_clarity: float | None = None  # rhythmic clarity 0-1
 
 
 @dataclass(frozen=True, slots=True)

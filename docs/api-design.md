@@ -259,6 +259,8 @@ asset_type: 0=full_mix, 1=drums_stem, 2=bass_stem, 3=vocals_stem, 4=other_stem, 
   "run_id": 1,
   "pipeline_name": "audio_features_v1",
   "pipeline_version": "1.2.0",
+  "parameters": { "hop_length": 512, "n_fft": 2048, "full_analysis": true },
+  "code_ref": "audio_features_v1@1.2.0",
   "status": "running",
   "started_at": "2026-02-12T10:00:00Z",
   "completed_at": null

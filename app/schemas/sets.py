@@ -12,7 +12,9 @@ class DjSetCreate(BaseSchema):
     target_duration_ms: int | None = Field(default=None, gt=0)
     target_bpm_min: float | None = Field(default=None, ge=20, le=300)
     target_bpm_max: float | None = Field(default=None, ge=20, le=300)
-    target_energy_arc: dict[str, Any] | None = None
+    target_energy_arc: dict[str, Any] | None = Field(
+        default=None, examples=[{"intro": 0.3, "build": 0.6, "peak": 1.0, "outro": 0.4}]
+    )
 
 
 class DjSetUpdate(BaseSchema):
@@ -21,7 +23,9 @@ class DjSetUpdate(BaseSchema):
     target_duration_ms: int | None = Field(default=None, gt=0)
     target_bpm_min: float | None = Field(default=None, ge=20, le=300)
     target_bpm_max: float | None = Field(default=None, ge=20, le=300)
-    target_energy_arc: dict[str, Any] | None = None
+    target_energy_arc: dict[str, Any] | None = Field(
+        default=None, examples=[{"intro": 0.3, "build": 0.6, "peak": 1.0, "outro": 0.4}]
+    )
 
 
 class DjSetRead(BaseSchema):
@@ -31,7 +35,9 @@ class DjSetRead(BaseSchema):
     target_duration_ms: int | None
     target_bpm_min: float | None
     target_bpm_max: float | None
-    target_energy_arc: dict[str, Any] | None
+    target_energy_arc: dict[str, Any] | None = Field(
+        default=None, examples=[{"intro": 0.3, "build": 0.6, "peak": 1.0, "outro": 0.4}]
+    )
     created_at: datetime
     updated_at: datetime
 
@@ -46,7 +52,9 @@ class DjSetList(BaseSchema):
 
 class DjSetVersionCreate(BaseSchema):
     version_label: str | None = Field(default=None, max_length=100)
-    generator_run: dict[str, Any] | None = None
+    generator_run: dict[str, Any] | None = Field(
+        default=None, examples=[{"algorithm": "greedy", "seed": 42, "iterations": 1000}]
+    )
     score: float | None = None
 
 
@@ -54,7 +62,9 @@ class DjSetVersionRead(BaseSchema):
     set_version_id: int
     set_id: int
     version_label: str | None
-    generator_run: dict[str, Any] | None
+    generator_run: dict[str, Any] | None = Field(
+        default=None, examples=[{"algorithm": "greedy", "seed": 42, "iterations": 1000}]
+    )
     score: float | None
     created_at: datetime
 
@@ -73,7 +83,9 @@ class DjSetItemCreate(BaseSchema):
     transition_id: int | None = None
     mix_in_ms: int | None = Field(default=None, ge=0)
     mix_out_ms: int | None = Field(default=None, ge=0)
-    planned_eq: dict[str, Any] | None = None
+    planned_eq: dict[str, Any] | None = Field(
+        default=None, examples=[{"low": -3.0, "mid": 0.0, "high": 1.5}]
+    )
     notes: str | None = None
 
 
@@ -87,7 +99,9 @@ class DjSetItemRead(BaseSchema):
     out_section_id: int | None
     mix_in_ms: int | None
     mix_out_ms: int | None
-    planned_eq: dict[str, Any] | None
+    planned_eq: dict[str, Any] | None = Field(
+        default=None, examples=[{"low": -3.0, "mid": 0.0, "high": 1.5}]
+    )
     notes: str | None
     created_at: datetime
 

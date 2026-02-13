@@ -74,9 +74,7 @@ class TrackAnalysisService(BaseService):
         self.logger.info("Full analysis for track %d from %s", track_id, audio_path)
 
         # CPU-bound — run off the event loop
-        features = await asyncio.to_thread(
-            self._extract_full_sync, audio_path, track_id
-        )
+        features = await asyncio.to_thread(self._extract_full_sync, audio_path, track_id)
 
         self._validate_features(features)
         await self.features_repo.save_features(track_id, run_id, features)
@@ -87,7 +85,11 @@ class TrackAnalysisService(BaseService):
                 from app.utils.audio.structure import segment_structure
 
                 signal = load_audio(audio_path)
-                sections = segment_structure(signal)
+                sections = segment_structure(
+                    signal,
+                    beat_times=features.beats.beat_times,
+                    track_pulse_clarity=features.beats.pulse_clarity,
+                )
                 for section in sections:
                     await self.sections_repo.create(
                         track_id=track_id,
@@ -100,6 +102,10 @@ class TrackAnalysisService(BaseService):
                         section_energy_max=section.energy_max,
                         section_energy_slope=section.energy_slope,
                         boundary_confidence=section.boundary_confidence,
+                        section_centroid_hz=section.centroid_hz,
+                        section_flux=section.flux,
+                        section_onset_rate=section.onset_rate,
+                        section_pulse_clarity=section.pulse_clarity,
                     )
             except Exception:
                 self.logger.warning(
@@ -111,9 +117,7 @@ class TrackAnalysisService(BaseService):
         self.logger.info("Full analysis persisted for track %d, run %d", track_id, run_id)
         return features
 
-    def _extract_full_sync(
-        self, audio_path: str | Path, track_id: int
-    ) -> TrackFeatures:
+    def _extract_full_sync(self, audio_path: str | Path, track_id: int) -> TrackFeatures:
         """Synchronous CPU-bound extraction of all features (Phase 1 + 2)."""
         from app.utils.audio.bpm import estimate_bpm
         from app.utils.audio.energy import compute_band_energies
@@ -137,9 +141,7 @@ class TrackAnalysisService(BaseService):
 
             beats_result = detect_beats(signal)
         except Exception:
-            self.logger.warning(
-                "Beat detection failed for track %d", track_id, exc_info=True
-            )
+            self.logger.warning("Beat detection failed for track %d", track_id, exc_info=True)
 
         return TrackFeatures(
             bpm=bpm_result,

@@ -75,9 +75,7 @@ class TestDetectBeats:
         result = detect_beats(click_140bpm)
         assert len(result.onset_envelope) > 0
 
-    def test_kick_pattern_has_high_pulse_clarity(
-        self, kick_pattern: AudioSignal
-    ) -> None:
+    def test_kick_pattern_has_high_pulse_clarity(self, kick_pattern: AudioSignal) -> None:
         result = detect_beats(kick_pattern)
         # A regular kick pattern should have clear pulse
         assert result.pulse_clarity > 0.3

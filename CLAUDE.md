@@ -5,8 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Install / sync dependencies
+# Install / sync dependencies (all extras: audio + ml)
 uv sync --all-extras
+
+# Install only audio deps (no ML/torch)
+uv sync --extra audio
 
 # Run all tests
 uv run pytest -v
@@ -30,6 +33,21 @@ uv run uvicorn app.main:app --reload
 # Alembic migrations (uses DATABASE_URL from .env or defaults to SQLite)
 uv run alembic revision --autogenerate -m "description"
 uv run alembic upgrade head
+```
+
+### Makefile shortcuts
+
+```bash
+make check           # lint + test (full CI check)
+make lint            # ruff check + format check + mypy
+make test            # pytest
+make test-v          # pytest -v
+make test-k MATCH=x  # pytest -k x
+make coverage        # pytest-cov (html + terminal)
+make ruff-fix        # auto-fix + format
+make run             # uvicorn --reload (PORT=8000)
+make db-upgrade      # alembic upgrade head
+make docker-local    # compose up (volume mount)
 ```
 
 ## Architecture
@@ -57,6 +75,8 @@ Schemas   Errors     Models
 2. `app/repositories/artists.py` — `ArtistRepository(BaseRepository[Artist])` with `model = Artist`
 3. `app/services/artists.py` — `ArtistService(BaseService)` with business logic
 4. `app/routers/v1/artists.py` — APIRouter, wire service via `_service(db)` pattern
+   - Import shared error responses from `app/routers/v1/_openapi.py` (`RESPONSES_GET`, `RESPONSES_CREATE`, `RESPONSES_UPDATE`, `RESPONSES_DELETE`)
+   - Always include `summary`, `description`, `response_description`, `operation_id` in route decorators
 5. Register router in `app/routers/v1/__init__.py`
 
 ### Key abstractions
@@ -65,6 +85,22 @@ Schemas   Errors     Models
 - **`BaseSchema`** (`app/schemas/base.py`): Pydantic `BaseModel` with `from_attributes=True` and `extra="forbid"`.
 - **`BaseService`** (`app/services/base.py`): Sets up `self.logger`.
 - **`AppError` hierarchy** (`app/errors.py`): `NotFoundError(404)`, `ValidationError(422)`, `ConflictError(409)`. Registered as global exception handlers returning `{code, message, details}` JSON.
+
+### Audio analysis utils
+
+`app/utils/audio/` — pure-function layer (no DB/ORM deps), 16 modules:
+- `_types.py` — frozen dataclasses (`BpmResult`, `KeyResult`, etc.) with `slots=True`
+- `_errors.py` — `AudioError` → `AudioValidationError`, `AudioAnalysisError`
+- `pipeline.py` — `extract_all_features()` orchestrator with per-stage error wrapping
+- Individual modules: `bpm`, `key_detect`, `loudness`, `energy`, `spectral`, `beats`, `groove`, `structure`, `stems`, `transition_score`, `camelot`, `loader`
+
+**Pattern**: Each module exports one pure function returning a frozen dataclass. Pipeline wraps unexpected errors in `AudioAnalysisError`, letting known errors (`AudioValidationError`, `FileNotFoundError`) bubble up.
+
+### Multi-repo service pattern
+
+`TrackAnalysisService` (`app/services/track_analysis.py`) bridges utils and repositories:
+- Constructor takes multiple repos (TrackRepository, AudioFeaturesRepository, SectionsRepository)
+- Calls pure utils functions for computation, then persists via repositories
 
 ## Models & Database
 
@@ -99,8 +135,10 @@ Models must work on both SQLite (tests) and PostgreSQL (prod):
 
 **Critical**: `from app.models import Base` (not `from app.models.base`) — this import triggers all model registrations so `create_all` sees every table.
 
+- Audio utils tests live in `tests/utils/` with synthetic audio fixtures in `tests/utils/conftest.py`
+
 ## Lint & Type Rules
 
-- **ruff**: Python 3.12 target, line-length 88, selected rules: E/F/W/I/N/UP/B/A/SIM/PLW/RUF. `A003` ignored (allow shadowing builtins on class attributes).
-- **mypy**: strict mode with `pydantic.mypy` plugin. `fastmcp` and `alembic` have `ignore_missing_imports`.
+- **ruff**: Python 3.12 target, line-length 99, selected rules: E/F/W/I/N/UP/B/SIM/RUF. `A003` ignored (allow shadowing builtins on class attributes).
+- **mypy**: strict mode with `pydantic.mypy` plugin. `ignore_missing_imports` for: `fastmcp`, `alembic`, `essentia`, `soundfile`, `scipy`, `demucs`, `torch`, `torchaudio`.
 - **pytest-asyncio**: `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed on async test functions.

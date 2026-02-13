@@ -59,11 +59,7 @@ def detect_beats(
     beat_times = np.sort(beat_times).astype(np.float32)
 
     # Downbeats: every 4th beat (4/4 assumption, standard for techno)
-    downbeat_times = (
-        beat_times[::4].astype(np.float32)
-        if len(beat_times) >= 4
-        else beat_times
-    )
+    downbeat_times = beat_times[::4].astype(np.float32) if len(beat_times) >= 4 else beat_times
 
     # ── 2. Onset detection ──
     onset_rate_algo = es.OnsetRate()
@@ -72,16 +68,10 @@ def detect_beats(
     # Windowed onset rate: max onset density in sliding window
     if len(onsets_times) > 1 and signal.duration_s > _ONSET_WINDOW_S:
         window_counts: list[float] = []
-        for t in np.arange(
-            0, signal.duration_s - _ONSET_WINDOW_S, _ONSET_WINDOW_S / 2
-        ):
-            count = np.sum(
-                (onsets_times >= t) & (onsets_times < t + _ONSET_WINDOW_S)
-            )
+        for t in np.arange(0, signal.duration_s - _ONSET_WINDOW_S, _ONSET_WINDOW_S / 2):
+            count = np.sum((onsets_times >= t) & (onsets_times < t + _ONSET_WINDOW_S))
             window_counts.append(float(count) / _ONSET_WINDOW_S)
-        onset_rate_max = (
-            float(max(window_counts)) if window_counts else onset_rate_global
-        )
+        onset_rate_max = float(max(window_counts)) if window_counts else onset_rate_global
     else:
         onset_rate_max = onset_rate_global
 
@@ -116,12 +106,8 @@ def detect_beats(
                 beat_energies.append(float(np.mean(segment**2)))
 
         overall_energy = float(np.mean(audio**2)) + 1e-10
-        beat_mean_energy = (
-            float(np.mean(beat_energies)) if beat_energies else 0.0
-        )
-        kick_prominence = float(
-            np.clip(beat_mean_energy / overall_energy, 0.0, 1.0)
-        )
+        beat_mean_energy = float(np.mean(beat_energies)) if beat_energies else 0.0
+        kick_prominence = float(np.clip(beat_mean_energy / overall_energy, 0.0, 1.0))
     else:
         kick_prominence = 0.0
 

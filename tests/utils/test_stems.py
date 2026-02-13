@@ -58,7 +58,5 @@ class TestSeparateStems:
             assert abs(stem.duration_s - short_mix.duration_s) < 0.5
 
     def test_stems_not_all_silent(self, stems_result: StemsResult) -> None:
-        total_energy = sum(
-            float(np.mean(s.samples**2)) for s in _all_stems(stems_result)
-        )
+        total_energy = sum(float(np.mean(s.samples**2)) for s in _all_stems(stems_result))
         assert total_energy > 1e-8

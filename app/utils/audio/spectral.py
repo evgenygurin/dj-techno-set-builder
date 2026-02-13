@@ -38,6 +38,10 @@ def extract_spectral_features(
     flatnesses: list[float] = []
     fluxes: list[float] = []
     contrasts: list[float] = []
+    slopes_db_per_oct: list[float] = []
+    freqs = np.fft.rfftfreq(frame_size, d=1.0 / sr)
+    slope_mask = freqs >= 20.0
+    log_freqs = np.log2(freqs[slope_mask] / 20.0) if np.any(slope_mask) else np.array([])
 
     for frame in es.FrameGenerator(signal.samples, frameSize=frame_size, hopSize=hop_size):
         windowed = w(frame)
@@ -52,6 +56,30 @@ def extract_spectral_features(
         sc, _sv = contrast(spec)
         contrasts.append(float(np.mean(sc)))
 
+        # Spectral slope in dB/octave from linear fit on log2-frequency axis.
+        if log_freqs.size >= 2:
+            mag_db = 20.0 * np.log10(spec[slope_mask] + 1e-12)
+            slope = float(np.polyfit(log_freqs, mag_db.astype(np.float64), 1)[0])
+            slopes_db_per_oct.append(slope)
+
+    # HNR: Harmonics-to-Noise Ratio via autocorrelation
+    hnr_db = 0.0
+    try:
+        hnr_values: list[float] = []
+        for frame in es.FrameGenerator(signal.samples, frameSize=frame_size, hopSize=hop_size):
+            windowed = w(frame)
+            ac = np.correlate(windowed, windowed, mode="full")
+            ac = ac[len(ac) // 2 :]  # positive lags only
+            if ac[0] > 0:
+                peak = float(np.max(ac[1:])) if len(ac) > 1 else 0.0
+                noise = ac[0] - peak
+                if noise > 1e-10:
+                    hnr_values.append(10.0 * np.log10(peak / noise))
+        if hnr_values:
+            hnr_db = float(np.mean(hnr_values))
+    except Exception:
+        pass
+
     return SpectralResult(
         centroid_mean_hz=float(np.mean(centroids)) if centroids else 0.0,
         rolloff_85_hz=float(np.mean(rolloffs85)) if rolloffs85 else 0.0,
@@ -60,4 +88,6 @@ def extract_spectral_features(
         flux_mean=float(np.mean(fluxes)) if fluxes else 0.0,
         flux_std=float(np.std(fluxes)) if fluxes else 0.0,
         contrast_mean_db=float(np.mean(contrasts)) if contrasts else 0.0,
+        slope_db_per_oct=float(np.mean(slopes_db_per_oct)) if slopes_db_per_oct else 0.0,
+        hnr_mean_db=hnr_db,
     )
