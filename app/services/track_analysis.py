@@ -85,7 +85,11 @@ class TrackAnalysisService(BaseService):
                 from app.utils.audio.structure import segment_structure
 
                 signal = load_audio(audio_path)
-                sections = segment_structure(signal)
+                sections = segment_structure(
+                    signal,
+                    beat_times=features.beats.beat_times,
+                    track_pulse_clarity=features.beats.pulse_clarity,
+                )
                 for section in sections:
                     await self.sections_repo.create(
                         track_id=track_id,
@@ -98,6 +102,10 @@ class TrackAnalysisService(BaseService):
                         section_energy_max=section.energy_max,
                         section_energy_slope=section.energy_slope,
                         boundary_confidence=section.boundary_confidence,
+                        section_centroid_hz=section.centroid_hz,
+                        section_flux=section.flux,
+                        section_onset_rate=section.onset_rate,
+                        section_pulse_clarity=section.pulse_clarity,
                     )
             except Exception:
                 self.logger.warning(

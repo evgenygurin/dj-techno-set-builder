@@ -21,9 +21,7 @@ def test_playlist_import_request():
 
 def test_playlist_import_request_rejects_extra():
     with pytest.raises(ValidationError):
-        YandexPlaylistImportRequest(
-            user_id="123", playlist_kind="1", bogus="field"
-        )
+        YandexPlaylistImportRequest(user_id="123", playlist_kind="1", bogus="field")
 
 
 def test_enrich_request():
@@ -37,8 +35,6 @@ def test_enrich_request_rejects_empty():
 
 
 def test_enrich_response():
-    resp = YandexEnrichResponse(
-        total=10, enriched=8, not_found=2, errors=["Track 5: no match"]
-    )
+    resp = YandexEnrichResponse(total=10, enriched=8, not_found=2, errors=["Track 5: no match"])
     assert resp.enriched == 8
     assert len(resp.errors) == 1

@@ -1,4 +1,5 @@
 """Low-level Yandex Music API client with rate limiting."""
+
 from __future__ import annotations
 
 import asyncio
@@ -41,9 +42,7 @@ class ParsedYmTrack:
 
 def parse_ym_track(track: dict[str, Any]) -> ParsedYmTrack:
     """Defensively parse a YM track dict. Never raises on missing fields."""
-    artists = [
-        a["name"] for a in track.get("artists", []) if not a.get("various", False)
-    ]
+    artists = [a["name"] for a in track.get("artists", []) if not a.get("various", False)]
     album = track.get("albums", [None])[0] if track.get("albums") else None
 
     labels = album.get("labels", []) if album else []
@@ -125,9 +124,7 @@ class YandexMusicClient(BaseService):
 
     # --- Playlist ---
 
-    async def fetch_playlist_tracks(
-        self, user_id: str, kind: str
-    ) -> list[dict[str, Any]]:
+    async def fetch_playlist_tracks(self, user_id: str, kind: str) -> list[dict[str, Any]]:
         """Fetch all tracks from a playlist."""
         url = f"{_YM_BASE}/users/{user_id}/playlists/{kind}"
         data = await self._get_json(url)
@@ -140,9 +137,7 @@ class YandexMusicClient(BaseService):
 
     # --- Batch track metadata ---
 
-    async def fetch_tracks_metadata(
-        self, track_ids: list[str]
-    ) -> list[dict[str, Any]]:
+    async def fetch_tracks_metadata(self, track_ids: list[str]) -> list[dict[str, Any]]:
         """Batch fetch track metadata by IDs."""
         await self._rate_limit()
         client = await self._client()
@@ -156,9 +151,7 @@ class YandexMusicClient(BaseService):
 
     # --- Download (3-step flow) ---
 
-    async def resolve_download_url(
-        self, track_id: str, *, prefer_bitrate: int = 320
-    ) -> str:
+    async def resolve_download_url(self, track_id: str, *, prefer_bitrate: int = 320) -> str:
         """Resolve a direct download URL for a track.
 
         1. GET /tracks/{id}/download-info → pick best bitrate

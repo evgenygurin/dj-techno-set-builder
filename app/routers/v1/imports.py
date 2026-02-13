@@ -1,4 +1,5 @@
 """Yandex Music import endpoints — playlists + batch enrich via ImportYandexService."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter
@@ -59,9 +60,7 @@ async def list_playlists(db: DbSession) -> list[YandexPlaylistInfo]:
     response_description="Summary of enrichment results",
     operation_id="enrich_tracks_from_yandex",
 )
-async def enrich_tracks(
-    data: YandexEnrichRequest, db: DbSession
-) -> YandexEnrichResponse:
+async def enrich_tracks(data: YandexEnrichRequest, db: DbSession) -> YandexEnrichResponse:
     ym = _ym_client()
     try:
         svc = ImportYandexService(session=db, ym_client=ym)

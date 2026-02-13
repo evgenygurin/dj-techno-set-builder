@@ -13,9 +13,7 @@ async def test_enrich_track_creates_genre_and_artist(
     """Enrichment creates Genre, Artist, Label, Release, and links them."""
     track = Track(title="Jouska — Octopus Neuroplasticity", duration_ms=347150)
     session.add(track)
-    provider = Provider(
-        provider_id=4, provider_code="yandex_music", name="Yandex Music"
-    )
+    provider = Provider(provider_id=4, provider_code="yandex_music", name="Yandex Music")
     session.add(provider)
     await session.flush()
 
@@ -41,12 +39,8 @@ async def test_enrich_track_creates_genre_and_artist(
     mock_client = AsyncMock()
     mock_client.fetch_tracks.return_value = {"103119407": ym_track_data}
 
-    svc = YandexMusicEnrichmentService(
-        session=session, ym_client=mock_client
-    )
-    result = await svc.enrich_track(
-        track.track_id, yandex_track_id="103119407"
-    )
+    svc = YandexMusicEnrichmentService(session=session, ym_client=mock_client)
+    result = await svc.enrich_track(track.track_id, yandex_track_id="103119407")
 
     assert result.genre == "techno"
     assert result.artists == ["Jouska"]
@@ -59,9 +53,7 @@ async def test_enrich_track_empty_labels(session: AsyncSession) -> None:
     """Enrichment handles albums with empty labels array (problem #4)."""
     track = Track(title="Test Track", duration_ms=300000)
     session.add(track)
-    provider = Provider(
-        provider_id=4, provider_code="yandex_music", name="Yandex Music"
-    )
+    provider = Provider(provider_id=4, provider_code="yandex_music", name="Yandex Music")
     session.add(provider)
     await session.flush()
 
@@ -83,9 +75,7 @@ async def test_enrich_track_empty_labels(session: AsyncSession) -> None:
     mock_client = AsyncMock()
     mock_client.fetch_tracks.return_value = {"999": ym_track_data}
 
-    svc = YandexMusicEnrichmentService(
-        session=session, ym_client=mock_client
-    )
+    svc = YandexMusicEnrichmentService(session=session, ym_client=mock_client)
     result = await svc.enrich_track(track.track_id, yandex_track_id="999")
     assert result.label is None
 
@@ -94,9 +84,7 @@ async def test_enrich_track_idempotent(session: AsyncSession) -> None:
     """Second enrichment of same track returns already_linked=True."""
     track = Track(title="Test", duration_ms=300000)
     session.add(track)
-    provider = Provider(
-        provider_id=4, provider_code="yandex_music", name="Yandex Music"
-    )
+    provider = Provider(provider_id=4, provider_code="yandex_music", name="Yandex Music")
     session.add(provider)
     await session.flush()
 
@@ -117,9 +105,7 @@ async def test_enrich_track_idempotent(session: AsyncSession) -> None:
     mock_client = AsyncMock()
     mock_client.fetch_tracks.return_value = {"123": ym_data}
 
-    svc = YandexMusicEnrichmentService(
-        session=session, ym_client=mock_client
-    )
+    svc = YandexMusicEnrichmentService(session=session, ym_client=mock_client)
     r1 = await svc.enrich_track(track.track_id, yandex_track_id="123")
     assert not r1.already_linked
 
@@ -129,13 +115,9 @@ async def test_enrich_track_idempotent(session: AsyncSession) -> None:
 
 async def test_enrich_batch_auto_search(session: AsyncSession) -> None:
     """Batch enrichment auto-searches YM by parsing track title."""
-    track = Track(
-        title="Jouska — Octopus Neuroplasticity", duration_ms=347150
-    )
+    track = Track(title="Jouska — Octopus Neuroplasticity", duration_ms=347150)
     session.add(track)
-    provider = Provider(
-        provider_id=4, provider_code="yandex_music", name="Yandex Music"
-    )
+    provider = Provider(provider_id=4, provider_code="yandex_music", name="Yandex Music")
     session.add(provider)
     await session.flush()
 
@@ -159,9 +141,7 @@ async def test_enrich_batch_auto_search(session: AsyncSession) -> None:
         "103119407": {
             "id": 103119407,
             "title": "Octopus Neuroplasticity",
-            "artists": [
-                {"id": 1, "name": "Jouska", "various": False}
-            ],
+            "artists": [{"id": 1, "name": "Jouska", "various": False}],
             "albums": [
                 {
                     "id": 1,
@@ -174,9 +154,7 @@ async def test_enrich_batch_auto_search(session: AsyncSession) -> None:
         }
     }
 
-    svc = YandexMusicEnrichmentService(
-        session=session, ym_client=mock_client
-    )
+    svc = YandexMusicEnrichmentService(session=session, ym_client=mock_client)
     results = await svc.enrich_batch([track.track_id])
 
     assert len(results) == 1

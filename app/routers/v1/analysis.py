@@ -54,7 +54,7 @@ async def analyze_track(
     "/batch-analyze",
     response_model=BatchAnalysisResponse,
     summary="Batch analyze tracks",
-    description="Analyze multiple tracks sequentially. Skips already-analyzed tracks.",
+    description="Analyze multiple tracks sequentially. Skips tracks without audio files.",
     response_description="Summary of batch analysis results",
     operation_id="batch_analyze_tracks",
 )
@@ -88,14 +88,21 @@ async def batch_analyze(
             full_analysis=data.full_analysis,
         )
         try:
-            await svc.analyze(tid, req)
+            resp = await svc.analyze(tid, req)
+            if resp.status != "completed":
+                failed += 1
+                errors.append(f"Track {tid}: analysis returned status={resp.status}")
+                await db.rollback()
+                continue
+            # Commit per-track so progress is never lost
+            await db.commit()
             completed += 1
         except Exception as e:
             failed += 1
             errors.append(f"Track {tid}: {e}")
             logger.warning("Batch analysis failed for track %d: %s", tid, e)
+            await db.rollback()
 
-    await db.commit()
     return BatchAnalysisResponse(
         total=len(data.track_ids),
         completed=completed,

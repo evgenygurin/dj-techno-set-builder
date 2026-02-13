@@ -7,7 +7,10 @@ essentia = pytest.importorskip("essentia")
 
 from app.utils.audio import AudioSignal  # noqa: E402
 from app.utils.audio._types import SectionResult  # noqa: E402
-from app.utils.audio.structure import segment_structure  # noqa: E402
+from app.utils.audio.structure import (  # noqa: E402
+    _compute_section_pulse_clarity,
+    segment_structure,
+)
 
 SR = 44100
 
@@ -92,3 +95,39 @@ class TestSegmentStructure:
         loudest = max(sections, key=lambda s: s.energy_mean)
         # Either labeled as drop or has energy > 0.5
         assert loudest.section_type == 2 or loudest.energy_mean > 0.5
+
+    def test_with_beats_sets_onset_rate_and_pulse(self, techno_structure: AudioSignal) -> None:
+        beat_times = np.arange(0.5, techno_structure.duration_s, 0.5, dtype=np.float32)
+        sections = segment_structure(
+            techno_structure,
+            beat_times=beat_times,
+            track_pulse_clarity=0.8,
+        )
+        assert all(s.onset_rate is not None for s in sections)
+        assert all(s.pulse_clarity is not None for s in sections)
+        assert all(0.0 <= s.pulse_clarity <= 1.0 for s in sections if s.pulse_clarity is not None)
+
+
+class TestSectionPulseClarity:
+    def test_regular_beats_high_clarity(self) -> None:
+        beats = np.array([0.0, 0.5, 1.0, 1.5, 2.0], dtype=np.float32)
+        clarity = _compute_section_pulse_clarity(beats, track_pulse_clarity=None)
+        assert clarity == pytest.approx(1.0)
+
+    def test_irregular_beats_blends_with_track_clarity(self) -> None:
+        beats = np.array([0.0, 0.5, 1.3, 2.4, 3.0], dtype=np.float32)
+        local = _compute_section_pulse_clarity(beats, track_pulse_clarity=None)
+        blended = _compute_section_pulse_clarity(beats, track_pulse_clarity=0.2)
+        expected = float(np.clip(0.7 * local + 0.3 * 0.2, 0.0, 1.0))
+        assert blended == pytest.approx(expected)
+
+    def test_short_section_falls_back_to_track_or_zero(self) -> None:
+        beats = np.array([0.2, 0.8], dtype=np.float32)
+        assert _compute_section_pulse_clarity(
+            beats,
+            track_pulse_clarity=0.6,
+        ) == pytest.approx(0.6)
+        assert _compute_section_pulse_clarity(
+            beats,
+            track_pulse_clarity=None,
+        ) == pytest.approx(0.0)

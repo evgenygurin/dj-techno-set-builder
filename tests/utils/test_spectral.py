@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import pytest
 
 essentia = pytest.importorskip("essentia")
@@ -34,3 +36,7 @@ class TestExtractSpectralFeatures:
         result = extract_spectral_features(long_sine_440hz)
         assert result.flux_mean >= 0
         assert result.flux_std >= 0
+
+    def test_slope_finite(self, long_sine_440hz: AudioSignal) -> None:
+        result = extract_spectral_features(long_sine_440hz)
+        assert math.isfinite(result.slope_db_per_oct)

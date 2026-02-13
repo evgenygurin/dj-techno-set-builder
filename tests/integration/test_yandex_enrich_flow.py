@@ -1,4 +1,5 @@
 """E2E test: create tracks → enrich from YM (mocked) → verify all metadata populated."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -6,9 +7,7 @@ from unittest.mock import AsyncMock
 from app.repositories.yandex_metadata import YandexMetadataRepository
 
 
-def _make_ym_track(
-    ym_id: int, title: str, artist: str, genre: str, label: str, year: int
-) -> dict:
+def _make_ym_track(ym_id: int, title: str, artist: str, genre: str, label: str, year: int) -> dict:
     return {
         "id": ym_id,
         "title": title,
@@ -35,9 +34,7 @@ _MOCK_YM_DATA = {
     "klaudia gawlas": _make_ym_track(
         78966611, "Momentum", "Klaudia Gawlas", "techno", "KD RAW", 2021
     ),
-    "fantoo": _make_ym_track(
-        85546833, "Anxiety", "Fantoo", "techno", "Phobia", 2023
-    ),
+    "fantoo": _make_ym_track(85546833, "Anxiety", "Fantoo", "techno", "Phobia", 2023),
 }
 
 
@@ -99,7 +96,5 @@ async def test_enrich_api_endpoint(client):
     assert resp.status_code == 422
 
     # Empty track_ids list
-    resp = await client.post(
-        "/api/v1/imports/yandex/enrich", json={"track_ids": []}
-    )
+    resp = await client.post("/api/v1/imports/yandex/enrich", json={"track_ids": []})
     assert resp.status_code == 422

@@ -10,11 +10,13 @@ essentia = pytest.importorskip("essentia")
 from app.errors import NotFoundError  # noqa: E402
 from app.services.track_analysis import TrackAnalysisService  # noqa: E402
 from app.utils.audio import (  # noqa: E402
+    AudioSignal,
     BandEnergyResult,
     BeatsResult,
     BpmResult,
     KeyResult,
     LoudnessResult,
+    SectionResult,
     SpectralResult,
     TrackFeatures,
 )
@@ -61,6 +63,7 @@ def _fake_features(*, with_beats: bool = False) -> TrackFeatures:
             high=0.1,
             low_high_ratio=7.0,
             sub_lowmid_ratio=0.6,
+            energy_slope_mean=-0.001,
         ),
         spectral=SpectralResult(
             centroid_mean_hz=1500.0,
@@ -70,6 +73,8 @@ def _fake_features(*, with_beats: bool = False) -> TrackFeatures:
             flux_mean=0.5,
             flux_std=0.1,
             contrast_mean_db=20.0,
+            slope_db_per_oct=-4.2,
+            hnr_mean_db=12.5,
         ),
         beats=beats,
     )
@@ -131,3 +136,53 @@ class TestTrackAnalysisService:
         assert result.beats is None
         call_args = service.features_repo.save_features.call_args
         assert call_args.args == (1, 1, result)
+
+    async def test_analyze_track_full_persists_section_pulse_clarity(self) -> None:
+        track_repo = MagicMock()
+        track_repo.get_by_id = AsyncMock(return_value=MagicMock(track_id=1))
+        features_repo = MagicMock()
+        features_repo.save_features = AsyncMock()
+        sections_repo = MagicMock()
+        sections_repo.create = AsyncMock()
+        svc = TrackAnalysisService(track_repo, features_repo, sections_repo)
+
+        features = _fake_features(with_beats=True)
+        dummy_signal = AudioSignal(
+            samples=np.zeros(44100, dtype=np.float32),
+            sample_rate=44100,
+            duration_s=1.0,
+        )
+        sections = [
+            SectionResult(
+                section_type=2,
+                start_s=0.0,
+                end_s=1.0,
+                duration_s=1.0,
+                energy_mean=0.8,
+                energy_max=0.9,
+                energy_slope=0.1,
+                boundary_confidence=0.7,
+                centroid_hz=2500.0,
+                flux=0.08,
+                onset_rate=2.0,
+                pulse_clarity=0.77,
+            )
+        ]
+
+        with (
+            patch.object(svc, "_extract_full_sync", return_value=features),
+            patch("app.services.track_analysis.load_audio", return_value=dummy_signal),
+            patch(
+                "app.utils.audio.structure.segment_structure",
+                return_value=sections,
+            ) as mock_segment,
+        ):
+            await svc.analyze_track_full(1, "/fake/path.wav", run_id=42)
+
+        call_kwargs = mock_segment.call_args.kwargs
+        assert call_kwargs["track_pulse_clarity"] == pytest.approx(features.beats.pulse_clarity)
+        assert call_kwargs["beat_times"] is not None
+
+        persisted = sections_repo.create.await_args.kwargs
+        assert persisted["section_onset_rate"] == pytest.approx(2.0)
+        assert persisted["section_pulse_clarity"] == pytest.approx(0.77)

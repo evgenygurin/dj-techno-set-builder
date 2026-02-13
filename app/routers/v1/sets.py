@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
+from app.repositories.audio_features import AudioFeaturesRepository
 from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
 from app.routers.v1._openapi import (
     RESPONSES_CREATE,
@@ -8,6 +9,7 @@ from app.routers.v1._openapi import (
     RESPONSES_GET,
     RESPONSES_UPDATE,
 )
+from app.schemas.set_generation import SetGenerationRequest, SetGenerationResponse
 from app.schemas.sets import (
     DjSetCreate,
     DjSetItemCreate,
@@ -20,6 +22,7 @@ from app.schemas.sets import (
     DjSetVersionList,
     DjSetVersionRead,
 )
+from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
 
 router = APIRouter(prefix="/sets", tags=["sets"])
@@ -111,6 +114,41 @@ async def update_set(set_id: int, data: DjSetUpdate, db: DbSession) -> DjSetRead
 async def delete_set(set_id: int, db: DbSession) -> None:
     await _service(db).delete(set_id)
     await db.commit()
+
+
+# ─── Generation ─────────────────────────────────────────
+
+
+def _generation_service(db: DbSession) -> SetGenerationService:
+    return SetGenerationService(
+        DjSetRepository(db),
+        DjSetVersionRepository(db),
+        DjSetItemRepository(db),
+        AudioFeaturesRepository(db),
+    )
+
+
+@router.post(
+    "/{set_id}/generate",
+    response_model=SetGenerationResponse,
+    status_code=201,
+    summary="Generate set tracklist via GA",
+    description=(
+        "Run a genetic algorithm to find an optimal track ordering for the set. "
+        "Creates a new DjSetVersion with the resulting tracklist."
+    ),
+    response_description="The generated set version with fitness details",
+    responses=RESPONSES_CREATE,
+    operation_id="generate_set",
+)
+async def generate_set(
+    set_id: int,
+    data: SetGenerationRequest,
+    db: DbSession,
+) -> SetGenerationResponse:
+    result = await _generation_service(db).generate(set_id, data)
+    await db.commit()
+    return result
 
 
 # ─── Set Versions ────────────────────────────────────────

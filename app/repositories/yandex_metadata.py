@@ -33,9 +33,7 @@ class YandexMetadataRepository:
                 existing.yandex_track_id = yandex_track_id
             await self.session.flush()
             return existing
-        meta = YandexMetadata(
-            track_id=track_id, yandex_track_id=yandex_track_id, **kwargs
-        )
+        meta = YandexMetadata(track_id=track_id, yandex_track_id=yandex_track_id, **kwargs)
         self.session.add(meta)
         await self.session.flush()
         return meta

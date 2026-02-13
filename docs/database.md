@@ -162,20 +162,34 @@ Compatibility graph between keys. Composite PK: `(from_key_code, to_key_code)`. 
 |-------|---------|-------|
 | Tempo | bpm, tempo_confidence, bpm_stability, is_variable_tempo | bpm: 20-300, others: 0-1 |
 | Loudness | lufs_i, lufs_s_mean, lufs_m_max, rms_dbfs, true_peak_db, crest_factor_db, lra_lu | dB values |
-| Energy | energy_mean/max/std, energy_slope_mean | 0-1 (mean/max) |
+| Energy | energy_mean, energy_max, energy_std, energy_slope_mean | mean/max/std: 0-1, slope: float |
 | Band energies | sub/low/lowmid/mid/highmid/high_energy, ratios | 0-1 |
-| Spectral | centroid_mean_hz, rolloff_85/95_hz, flatness_mean, flux_mean/std, slope, contrast | Hz or 0-1 |
-| Tonal | key_code (FK), key_confidence, is_atonal, chroma (vector(12)), hnr_mean_db | 0-1 (confidence) |
-| Rhythm | hp_ratio, onset_rate_mean/max, pulse_clarity, kick_prominence | 0-1 |
+| Spectral | centroid_mean_hz, rolloff_85/95_hz, flatness_mean, flux_mean/std, slope_db_per_oct, contrast_mean_db | Hz / dB / float |
+| Tonal | key_code (FK), key_confidence, is_atonal, chroma (vector(12)), hnr_mean_db | confidence: 0-1, HNR: dB |
+| Rhythm | hp_ratio, onset_rate_mean/max, pulse_clarity, kick_prominence | mixed units (ratio, onsets/s, 0-1) |
 
 HNSW index on `chroma` for harmonic profile similarity search.
+
+Runtime population notes:
+
+- `feature_extraction_runs.parameters` and `feature_extraction_runs.code_ref` are written by `AnalysisOrchestrator` when a run is created.
+- `energy_slope_mean` and `energy_std` are derived from frame-level RMS energy.
+- `slope_db_per_oct` is computed as a linear fit of spectrum magnitude (dB) over log2-frequency (octaves).
+- `hnr_mean_db` is computed as frame-level Harmonics-to-Noise Ratio and averaged over track frames.
 
 ### 8. Track Sections
 
 #### track_sections
 Structural segmentation results. `range_ms` (int4range in PostgreSQL, start_ms/end_ms in ORM). `section_type`: 0=intro, 1=buildup, 2=drop, 3=breakdown, 4=outro, 5=break, 6=inst, 7=verse, 8=chorus, 9=bridge, 10=solo, 11=unknown.
 
-Per-section aggregates: energy_mean, energy_max, centroid_hz, flux, onset_rate, pulse_clarity, boundary_confidence (all 0-1).
+Per-section aggregates: energy_mean, energy_max, centroid_hz, flux, onset_rate, pulse_clarity, boundary_confidence.
+
+Section metric notes:
+
+- `section_centroid_hz` and `section_flux` are computed per section from frame-level spectra.
+- `section_onset_rate` uses beat density inside section boundaries.
+- `section_pulse_clarity` is computed from beat-interval regularity (IOI coefficient of variation) with fallback to track-level pulse clarity.
+- `boundary_confidence` is normalized novelty at section boundary.
 
 Composite unique `(section_id, track_id)` enables composite FKs from transitions and set items.
 
@@ -281,6 +295,46 @@ The ORM models are designed to work on both PostgreSQL and SQLite (for tests):
 | `text[]` | Not mapped (app-level only) |
 | `bytea` with CHECK | Not mapped in ORM |
 | `NULLS NOT DISTINCT` | Standard UNIQUE (SQLite ignores) |
+
+## Backfill and Validation (dev.db)
+
+For historical rows created before recent pipeline changes, run:
+
+```bash
+.venv/bin/python scripts/fix_db_gaps.py
+.venv/bin/python scripts/reanalyze_partial.py --all
+```
+
+Recommended validation queries:
+
+```sql
+-- artist sort keys
+SELECT COUNT(*) AS artists_name_sort_nulls
+FROM artists
+WHERE name_sort IS NULL;
+
+-- run metadata
+SELECT
+  SUM(CASE WHEN parameters IS NULL THEN 1 ELSE 0 END) AS parameters_nulls,
+  SUM(CASE WHEN code_ref IS NULL THEN 1 ELSE 0 END) AS code_ref_nulls
+FROM feature_extraction_runs
+WHERE run_id IN (SELECT DISTINCT run_id FROM track_audio_features_computed);
+
+-- feature columns
+SELECT
+  SUM(CASE WHEN energy_slope_mean IS NULL THEN 1 ELSE 0 END) AS energy_slope_nulls,
+  SUM(CASE WHEN hnr_mean_db IS NULL THEN 1 ELSE 0 END) AS hnr_nulls,
+  SUM(CASE WHEN slope_db_per_oct IS NULL THEN 1 ELSE 0 END) AS spectral_slope_nulls
+FROM track_audio_features_computed;
+
+-- section columns
+SELECT
+  SUM(CASE WHEN section_centroid_hz IS NULL THEN 1 ELSE 0 END) AS centroid_nulls,
+  SUM(CASE WHEN section_flux IS NULL THEN 1 ELSE 0 END) AS flux_nulls,
+  SUM(CASE WHEN section_onset_rate IS NULL THEN 1 ELSE 0 END) AS onset_rate_nulls,
+  SUM(CASE WHEN section_pulse_clarity IS NULL THEN 1 ELSE 0 END) AS pulse_clarity_nulls
+FROM track_sections;
+```
 
 ## Enum Mappings
 

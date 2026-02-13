@@ -13,9 +13,7 @@ async def test_search_tracks():
                     {
                         "id": 103119407,
                         "title": "Octopus Neuroplasticity",
-                        "artists": [
-                            {"id": 3976138, "name": "Jouska", "various": False}
-                        ],
+                        "artists": [{"id": 3976138, "name": "Jouska", "various": False}],
                         "albums": [
                             {
                                 "id": 36081872,
@@ -45,9 +43,7 @@ def test_parse_track_metadata():
         "id": 123,
         "title": "Test",
         "artists": [{"id": 1, "name": "DJ", "various": False}],
-        "albums": [
-            {"id": 10, "title": "EP", "genre": "techno", "labels": [], "year": 2024}
-        ],
+        "albums": [{"id": 10, "title": "EP", "genre": "techno", "labels": [], "year": 2024}],
         "durationMs": 300000,
     }
     parsed = parse_ym_track(track)

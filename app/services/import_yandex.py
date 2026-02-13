@@ -24,6 +24,7 @@ from app.models.ingestion import ProviderTrackId, RawProviderResponse
 from app.repositories.yandex_metadata import YandexMetadataRepository
 from app.services.base import BaseService
 from app.services.yandex_music_client import ParsedYmTrack, YandexMusicClient, parse_ym_track
+from app.utils.text_sort import sort_key
 
 _PROVIDER_ID = 4  # yandex_music — seeded in schema_v6.sql
 
@@ -154,7 +155,7 @@ class ImportYandexService(BaseService):
         artist = (await self.session.execute(stmt)).scalar_one_or_none()
         if artist:
             return artist
-        artist = Artist(name=name)
+        artist = Artist(name=name, name_sort=sort_key(name))
         self.session.add(artist)
         await self.session.flush()
         return artist
@@ -174,7 +175,7 @@ class ImportYandexService(BaseService):
         label = (await self.session.execute(stmt)).scalar_one_or_none()
         if label:
             return label
-        label = Label(name=name)
+        label = Label(name=name, name_sort=sort_key(name))
         self.session.add(label)
         await self.session.flush()
         return label

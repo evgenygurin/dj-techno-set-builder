@@ -34,14 +34,13 @@ async def test_yandex_metadata_unique_yandex_track_id(session):
     session.add_all([t1, t2])
     await session.flush()
 
-    meta1 = YandexMetadata(
-        track_id=t1.track_id, yandex_track_id="111"
-    )
+    meta1 = YandexMetadata(track_id=t1.track_id, yandex_track_id="111")
     session.add(meta1)
     await session.flush()
 
     meta2 = YandexMetadata(
-        track_id=t2.track_id, yandex_track_id="111"  # same ym id
+        track_id=t2.track_id,
+        yandex_track_id="111",  # same ym id
     )
     session.add(meta2)
     with pytest.raises(IntegrityError):

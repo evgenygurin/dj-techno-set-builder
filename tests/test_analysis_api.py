@@ -44,6 +44,7 @@ def _fake_features() -> TrackFeatures:
             high=0.1,
             low_high_ratio=7.0,
             sub_lowmid_ratio=0.6,
+            energy_slope_mean=-0.001,
         ),
         spectral=SpectralResult(
             centroid_mean_hz=1500.0,
@@ -53,6 +54,8 @@ def _fake_features() -> TrackFeatures:
             flux_mean=0.5,
             flux_std=0.1,
             contrast_mean_db=20.0,
+            slope_db_per_oct=-4.2,
+            hnr_mean_db=12.5,
         ),
     )
 
@@ -79,6 +82,71 @@ async def test_analyze_track_endpoint(mock_extract, client):
     assert body["status"] == "completed"
     assert body["bpm"] == 140.0
     assert body["key_code"] == 18
+
+
+@patch("app.services.track_analysis.extract_all_features")
+async def test_analyze_persists_new_fields(mock_extract, client, session):
+    """Verify newly added feature columns are persisted."""
+    mock_extract.return_value = _fake_features()
+
+    track_resp = await client.post(
+        "/api/v1/tracks",
+        json={"title": "Slope Test", "duration_ms": 300000},
+    )
+    track_id = track_resp.json()["track_id"]
+
+    resp = await client.post(
+        f"/api/v1/tracks/{track_id}/analyze",
+        json={"audio_path": "/fake/path.wav"},
+    )
+    assert resp.status_code == 201
+
+    from sqlalchemy import text
+
+    row = (
+        await session.execute(
+            text(
+                "SELECT energy_slope_mean, hnr_mean_db, slope_db_per_oct"
+                " FROM track_audio_features_computed"
+                " WHERE track_id = :tid"
+            ),
+            {"tid": track_id},
+        )
+    ).one()
+    assert row.energy_slope_mean == pytest.approx(-0.001)
+    assert row.hnr_mean_db == pytest.approx(12.5)
+    assert row.slope_db_per_oct == pytest.approx(-4.2)
+
+
+@patch("app.services.track_analysis.extract_all_features")
+async def test_analyze_run_has_parameters(mock_extract, client, session):
+    """Verify feature_extraction_runs gets parameters and code_ref."""
+    mock_extract.return_value = _fake_features()
+
+    track_resp = await client.post(
+        "/api/v1/tracks",
+        json={"title": "Params Test", "duration_ms": 300000},
+    )
+    track_id = track_resp.json()["track_id"]
+
+    resp = await client.post(
+        f"/api/v1/tracks/{track_id}/analyze",
+        json={"audio_path": "/fake/path.wav"},
+    )
+    assert resp.status_code == 201
+    run_id = resp.json()["run_id"]
+
+    from sqlalchemy import text
+
+    row = (
+        await session.execute(
+            text("SELECT parameters, code_ref FROM feature_extraction_runs WHERE run_id = :rid"),
+            {"rid": run_id},
+        )
+    ).one()
+    assert row.parameters is not None
+    assert row.code_ref is not None
+    assert "essentia" in row.code_ref
 
 
 @patch("app.services.track_analysis.extract_all_features")

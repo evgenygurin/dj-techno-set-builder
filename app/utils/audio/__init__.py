@@ -17,6 +17,14 @@ from app.utils.audio.camelot import camelot_distance, is_compatible, key_code_to
 from app.utils.audio.groove import groove_similarity
 from app.utils.audio.loader import load_audio, validate_audio
 from app.utils.audio.pipeline import extract_all_features
+from app.utils.audio.set_generator import (
+    EnergyArcType,
+    GAConfig,
+    GAResult,
+    GeneticSetGenerator,
+    TrackData,
+    target_energy_curve,
+)
 from app.utils.audio.structure import segment_structure
 from app.utils.audio.transition_score import score_transition
 
@@ -28,11 +36,16 @@ __all__ = [
     "BandEnergyResult",
     "BeatsResult",
     "BpmResult",
+    "EnergyArcType",
+    "GAConfig",
+    "GAResult",
+    "GeneticSetGenerator",
     "KeyResult",
     "LoudnessResult",
     "SectionResult",
     "SpectralResult",
     "StemsResult",
+    "TrackData",
     "TrackFeatures",
     "TransitionScore",
     "camelot_distance",
@@ -44,5 +57,6 @@ __all__ = [
     "load_audio",
     "score_transition",
     "segment_structure",
+    "target_energy_curve",
     "validate_audio",
 ]

@@ -183,4 +183,6 @@ class TransitionScoringService(BaseService):
             flux_mean=feat.flux_mean or 0.0,
             flux_std=feat.flux_std or 0.0,
             contrast_mean_db=feat.contrast_mean_db or 0.0,
+            slope_db_per_oct=feat.slope_db_per_oct or 0.0,
+            hnr_mean_db=feat.hnr_mean_db or 0.0,
         )

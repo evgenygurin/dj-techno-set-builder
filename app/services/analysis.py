@@ -33,6 +33,8 @@ class AnalysisOrchestrator(BaseService):
         run = await self.run_repo.create(
             pipeline_name=request.pipeline_name,
             pipeline_version=request.pipeline_version,
+            parameters={"full_analysis": request.full_analysis},
+            code_ref=f"{request.pipeline_name}@{request.pipeline_version}",
             status="running",
         )
 
