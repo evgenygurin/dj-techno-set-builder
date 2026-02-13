@@ -81,7 +81,7 @@ class TestTrackAnalysisService:
         track_repo = MagicMock()
         track_repo.get_by_id = AsyncMock(return_value=MagicMock(track_id=1))
         features_repo = MagicMock()
-        features_repo.create = AsyncMock()
+        features_repo.save_features = AsyncMock()
         return TrackAnalysisService(track_repo, features_repo)
 
     @patch("app.services.track_analysis.extract_all_features")
@@ -99,7 +99,7 @@ class TestTrackAnalysisService:
     ) -> None:
         mock_extract.return_value = _fake_features()
         await service.analyze_track(1, "/fake/path.wav", run_id=1)
-        service.features_repo.create.assert_awaited_once()
+        service.features_repo.save_features.assert_awaited_once()
 
     async def test_raises_not_found(self) -> None:
         track_repo = MagicMock()
@@ -110,22 +110,24 @@ class TestTrackAnalysisService:
             await svc.analyze_track(999, "/fake.wav", run_id=1)
 
     @patch("app.services.track_analysis.extract_all_features")
-    async def test_persists_beats_fields_when_present(
+    async def test_persists_beats_when_present(
         self, mock_extract: MagicMock, service: TrackAnalysisService
     ) -> None:
         mock_extract.return_value = _fake_features(with_beats=True)
-        await service.analyze_track(1, "/fake/path.wav", run_id=1)
-        call_kwargs = service.features_repo.create.call_args.kwargs
-        assert call_kwargs["onset_rate_mean"] == 2.3
-        assert call_kwargs["pulse_clarity"] == 0.7
-        assert call_kwargs["kick_prominence"] == 0.5
+        result = await service.analyze_track(1, "/fake/path.wav", run_id=1)
+        assert result.beats is not None
+        assert result.beats.onset_rate_mean == 2.3
+        assert result.beats.pulse_clarity == 0.7
+        # save_features receives the full TrackFeatures object
+        call_args = service.features_repo.save_features.call_args
+        assert call_args.args == (1, 1, result)
 
     @patch("app.services.track_analysis.extract_all_features")
-    async def test_beats_fields_none_when_absent(
+    async def test_beats_none_when_absent(
         self, mock_extract: MagicMock, service: TrackAnalysisService
     ) -> None:
         mock_extract.return_value = _fake_features(with_beats=False)
-        await service.analyze_track(1, "/fake/path.wav", run_id=1)
-        call_kwargs = service.features_repo.create.call_args.kwargs
-        assert call_kwargs["onset_rate_mean"] is None
-        assert call_kwargs["pulse_clarity"] is None
+        result = await service.analyze_track(1, "/fake/path.wav", run_id=1)
+        assert result.beats is None
+        call_args = service.features_repo.save_features.call_args
+        assert call_args.args == (1, 1, result)
