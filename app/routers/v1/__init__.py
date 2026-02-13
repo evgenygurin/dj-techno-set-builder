@@ -5,6 +5,7 @@ from app.routers.v1 import (
     artists,
     features,
     genres,
+    imports,
     keys,
     labels,
     playlists,
@@ -32,3 +33,4 @@ v1_router.include_router(features.router)
 v1_router.include_router(sections.router)
 v1_router.include_router(analysis.router)
 v1_router.include_router(yandex_music.router)
+v1_router.include_router(imports.router)

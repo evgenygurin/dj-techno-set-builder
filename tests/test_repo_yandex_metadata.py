@@ -1,4 +1,4 @@
-from app.models import Track, YandexMetadata
+from app.models import Track
 from app.repositories.yandex_metadata import YandexMetadataRepository
 
 

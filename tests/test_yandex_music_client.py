@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
 
