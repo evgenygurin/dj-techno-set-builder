@@ -6,12 +6,10 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 import pytest
+import soundfile as sf
 from numpy.typing import NDArray
 
-essentia = pytest.importorskip("essentia")
-soundfile = pytest.importorskip("soundfile")
-
-from app.utils.audio import AudioSignal  # noqa: E402
+from app.utils.audio import AudioSignal
 
 SR = 44100
 
@@ -69,6 +67,6 @@ def wav_file_path(long_sine_440hz: AudioSignal) -> Generator[Path, None, None]:
     """Temporary WAV file for loader tests."""
     with NamedTemporaryFile(suffix=".wav", delete=False) as f:
         path = Path(f.name)
-    soundfile.write(str(path), long_sine_440hz.samples, long_sine_440hz.sample_rate)
+    sf.write(str(path), long_sine_440hz.samples, long_sine_440hz.sample_rate)
     yield path
     path.unlink(missing_ok=True)

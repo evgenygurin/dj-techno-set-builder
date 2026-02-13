@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from math import gcd
 from pathlib import Path
 
 import numpy as np
 import soundfile as sf
+from scipy.signal import resample_poly
 
 from app.utils.audio._errors import AudioValidationError
 from app.utils.audio._types import AudioSignal
@@ -36,12 +38,10 @@ def load_audio(
     else:
         data = data[:, 0] if data.ndim == 2 else data
 
-    # Resample if needed (simple linear interpolation — sufficient for analysis)
+    # Resample with anti-alias filter via polyphase filtering
     if sr != target_sr:
-        duration = len(data) / sr
-        new_length = int(duration * target_sr)
-        indices = np.linspace(0, len(data) - 1, new_length)
-        data = np.interp(indices, np.arange(len(data)), data).astype(np.float32)
+        g = gcd(target_sr, sr)
+        data = resample_poly(data, target_sr // g, sr // g).astype(np.float32)
         sr = target_sr
 
     duration_s = len(data) / sr
