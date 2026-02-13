@@ -14,6 +14,7 @@ from app.routers.v1 import (
     sets,
     tracks,
     transitions,
+    yandex_music,
 )
 
 v1_router = APIRouter(prefix="/api/v1")
@@ -30,3 +31,4 @@ v1_router.include_router(runs.router)
 v1_router.include_router(features.router)
 v1_router.include_router(sections.router)
 v1_router.include_router(analysis.router)
+v1_router.include_router(yandex_music.router)
