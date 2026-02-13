@@ -7,19 +7,13 @@ from app.utils.audio.groove import groove_similarity
 
 class TestGrooveSimilarity:
     def test_identical_envelopes_max_similarity(self) -> None:
-        env = np.array(
-            [0.1, 0.5, 0.2, 0.8, 0.1, 0.5, 0.2, 0.8], dtype=np.float32
-        )
+        env = np.array([0.1, 0.5, 0.2, 0.8, 0.1, 0.5, 0.2, 0.8], dtype=np.float32)
         score = groove_similarity(env, env)
         assert score > 0.95
 
     def test_opposite_envelopes_low_similarity(self) -> None:
-        env_a = np.array(
-            [1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0], dtype=np.float32
-        )
-        env_b = np.array(
-            [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0], dtype=np.float32
-        )
+        env_a = np.array([1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0], dtype=np.float32)
+        env_b = np.array([0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0], dtype=np.float32)
         score = groove_similarity(env_a, env_b)
         assert score < 0.5
 
@@ -34,13 +28,7 @@ class TestGrooveSimilarity:
         rng = np.random.default_rng(42)
         env_a = rng.random(500).astype(np.float32)
         env_b = rng.random(500).astype(np.float32)
-        assert (
-            abs(
-                groove_similarity(env_a, env_b)
-                - groove_similarity(env_b, env_a)
-            )
-            < 1e-6
-        )
+        assert abs(groove_similarity(env_a, env_b) - groove_similarity(env_b, env_a)) < 1e-6
 
     def test_different_lengths_handled(self) -> None:
         env_a = np.ones(100, dtype=np.float32)
@@ -59,7 +47,5 @@ class TestGrooveSimilarity:
         pattern = np.tile([1.0, 0.0, 0.5, 0.0], 25).astype(np.float32)
         rng = np.random.default_rng(42)
         noisy = pattern + rng.normal(0, 0.1, len(pattern)).astype(np.float32)
-        score = groove_similarity(
-            pattern, np.clip(noisy, 0, 2).astype(np.float32)
-        )
+        score = groove_similarity(pattern, np.clip(noisy, 0, 2).astype(np.float32))
         assert score > 0.7

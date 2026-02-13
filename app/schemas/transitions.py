@@ -25,3 +25,21 @@ class TransitionRead(BaseSchema):
 class TransitionList(BaseSchema):
     items: list[TransitionRead]
     total: int
+
+
+class TransitionComputeRequest(BaseSchema):
+    from_track_id: int
+    to_track_id: int
+    run_id: int
+    groove_sim: float = 0.5
+    weights: dict[str, float] | None = None
+
+
+class TransitionComputeResponse(BaseSchema):
+    transition_quality: float
+    bpm_distance: float
+    key_distance_weighted: float
+    energy_step: float
+    low_conflict_score: float
+    overlap_score: float
+    groove_similarity: float

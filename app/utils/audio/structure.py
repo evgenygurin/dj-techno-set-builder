@@ -44,9 +44,7 @@ def _frame_energies(signal: AudioSignal) -> np.ndarray:
     import essentia.standard as es
 
     energies: list[float] = []
-    for frame in es.FrameGenerator(
-        signal.samples, frameSize=_FRAME_SIZE, hopSize=_HOP_SIZE
-    ):
+    for frame in es.FrameGenerator(signal.samples, frameSize=_FRAME_SIZE, hopSize=_HOP_SIZE):
         energies.append(float(np.sqrt(np.mean(frame**2))))
     return np.array(energies, dtype=np.float32)
 
@@ -160,15 +158,11 @@ def segment_structure(
         # Boundary confidence: novelty height at this boundary
         boundary_conf = 0.5  # default for first/last
         if 0 < i < len(all_boundaries) - 1:
-            smooth = uniform_filter1d(
-                norm_energy.astype(np.float64), size=_SMOOTH_WINDOW
-            )
+            smooth = uniform_filter1d(norm_energy.astype(np.float64), size=_SMOOTH_WINDOW)
             novelty = np.abs(np.diff(smooth))
             nov_max = novelty.max() or 1.0
             if start_frame < len(novelty):
-                boundary_conf = float(
-                    np.clip(novelty[start_frame] / nov_max, 0.0, 1.0)
-                )
+                boundary_conf = float(np.clip(novelty[start_frame] / nov_max, 0.0, 1.0))
 
         section_type = _label_section(
             e_mean,

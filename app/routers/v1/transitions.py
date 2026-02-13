@@ -1,9 +1,18 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
+from app.errors import ValidationError
+from app.repositories.audio_features import AudioFeaturesRepository
+from app.repositories.candidates import CandidateRepository
 from app.repositories.transitions import TransitionRepository
 from app.routers.v1._openapi import RESPONSES_DELETE, RESPONSES_GET
-from app.schemas.transitions import TransitionList, TransitionRead
+from app.schemas.transitions import (
+    TransitionComputeRequest,
+    TransitionComputeResponse,
+    TransitionList,
+    TransitionRead,
+)
+from app.services.transition_scoring import TransitionScoringService
 from app.services.transitions import TransitionService
 
 router = APIRouter(prefix="/transitions", tags=["transitions"])
@@ -11,6 +20,14 @@ router = APIRouter(prefix="/transitions", tags=["transitions"])
 
 def _service(db: DbSession) -> TransitionService:
     return TransitionService(TransitionRepository(db))
+
+
+def _scoring_service(db: DbSession) -> TransitionScoringService:
+    return TransitionScoringService(
+        AudioFeaturesRepository(db),
+        TransitionRepository(db),
+        CandidateRepository(db),
+    )
 
 
 @router.get(
@@ -67,3 +84,37 @@ async def get_transition(transition_id: int, db: DbSession) -> TransitionRead:
 async def delete_transition(transition_id: int, db: DbSession) -> None:
     await _service(db).delete(transition_id)
     await db.commit()
+
+
+@router.post(
+    "/compute",
+    response_model=TransitionComputeResponse,
+    summary="Compute transition score",
+    description="Score a transition between two tracks using their audio features.",
+    response_description="Computed transition score and components",
+    operation_id="compute_transition",
+)
+async def compute_transition(
+    data: TransitionComputeRequest, db: DbSession
+) -> TransitionComputeResponse:
+    svc = _scoring_service(db)
+    try:
+        result = await svc.score_pair(
+            from_track_id=data.from_track_id,
+            to_track_id=data.to_track_id,
+            run_id=data.run_id,
+            groove_sim=data.groove_sim,
+            weights=data.weights,
+        )
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+    await db.commit()
+    return TransitionComputeResponse(
+        transition_quality=result.transition_quality,
+        bpm_distance=result.bpm_distance,
+        key_distance_weighted=result.key_distance_weighted,
+        energy_step=result.energy_step,
+        low_conflict_score=result.low_conflict_score,
+        overlap_score=result.overlap_score,
+        groove_similarity=result.groove_similarity,
+    )

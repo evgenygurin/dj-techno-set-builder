@@ -1,6 +1,5 @@
 from unittest.mock import AsyncMock, MagicMock
 
-import numpy as np
 import pytest
 
 essentia = pytest.importorskip("essentia")
@@ -9,9 +8,7 @@ from app.models.features import TrackAudioFeaturesComputed  # noqa: E402
 from app.services.transition_scoring import TransitionScoringService  # noqa: E402
 
 
-def _mock_features(
-    track_id: int, bpm: float = 140.0, key_code: int = 18
-) -> MagicMock:
+def _mock_features(track_id: int, bpm: float = 140.0, key_code: int = 18) -> MagicMock:
     """Create a mock TrackAudioFeaturesComputed row."""
     feat = MagicMock(spec=TrackAudioFeaturesComputed)
     feat.track_id = track_id
@@ -50,18 +47,12 @@ class TestTransitionScoringService:
         transitions_repo.create = AsyncMock()
         candidates_repo = MagicMock()
         candidates_repo.create = AsyncMock()
-        return TransitionScoringService(
-            features_repo, transitions_repo, candidates_repo
-        )
+        return TransitionScoringService(features_repo, transitions_repo, candidates_repo)
 
-    async def test_score_pair(
-        self, service: TransitionScoringService
-    ) -> None:
+    async def test_score_pair(self, service: TransitionScoringService) -> None:
         feat_a = _mock_features(1, bpm=140.0, key_code=18)
         feat_b = _mock_features(2, bpm=142.0, key_code=18)
-        service.features_repo.get_by_track = AsyncMock(
-            side_effect=[feat_a, feat_b]
-        )
+        service.features_repo.get_by_track = AsyncMock(side_effect=[feat_a, feat_b])
 
         result = await service.score_pair(
             from_track_id=1,
@@ -72,11 +63,7 @@ class TestTransitionScoringService:
         assert result.bpm_distance == pytest.approx(2.0)
         service.transitions_repo.create.assert_awaited_once()
 
-    async def test_score_pair_missing_features(
-        self, service: TransitionScoringService
-    ) -> None:
+    async def test_score_pair_missing_features(self, service: TransitionScoringService) -> None:
         service.features_repo.get_by_track = AsyncMock(return_value=None)
         with pytest.raises(ValueError, match="No features"):
-            await service.score_pair(
-                from_track_id=1, to_track_id=2, run_id=1
-            )
+            await service.score_pair(from_track_id=1, to_track_id=2, run_id=1)

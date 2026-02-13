@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.models.runs import FeatureExtractionRun, TransitionRun
 from app.repositories.base import BaseRepository
@@ -15,7 +15,7 @@ class FeatureRunRepository(BaseRepository[FeatureExtractionRun]):
         return await self.update(
             run,
             status="completed",
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
         )
 
     async def mark_failed(self, run_id: int) -> FeatureExtractionRun:
@@ -26,7 +26,7 @@ class FeatureRunRepository(BaseRepository[FeatureExtractionRun]):
         return await self.update(
             run,
             status="failed",
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
         )
 
 
@@ -41,7 +41,7 @@ class TransitionRunRepository(BaseRepository[TransitionRun]):
         return await self.update(
             run,
             status="completed",
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
         )
 
     async def mark_failed(self, run_id: int) -> TransitionRun:
@@ -52,5 +52,5 @@ class TransitionRunRepository(BaseRepository[TransitionRun]):
         return await self.update(
             run,
             status="failed",
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
         )

@@ -21,13 +21,9 @@ class AnalysisOrchestrator(BaseService):
         super().__init__()
         self.track_repo = track_repo
         self.run_repo = run_repo
-        self.analysis_svc = TrackAnalysisService(
-            track_repo, features_repo, sections_repo
-        )
+        self.analysis_svc = TrackAnalysisService(track_repo, features_repo, sections_repo)
 
-    async def analyze(
-        self, track_id: int, request: AnalysisRequest
-    ) -> AnalysisResponse:
+    async def analyze(self, track_id: int, request: AnalysisRequest) -> AnalysisResponse:
         # Validate track exists
         track = await self.track_repo.get_by_id(track_id)
         if not track:

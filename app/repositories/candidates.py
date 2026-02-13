@@ -28,7 +28,6 @@ class CandidateRepository(BaseRepository[TransitionCandidate]):
         limit: int = 50,
     ) -> tuple[list[TransitionCandidate], int]:
         filters: list[Any] = [
-            (self.model.from_track_id == track_id)
-            | (self.model.to_track_id == track_id),
+            (self.model.from_track_id == track_id) | (self.model.to_track_id == track_id),
         ]
         return await self.list(offset=offset, limit=limit, filters=filters)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 
 import numpy as np
@@ -75,9 +76,7 @@ class TransitionScoringService(BaseService):
         )
 
         # Persist
-        centroid_gap = abs(
-            (feat_a.centroid_mean_hz or 0) - (feat_b.centroid_mean_hz or 0)
-        )
+        centroid_gap = abs((feat_a.centroid_mean_hz or 0) - (feat_b.centroid_mean_hz or 0))
         await self.transitions_repo.create(
             run_id=run_id,
             from_track_id=from_track_id,
@@ -134,15 +133,23 @@ class TransitionScoringService(BaseService):
     def _to_key(feat: TrackAudioFeaturesComputed) -> KeyResult:
         chroma = np.zeros(12, dtype=np.float32)
         if feat.chroma:
-            try:
+            with contextlib.suppress(json.JSONDecodeError, ValueError):
                 chroma = np.array(json.loads(feat.chroma), dtype=np.float32)
-            except (json.JSONDecodeError, ValueError):
-                pass
         pitch_class = feat.key_code // 2
         mode = feat.key_code % 2
         pitch_names = [
-            "C", "C#", "D", "D#", "E", "F",
-            "F#", "G", "G#", "A", "A#", "B",
+            "C",
+            "C#",
+            "D",
+            "D#",
+            "E",
+            "F",
+            "F#",
+            "G",
+            "G#",
+            "A",
+            "A#",
+            "B",
         ]
         return KeyResult(
             key=pitch_names[pitch_class],

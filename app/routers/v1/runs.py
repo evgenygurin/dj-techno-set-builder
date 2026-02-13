@@ -83,9 +83,7 @@ async def get_feature_run(run_id: int, db: DbSession) -> FeatureRunRead:
     response_description="The created run",
     operation_id="create_transition_run",
 )
-async def create_transition_run(
-    data: TransitionRunCreate, db: DbSession
-) -> TransitionRunRead:
+async def create_transition_run(data: TransitionRunCreate, db: DbSession) -> TransitionRunRead:
     result = await _transition_svc(db).create(data)
     await db.commit()
     return result

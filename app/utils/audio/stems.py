@@ -38,6 +38,7 @@ def separate_stems(
     import torch
     from demucs.apply import apply_model
     from demucs.pretrained import get_model
+
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -76,9 +77,7 @@ def separate_stems(
     sources_np: np.ndarray[Any, Any] = sources.squeeze(0).cpu().numpy()
 
     # Build stem name → index mapping
-    stem_map: dict[str, int] = {
-        name: i for i, name in enumerate(model.sources)
-    }
+    stem_map: dict[str, int] = {name: i for i, name in enumerate(model.sources)}
 
     stems: dict[str, AudioSignal] = {}
     for name in _STEM_NAMES:

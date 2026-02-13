@@ -49,60 +49,44 @@ def techno_structure() -> AudioSignal:
 
 
 class TestSegmentStructure:
-    def test_returns_list_of_sections(
-        self, techno_structure: AudioSignal
-    ) -> None:
+    def test_returns_list_of_sections(self, techno_structure: AudioSignal) -> None:
         sections = segment_structure(techno_structure)
         assert isinstance(sections, list)
         assert all(isinstance(s, SectionResult) for s in sections)
 
-    def test_at_least_two_sections(
-        self, techno_structure: AudioSignal
-    ) -> None:
+    def test_at_least_two_sections(self, techno_structure: AudioSignal) -> None:
         sections = segment_structure(techno_structure)
         assert len(sections) >= 2
 
-    def test_sections_cover_full_duration(
-        self, techno_structure: AudioSignal
-    ) -> None:
+    def test_sections_cover_full_duration(self, techno_structure: AudioSignal) -> None:
         sections = segment_structure(techno_structure)
         assert sections[0].start_s < 2.0  # starts near beginning
         assert sections[-1].end_s > techno_structure.duration_s - 1.0
 
-    def test_sections_non_overlapping(
-        self, techno_structure: AudioSignal
-    ) -> None:
+    def test_sections_non_overlapping(self, techno_structure: AudioSignal) -> None:
         sections = segment_structure(techno_structure)
         for i in range(len(sections) - 1):
             # small tolerance
             assert sections[i].end_s <= sections[i + 1].start_s + 0.1
 
-    def test_section_type_valid(
-        self, techno_structure: AudioSignal
-    ) -> None:
+    def test_section_type_valid(self, techno_structure: AudioSignal) -> None:
         sections = segment_structure(techno_structure)
         for s in sections:
             assert 0 <= s.section_type <= 11
 
-    def test_energy_fields_range(
-        self, techno_structure: AudioSignal
-    ) -> None:
+    def test_energy_fields_range(self, techno_structure: AudioSignal) -> None:
         sections = segment_structure(techno_structure)
         for s in sections:
             assert 0.0 <= s.energy_mean <= 1.0
             assert 0.0 <= s.energy_max <= 1.0
             assert 0.0 <= s.boundary_confidence <= 1.0
 
-    def test_duration_positive(
-        self, techno_structure: AudioSignal
-    ) -> None:
+    def test_duration_positive(self, techno_structure: AudioSignal) -> None:
         sections = segment_structure(techno_structure)
         for s in sections:
             assert s.duration_s > 0
 
-    def test_drop_section_has_high_energy(
-        self, techno_structure: AudioSignal
-    ) -> None:
+    def test_drop_section_has_high_energy(self, techno_structure: AudioSignal) -> None:
         """The loudest section should be labeled as DROP (2) or have high energy."""
         sections = segment_structure(techno_structure)
         loudest = max(sections, key=lambda s: s.energy_mean)
