@@ -13,6 +13,18 @@ dependencies = [
     "alembic>=1.14",
 ]
 
+[project.optional-dependencies]
+audio = [
+    "essentia>=2.1b6.dev1389",
+    "soundfile>=0.13",
+    "scipy>=1.12",
+    "numpy>=1.26",
+]
+ml = [
+    "demucs>=4.0",
+    "torch>=2.0",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.3",
@@ -53,9 +65,17 @@ plugins = ["pydantic.mypy"]
 module = ["aiosqlite.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["essentia.*", "soundfile.*", "scipy.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["demucs.*", "torch.*", "torchaudio.*"]
+ignore_missing_imports = true
+
 # ── Pytest ────────────────────────────────────────────────────────────────────
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-filterwarnings = ["error", "ignore::DeprecationWarning"]
+filterwarnings = ["error", "ignore::DeprecationWarning", "ignore::ResourceWarning"]
