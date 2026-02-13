@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.routers.v1 import (
+    analysis,
     artists,
     features,
     genres,
@@ -28,3 +29,4 @@ v1_router.include_router(transitions.router)
 v1_router.include_router(runs.router)
 v1_router.include_router(features.router)
 v1_router.include_router(sections.router)
+v1_router.include_router(analysis.router)
