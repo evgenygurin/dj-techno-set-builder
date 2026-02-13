@@ -2,7 +2,7 @@ from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
 from app.repositories.runs import FeatureRunRepository, TransitionRunRepository
-from app.routers.v1._openapi import RESPONSES_GET
+from app.routers.v1._openapi import RESPONSES_CREATE, RESPONSES_GET
 from app.schemas.runs import (
     FeatureRunCreate,
     FeatureRunList,
@@ -34,6 +34,7 @@ def _transition_svc(db: DbSession) -> TransitionRunService:
     summary="Create feature extraction run",
     description="Start a new feature extraction run to group analysis results.",
     response_description="The created run",
+    responses=RESPONSES_CREATE,
     operation_id="create_feature_run",
 )
 async def create_feature_run(data: FeatureRunCreate, db: DbSession) -> FeatureRunRead:
@@ -52,8 +53,8 @@ async def create_feature_run(data: FeatureRunCreate, db: DbSession) -> FeatureRu
 )
 async def list_feature_runs(
     db: DbSession,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=200, description="Max records to return"),
 ) -> FeatureRunList:
     return await _feature_svc(db).list(offset=offset, limit=limit)
 
@@ -81,6 +82,7 @@ async def get_feature_run(run_id: int, db: DbSession) -> FeatureRunRead:
     summary="Create transition run",
     description="Start a new transition scoring run with given weights and constraints.",
     response_description="The created run",
+    responses=RESPONSES_CREATE,
     operation_id="create_transition_run",
 )
 async def create_transition_run(data: TransitionRunCreate, db: DbSession) -> TransitionRunRead:
@@ -99,8 +101,8 @@ async def create_transition_run(data: TransitionRunCreate, db: DbSession) -> Tra
 )
 async def list_transition_runs(
     db: DbSession,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=200, description="Max records to return"),
 ) -> TransitionRunList:
     return await _transition_svc(db).list(offset=offset, limit=limit)
 

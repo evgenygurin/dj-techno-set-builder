@@ -73,7 +73,7 @@ async def test_analyze_track_endpoint(mock_extract, client):
         f"/api/v1/tracks/{track_id}/analyze",
         json={"audio_path": "/fake/path.wav"},
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 201
     body = resp.json()
     assert body["track_id"] == track_id
     assert body["status"] == "completed"

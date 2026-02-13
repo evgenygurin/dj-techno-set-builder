@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from pydantic import Field
+
 from app.schemas.base import BaseSchema
 
 
@@ -31,8 +33,10 @@ class TransitionComputeRequest(BaseSchema):
     from_track_id: int
     to_track_id: int
     run_id: int
-    groove_sim: float = 0.5
-    weights: dict[str, float] | None = None
+    groove_sim: float = Field(default=0.5, ge=0.0, le=1.0, description="Groove similarity weight")
+    weights: dict[str, float] | None = Field(
+        default=None, examples=[{"bpm": 0.3, "key": 0.25, "energy": 0.2}]
+    )
 
 
 class TransitionComputeResponse(BaseSchema):

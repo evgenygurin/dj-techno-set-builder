@@ -26,7 +26,7 @@ def _service(db: DbSession) -> SectionsService:
 async def list_track_sections(
     track_id: int,
     db: DbSession,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=200, description="Max records to return"),
 ) -> SectionList:
     return await _service(db).list_for_track(track_id, offset=offset, limit=limit)

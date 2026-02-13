@@ -24,6 +24,7 @@ def _service(db: DbSession) -> AnalysisOrchestrator:
 @router.post(
     "/{track_id}/analyze",
     response_model=AnalysisResponse,
+    status_code=201,
     summary="Analyze track audio",
     description=(
         "Extract audio features from a track's audio file. Creates a feature extraction "
