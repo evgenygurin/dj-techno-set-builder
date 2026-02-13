@@ -1,3 +1,5 @@
+from pydantic import Field
+
 from app.schemas.base import BaseSchema
 
 
@@ -15,3 +17,21 @@ class AnalysisResponse(BaseSchema):
     bpm: float | None = None
     key_code: int | None = None
     sections_count: int = 0
+
+
+class BatchAnalysisRequest(BaseSchema):
+    """Batch analyze multiple tracks."""
+
+    track_ids: list[int] = Field(min_length=1, max_length=500)
+    audio_dir: str
+    full_analysis: bool = False
+
+
+class BatchAnalysisResponse(BaseSchema):
+    """Result of batch analysis."""
+
+    total: int = 0
+    completed: int = 0
+    failed: int = 0
+    skipped: int = 0
+    errors: list[str] = Field(default_factory=list)
