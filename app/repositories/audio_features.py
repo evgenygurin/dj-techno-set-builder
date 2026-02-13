@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+from typing import Any
+
+from sqlalchemy import select
 
 from app.models.features import TrackAudioFeaturesComputed
 from app.repositories.base import BaseRepository
@@ -9,6 +12,29 @@ from app.utils.audio._types import TrackFeatures
 
 class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
     model = TrackAudioFeaturesComputed
+
+    async def get_by_track(
+        self,
+        track_id: int,
+        run_id: int | None = None,
+    ) -> TrackAudioFeaturesComputed | None:
+        """Get features for a track, optionally filtered by run."""
+        stmt = select(self.model).where(self.model.track_id == track_id)
+        if run_id is not None:
+            stmt = stmt.where(self.model.run_id == run_id)
+        stmt = stmt.order_by(self.model.created_at.desc()).limit(1)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def list_by_track(
+        self,
+        track_id: int,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[TrackAudioFeaturesComputed], int]:
+        filters: list[Any] = [self.model.track_id == track_id]
+        return await self.list(offset=offset, limit=limit, filters=filters)
 
     async def save_features(
         self,
