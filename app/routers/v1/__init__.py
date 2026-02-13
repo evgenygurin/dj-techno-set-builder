@@ -7,6 +7,7 @@ from app.routers.v1 import (
     labels,
     playlists,
     releases,
+    runs,
     sets,
     tracks,
     transitions,
@@ -22,3 +23,4 @@ v1_router.include_router(sets.router)
 v1_router.include_router(playlists.router)
 v1_router.include_router(keys.router)
 v1_router.include_router(transitions.router)
+v1_router.include_router(runs.router)
