@@ -106,6 +106,9 @@ openapi.json
 *.bak
 db_schema.md
 
+# MCP response cache (DiskStore)
+cache/
+
 # In-Memoria (codebase intelligence)
 in-memoria.db
 in-memoria-vectors.db
