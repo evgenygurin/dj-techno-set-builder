@@ -117,3 +117,8 @@ icloude/
 openapi.json
 *.bak
 db_schema.md
+
+# In-Memoria (codebase intelligence)
+in-memoria.db
+in-memoria-vectors.db
+.in-memoria/cache/
