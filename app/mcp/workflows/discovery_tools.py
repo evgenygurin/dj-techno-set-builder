@@ -96,16 +96,38 @@ def register_discovery_tools(mcp: FastMCP) -> None:
         await ctx.report_progress(progress=25, total=100)
 
         # Sampling requires client support — gracefully degrade
+        from app.mcp.types import SearchStrategy
+
+        strategy: SearchStrategy | None = None
         strategy_text: str | None = None
         try:
-            result = await ctx.sample(profile_text)
-            strategy_text = result.text if hasattr(result, "text") else str(result)
+            result = await ctx.sample(
+                messages=profile_text,
+                system_prompt=(
+                    "You are a DJ assistant. Analyze the playlist audio profile "
+                    "and generate a search strategy to find similar tracks. "
+                    "Return target BPM range, compatible Camelot keys, energy range, "
+                    "and search queries for music platforms."
+                ),
+                result_type=SearchStrategy,
+            )
+            strategy = result.result
+            strategy_text = result.text
         except (NotImplementedError, AttributeError, TypeError):
+            strategy = None
             strategy_text = None
 
         await ctx.report_progress(progress=75, total=100)
 
-        if strategy_text:
+        if strategy:
+            with contextlib.suppress(Exception):
+                await ctx.info(
+                    f"LLM strategy: {len(strategy.queries)} queries, "
+                    f"BPM {strategy.target_bpm_range[0]:.0f}-"
+                    f"{strategy.target_bpm_range[1]:.0f}, "
+                    f"keys {', '.join(strategy.target_keys[:4])}"
+                )
+        elif strategy_text:
             with contextlib.suppress(Exception):
                 await ctx.info(f"LLM search strategy: {strategy_text[:200]}")
 
