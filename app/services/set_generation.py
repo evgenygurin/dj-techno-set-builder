@@ -68,9 +68,8 @@ class SetGenerationService(BaseService):
             for f in features_list
         ]
 
-        # Build transition matrix (simple placeholder for now)
-        # TODO: Use TransitionScoringService for realistic transition quality
-        transition_matrix = self._build_transition_matrix(tracks)
+        # Build transition matrix using TransitionScoringService
+        transition_matrix = await self._build_transition_matrix_scored(tracks)
 
         # Configure GA
         config = GAConfig(
@@ -158,5 +157,96 @@ class SetGenerationService(BaseService):
                 key_score = max(0.0, 0.5 - key_diff / 24.0)
 
                 matrix[i, j] = bpm_score + key_score
+
+        return matrix
+
+    async def _build_transition_matrix_scored(
+        self, tracks: list[TrackData]
+    ) -> np.ndarray:
+        """Build transition quality matrix using TransitionScoringService.
+
+        Replaces primitive linear scoring with research-backed multi-component formula.
+
+        Args:
+            tracks: List of tracks with basic features (bpm, energy, key_code)
+
+        Returns:
+            NxN matrix where [i, j] = quality of i→j transition
+        """
+        from app.services.camelot_lookup import CamelotLookupService
+        from app.services.transition_scoring import TrackFeatures, TransitionScoringService
+
+        n = len(tracks)
+        matrix = np.zeros((n, n), dtype=np.float64)
+
+        # Build Camelot lookup
+        camelot_service = CamelotLookupService()  # No session = uses defaults
+        await camelot_service.build_lookup_table()
+
+        # Initialize scoring service
+        scorer = TransitionScoringService()
+        scorer.camelot_lookup = camelot_service._lookup
+
+        # Fetch full features for all tracks
+        features_list = await self.features_repo.list_all()
+        features_map = {f.track_id: f for f in features_list}
+
+        # Build feature objects
+        track_features: list[TrackFeatures | None] = []
+        for track in tracks:
+            feat_db = features_map.get(track.track_id)
+            if feat_db is None:
+                # Fallback to basic TrackData
+                track_features.append(None)
+                continue
+
+            # Compute harmonic density from chroma if available
+            # TODO: Add chroma_entropy computation in audio analysis pipeline
+            # For now, use placeholder based on key_confidence
+            harmonic_density = feat_db.key_confidence or 0.5
+
+            # Compute band ratios from energy bands
+            # [low, mid, high] = [low_energy, mid_energy, high_energy]
+            low = feat_db.low_energy or 0.33
+            mid = feat_db.mid_energy or 0.33
+            high = feat_db.high_energy or 0.34
+            total = low + mid + high
+            if total > 0:
+                band_ratios = [low / total, mid / total, high / total]
+            else:
+                band_ratios = [0.33, 0.33, 0.34]
+
+            track_features.append(
+                TrackFeatures(
+                    bpm=feat_db.bpm,
+                    energy_lufs=feat_db.lufs_i,
+                    key_code=feat_db.key_code or 0,
+                    harmonic_density=harmonic_density,
+                    centroid_hz=feat_db.centroid_mean_hz or 2000.0,
+                    band_ratios=band_ratios,
+                    onset_rate=feat_db.onset_rate_mean or 5.0,
+                )
+            )
+
+        # Compute pairwise scores
+        for i in range(n):
+            for j in range(n):
+                if i == j:
+                    matrix[i, j] = 0.0  # No self-transitions
+                    continue
+
+                feat_i = track_features[i]
+                feat_j = track_features[j]
+
+                if feat_i is None or feat_j is None:
+                    # Fallback to primitive scoring
+                    bpm_diff = abs(tracks[i].bpm - tracks[j].bpm)
+                    bpm_score = max(0.0, 0.5 - bpm_diff / 20.0)
+                    key_diff = abs(tracks[i].key_code - tracks[j].key_code)
+                    key_score = max(0.0, 0.5 - key_diff / 24.0)
+                    matrix[i, j] = bpm_score + key_score
+                else:
+                    # Use full scoring formula
+                    matrix[i, j] = scorer.score_transition(feat_i, feat_j)
 
         return matrix
