@@ -28,3 +28,11 @@ async def test_find_similar_tracks_reports_progress(workflow_mcp: FastMCP):
     tools = await workflow_mcp.list_tools()
     tool_names = {t.name for t in tools}
     assert "find_similar_tracks" in tool_names
+
+
+async def test_import_tools_report_progress(workflow_mcp: FastMCP):
+    """Import tools still register correctly after adding progress."""
+    tools = await workflow_mcp.list_tools()
+    tool_names = {t.name for t in tools}
+    assert "import_playlist" in tool_names
+    assert "import_tracks" in tool_names

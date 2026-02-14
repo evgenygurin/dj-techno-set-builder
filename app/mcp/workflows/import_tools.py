@@ -34,6 +34,8 @@ def register_import_tools(mcp: FastMCP) -> None:
                 f"Unsupported source '{source}'. Supported: {', '.join(sorted(supported))}"
             )
 
+        await ctx.report_progress(progress=0, total=100)
+
         await ctx.info(
             f"Import from '{source}' playlist {playlist_id} is not yet "
             "automated end-to-end.  Manual steps required:\n"
@@ -43,6 +45,7 @@ def register_import_tools(mcp: FastMCP) -> None:
             "4. Run audio analysis on each track"
         )
 
+        await ctx.report_progress(progress=100, total=100)
         return ImportResult(
             playlist_id=0,
             imported_count=0,
@@ -67,6 +70,8 @@ def register_import_tools(mcp: FastMCP) -> None:
         if not track_ids:
             raise ValueError("track_ids must not be empty")
 
+        await ctx.report_progress(progress=0, total=len(track_ids))
+
         await ctx.info(
             f"Import of {len(track_ids)} tracks is not yet automated.  "
             "Manual steps required:\n"
@@ -75,6 +80,7 @@ def register_import_tools(mcp: FastMCP) -> None:
             "3. Run audio analysis on imported tracks"
         )
 
+        await ctx.report_progress(progress=len(track_ids), total=len(track_ids))
         return ImportResult(
             playlist_id=0,
             imported_count=0,
