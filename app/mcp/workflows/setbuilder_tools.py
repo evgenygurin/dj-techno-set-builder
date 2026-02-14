@@ -228,12 +228,13 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         instructions: str,
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
     ) -> SetBuildResult:
         """Adjust a DJ set version based on natural language instructions.
 
-        Uses ctx.sample() to ask the LLM for specific changes (swap
-        tracks, reorder, remove).  Falls back gracefully when the MCP
-        client does not support sampling.
+        Uses ctx.sample_step() in an agentic loop so the LLM can call
+        a score_pair tool to evaluate transitions before suggesting changes.
+        Falls back gracefully when the MCP client does not support sampling.
 
         Creates a new version that copies the current track ordering and
         records the LLM suggestion in generator_run metadata.  The caller
@@ -257,7 +258,61 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
 
         track_summary = ", ".join(f"#{i.sort_index}: track {i.track_id}" for i in items)
 
-        # Try LLM-assisted adjustment
+        # Define score_pair tool for LLM to evaluate transitions
+        async def _score_pair(
+            track_a_id: int,
+            track_b_id: int,
+        ) -> dict[str, float]:
+            """Score the transition quality between two tracks.
+
+            Returns BPM, harmonic, energy, spectral, groove and total scores.
+            """
+            from app.services.camelot_lookup import CamelotLookupService
+
+            try:
+                feat_a_raw = await features_svc.get_latest(track_a_id)
+                feat_b_raw = await features_svc.get_latest(track_b_id)
+            except NotFoundError:
+                return {"error": 1.0, "total": 0.0}
+
+            camelot_svc = CamelotLookupService()
+            await camelot_svc.build_lookup_table()
+
+            scorer = TransitionScoringService()
+            scorer.camelot_lookup = camelot_svc._lookup
+
+            def _build_tf(feat: object) -> TrackFeatures:
+                harmonic_density = getattr(feat, "key_confidence", None) or 0.5
+                low = getattr(feat, "low_energy", None) or 0.33
+                mid = getattr(feat, "mid_energy", None) or 0.33
+                high = getattr(feat, "high_energy", None) or 0.34
+                total_e = low + mid + high
+                band_ratios = (
+                    [low / total_e, mid / total_e, high / total_e]
+                    if total_e > 0
+                    else [0.33, 0.33, 0.34]
+                )
+                return TrackFeatures(
+                    bpm=feat.bpm,  # type: ignore[union-attr]
+                    energy_lufs=feat.lufs_i,  # type: ignore[union-attr]
+                    key_code=getattr(feat, "key_code", 0) or 0,
+                    harmonic_density=harmonic_density,
+                    centroid_hz=getattr(feat, "centroid_mean_hz", None) or 2000.0,
+                    band_ratios=band_ratios,
+                    onset_rate=getattr(feat, "onset_rate_mean", None) or 5.0,
+                )
+
+            tf_a = _build_tf(feat_a_raw)
+            tf_b = _build_tf(feat_b_raw)
+            total_s = scorer.score_transition(tf_a, tf_b)
+
+            return {
+                "total": round(total_s, 4),
+                "bpm": round(scorer.score_bpm(tf_a.bpm, tf_b.bpm), 4),
+                "energy": round(scorer.score_energy(tf_a.energy_lufs, tf_b.energy_lufs), 4),
+            }
+
+        # Try LLM-assisted adjustment with agentic loop
         from app.mcp.types import AdjustmentPlan
 
         plan: AdjustmentPlan | None = None
@@ -266,19 +321,42 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             prompt = (
                 f"Current set order: [{track_summary}]. "
                 f"User instructions: {instructions}. "
-                "Analyze the set and suggest specific changes."
+                "Use the score_pair tool to evaluate transitions, "
+                "then suggest improvements."
             )
-            result = await ctx.sample(
-                messages=prompt,
-                system_prompt=(
-                    "You are a DJ assistant optimizing set ordering. "
-                    "Suggest track swaps and reorderings to improve "
-                    "transitions and energy flow."
-                ),
-                result_type=AdjustmentPlan,
-            )
-            plan = result.result
-            suggestion = result.text
+
+            # Use sample_step for fine-grained control
+            messages: object = prompt
+            max_steps = 10
+            for step_num in range(max_steps):
+                step = await ctx.sample_step(
+                    messages=messages,
+                    system_prompt=(
+                        "You are a DJ assistant. Score transitions between "
+                        "tracks and suggest reorderings to improve the set."
+                    ),
+                    tools=[_score_pair],
+                    execute_tools=True,
+                )
+
+                if step.is_tool_use:
+                    await ctx.report_progress(
+                        progress=step_num + 1, total=max_steps,
+                    )
+                    messages = step.history
+                    continue
+
+                # Final text response
+                suggestion = step.text
+                break
+
+            # Try to parse as AdjustmentPlan
+            if suggestion:
+                try:
+                    plan = AdjustmentPlan.model_validate_json(suggestion)
+                except (ValueError, KeyError):
+                    plan = None
+
         except (NotImplementedError, AttributeError, TypeError):
             plan = None
             suggestion = None
