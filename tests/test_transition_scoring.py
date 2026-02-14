@@ -63,7 +63,9 @@ class TestTransitionPersistenceService:
         assert result.bpm_distance == pytest.approx(2.0)
         service.transitions_repo.create.assert_awaited_once()
 
-    async def test_score_pair_missing_features(self, service: TransitionPersistenceService) -> None:
+    async def test_score_pair_missing_features(
+        self, service: TransitionPersistenceService
+    ) -> None:
         service.features_repo.get_by_track = AsyncMock(return_value=None)
         with pytest.raises(ValueError, match="No features"):
             await service.score_pair(from_track_id=1, to_track_id=2, run_id=1)

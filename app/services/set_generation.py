@@ -160,9 +160,7 @@ class SetGenerationService(BaseService):
 
         return matrix
 
-    async def _build_transition_matrix_scored(
-        self, tracks: list[TrackData]
-    ) -> np.ndarray:
+    async def _build_transition_matrix_scored(self, tracks: list[TrackData]) -> np.ndarray:
         """Build transition quality matrix using TransitionScoringService.
 
         Replaces primitive linear scoring with research-backed multi-component formula.

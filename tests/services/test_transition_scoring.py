@@ -1,6 +1,7 @@
 import pytest
-import numpy as np
-from app.services.transition_scoring import TransitionScoringService, TrackFeatures
+
+from app.services.transition_scoring import TrackFeatures, TransitionScoringService
+
 
 def test_score_bpm_identical():
     """Identical BPM should score 1.0"""
@@ -8,8 +9,9 @@ def test_score_bpm_identical():
     score = service.score_bpm(128.0, 128.0)
     assert score == pytest.approx(1.0)
 
+
 def test_score_bpm_gaussian_decay():
-    """BPM score should decay with Gaussian (σ=8)"""
+    """BPM score should decay with Gaussian (sigma=8)"""
     service = TransitionScoringService()
     # At 8 BPM diff, score ≈ exp(-0.5) ≈ 0.606
     score = service.score_bpm(128.0, 136.0)
@@ -19,6 +21,7 @@ def test_score_bpm_gaussian_decay():
     score = service.score_bpm(128.0, 144.0)
     assert 0.10 < score < 0.20
 
+
 def test_score_bpm_double_time():
     """Should handle double-time (2x BPM) as compatible"""
     service = TransitionScoringService()
@@ -26,12 +29,14 @@ def test_score_bpm_double_time():
     score = service.score_bpm(65.0, 130.0)
     assert score > 0.8
 
+
 def test_score_harmonic_same_key():
     """Same key without density modulation should score 1.0"""
     service = TransitionScoringService()
     service.camelot_lookup = {(0, 0): 1.0}
     score = service.score_harmonic(cam_a=0, cam_b=0, density_a=1.0, density_b=1.0)
     assert score == pytest.approx(1.0)
+
 
 def test_score_harmonic_density_modulation():
     """Low harmonic density should reduce Camelot weight"""
@@ -47,11 +52,13 @@ def test_score_harmonic_density_modulation():
     assert score_high > score_low
     assert score_low > 0.75  # Should still be reasonable
 
+
 def test_score_energy_lufs_identical():
     """Identical LUFS should score 1.0"""
     service = TransitionScoringService()
     score = service.score_energy(lufs_a=-14.0, lufs_b=-14.0)
     assert score == pytest.approx(1.0)
+
 
 def test_score_energy_sigmoid_decay():
     """Energy score decays sigmoidally with LUFS difference"""
@@ -60,45 +67,70 @@ def test_score_energy_sigmoid_decay():
     score = service.score_energy(lufs_a=-14.0, lufs_b=-10.0)
     assert score == pytest.approx(0.5, abs=0.05)
 
+
 def test_score_spectral_centroid_component():
     """Spectral score includes centroid similarity"""
     service = TransitionScoringService()
 
     # Identical centroids
     features_a = TrackFeatures(
-        bpm=128, energy_lufs=-14, key_code=0, harmonic_density=0.5,
-        centroid_hz=2000, band_ratios=[0.3, 0.5, 0.2], onset_rate=5.0
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
     )
     features_b = TrackFeatures(
-        bpm=128, energy_lufs=-14, key_code=0, harmonic_density=0.5,
-        centroid_hz=2000, band_ratios=[0.3, 0.5, 0.2], onset_rate=5.0
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
     )
 
     service.camelot_lookup = {(0, 0): 1.0}
     score = service.score_spectral(features_a, features_b)
     assert score > 0.9
 
+
 def test_score_spectral_band_balance():
     """Different band balances should lower spectral score"""
     service = TransitionScoringService()
 
     features_a = TrackFeatures(
-        bpm=128, energy_lufs=-14, key_code=0, harmonic_density=0.5,
-        centroid_hz=2000, band_ratios=[0.6, 0.3, 0.1], onset_rate=5.0  # Bass-heavy
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.6, 0.3, 0.1],
+        onset_rate=5.0,  # Bass-heavy
     )
     features_b = TrackFeatures(
-        bpm=128, energy_lufs=-14, key_code=0, harmonic_density=0.5,
-        centroid_hz=2000, band_ratios=[0.1, 0.3, 0.6], onset_rate=5.0  # Treble-heavy
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.1, 0.3, 0.6],
+        onset_rate=5.0,  # Treble-heavy
     )
 
     score = service.score_spectral(features_a, features_b)
-    assert score < 0.75  # Should be penalized (centroid identical = 0.5, band mismatch adds penalty)
+    # Should be penalized (centroid identical = 0.5, band mismatch adds penalty)
+    assert score < 0.75
+
 
 def test_score_groove_identical():
     """Identical onset rates should score 1.0"""
     service = TransitionScoringService()
     score = service.score_groove(onset_a=5.0, onset_b=5.0)
     assert score == pytest.approx(1.0)
+
 
 def test_score_groove_relative_diff():
     """Groove score based on relative onset rate difference"""
@@ -107,18 +139,29 @@ def test_score_groove_relative_diff():
     score = service.score_groove(onset_a=4.0, onset_b=6.0)
     assert 0.6 < score < 0.7
 
+
 def test_score_transition_weighted_composite():
     """Full transition score combines all 5 components"""
     service = TransitionScoringService()
     service.camelot_lookup = {(0, 0): 1.0}
 
     features_a = TrackFeatures(
-        bpm=128, energy_lufs=-14, key_code=0, harmonic_density=0.8,
-        centroid_hz=2000, band_ratios=[0.3, 0.5, 0.2], onset_rate=5.0
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.8,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
     )
     features_b = TrackFeatures(
-        bpm=130, energy_lufs=-13, key_code=0, harmonic_density=0.8,
-        centroid_hz=2100, band_ratios=[0.3, 0.5, 0.2], onset_rate=5.2
+        bpm=130,
+        energy_lufs=-13,
+        key_code=0,
+        harmonic_density=0.8,
+        centroid_hz=2100,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.2,
     )
 
     score = service.score_transition(features_a, features_b)

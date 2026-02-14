@@ -1,5 +1,7 @@
 import pytest
+
 from app.services.camelot_lookup import CamelotLookupService
+
 
 @pytest.mark.asyncio
 async def test_build_lookup_table_same_key():
@@ -8,6 +10,7 @@ async def test_build_lookup_table_same_key():
     lookup = await service.build_lookup_table()
     # Key 0 → Key 0 (C major)
     assert lookup[(0, 0)] == pytest.approx(1.0)
+
 
 @pytest.mark.asyncio
 async def test_build_lookup_table_adjacent():
@@ -18,6 +21,7 @@ async def test_build_lookup_table_adjacent():
     # This test will pass once we query the DB correctly
     assert len(lookup) > 0  # At least some transitions exist
 
+
 @pytest.mark.asyncio
 async def test_build_lookup_table_tritone():
     """Tritone (±6 semitones) should score ~0.05"""
@@ -26,6 +30,7 @@ async def test_build_lookup_table_tritone():
     # Key 0 → Key 12 (tritone in chromatic, but need to find actual mapping)
     # Placeholder: just ensure table is built
     assert len(lookup) == 24 * 24  # All key pairs
+
 
 @pytest.mark.asyncio
 async def test_get_score_with_fallback():
@@ -36,6 +41,7 @@ async def test_get_score_with_fallback():
     score = service.get_score(999, 999)
     assert score == pytest.approx(0.5)  # Default fallback
 
+
 @pytest.mark.asyncio
 async def test_get_score_cached():
     """Subsequent calls should use cached lookup table"""
@@ -43,6 +49,7 @@ async def test_get_score_cached():
     score1 = service.get_score(0, 0)
     score2 = service.get_score(0, 0)
     assert score1 == score2 == pytest.approx(1.0)
+
 
 @pytest.mark.asyncio
 async def test_build_lookup_table_from_db(session):

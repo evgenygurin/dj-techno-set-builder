@@ -1,7 +1,7 @@
 """Multi-component transition quality scoring for DJ set generation.
 
 Implements research-backed scoring formula combining:
-- BPM matching (Gaussian decay, σ=8)
+- BPM matching (Gaussian decay, sigma=8)
 - Harmonic compatibility (Camelot modulated by density)
 - Energy matching (LUFS sigmoid decay)
 - Spectral similarity (centroid + band balance)
@@ -18,6 +18,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 import numpy as np
 
@@ -39,19 +40,19 @@ class TransitionScoringService:
     """Computes transition quality scores using multi-component formula."""
 
     # Weights sum to 1.0 (from research synthesis)
-    WEIGHTS = {
-        'bpm': 0.30,       # BPM matching (25% + buffer)
-        'harmonic': 0.25,  # Key compatibility (12% base + density boost)
-        'energy': 0.20,    # Energy/loudness matching (15%)
-        'spectral': 0.15,  # Timbral similarity proxy (20% in research, here simplified)
-        'groove': 0.10,    # Rhythmic texture (8%)
+    WEIGHTS: ClassVar[dict[str, float]] = {
+        "bpm": 0.30,  # BPM matching (25% + buffer)
+        "harmonic": 0.25,  # Key compatibility (12% base + density boost)
+        "energy": 0.20,  # Energy/loudness matching (15%)
+        "spectral": 0.15,  # Timbral similarity proxy (20% in research, here simplified)
+        "groove": 0.10,  # Rhythmic texture (8%)
     }
 
     def __init__(self) -> None:
         self.camelot_lookup: dict[tuple[int, int], float] = {}
 
     def score_bpm(self, bpm_a: float, bpm_b: float) -> float:
-        """Gaussian decay scoring with σ=8. Handles double/half-time.
+        """Gaussian decay scoring with sigma=8. Handles double/half-time.
 
         Args:
             bpm_a: BPM of outgoing track
@@ -67,12 +68,10 @@ class TransitionScoringService:
 
         best_diff = min(diff_normal, diff_double, diff_half)
 
-        # Gaussian decay: exp(-(diff²) / (2σ²)), σ=8
-        return float(np.exp(-(best_diff ** 2) / (2 * 8.0 ** 2)))
+        # Gaussian decay: exp(-(diff²) / (2*sigma²)), sigma=8
+        return float(np.exp(-(best_diff**2) / (2 * 8.0**2)))
 
-    def score_harmonic(
-        self, cam_a: int, cam_b: int, density_a: float, density_b: float
-    ) -> float:
+    def score_harmonic(self, cam_a: int, cam_b: int, density_a: float, density_b: float) -> float:
         """Camelot score modulated by harmonic density.
 
         For percussive techno (low density), Camelot matters less.
@@ -142,10 +141,7 @@ class TransitionScoringService:
         norm_a = np.linalg.norm(vec_a)
         norm_b = np.linalg.norm(vec_b)
 
-        if norm_a > 0 and norm_b > 0:
-            balance_score = float(dot / (norm_a * norm_b))
-        else:
-            balance_score = 0.0
+        balance_score = float(dot / (norm_a * norm_b)) if norm_a > 0 and norm_b > 0 else 0.0
 
         return 0.5 * centroid_score + 0.5 * balance_score
 
@@ -179,8 +175,10 @@ class TransitionScoringService:
         """
         bpm_s = self.score_bpm(track_a.bpm, track_b.bpm)
         harm_s = self.score_harmonic(
-            track_a.key_code, track_b.key_code,
-            track_a.harmonic_density, track_b.harmonic_density,
+            track_a.key_code,
+            track_b.key_code,
+            track_a.harmonic_density,
+            track_b.harmonic_density,
         )
         energy_s = self.score_energy(track_a.energy_lufs, track_b.energy_lufs)
         spectral_s = self.score_spectral(track_a, track_b)
@@ -188,9 +186,9 @@ class TransitionScoringService:
 
         w = self.WEIGHTS
         return (
-            w['bpm'] * bpm_s +
-            w['harmonic'] * harm_s +
-            w['energy'] * energy_s +
-            w['spectral'] * spectral_s +
-            w['groove'] * groove_s
+            w["bpm"] * bpm_s
+            + w["harmonic"] * harm_s
+            + w["energy"] * energy_s
+            + w["spectral"] * spectral_s
+            + w["groove"] * groove_s
         )
