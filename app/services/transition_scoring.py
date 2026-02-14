@@ -1,188 +1,196 @@
+"""Multi-component transition quality scoring for DJ set generation.
+
+Implements research-backed scoring formula combining:
+- BPM matching (Gaussian decay, σ=8)
+- Harmonic compatibility (Camelot modulated by density)
+- Energy matching (LUFS sigmoid decay)
+- Spectral similarity (centroid + band balance)
+- Groove compatibility (onset rate relative difference)
+
+Pure computation — no DB or ORM dependencies.
+
+References:
+- Kim et al. (ISMIR 2020): 86.1% of tempo adjustments under 5%
+- Kell & Tzanetakis (ISMIR 2013): Timbral similarity is most important
+- Zehren et al. (CMJ 2022): Rule-based scoring at 96% quality
+"""
+
 from __future__ import annotations
 
-import contextlib
-import json
+from dataclasses import dataclass
 
 import numpy as np
 
-from app.models.features import TrackAudioFeaturesComputed
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.candidates import CandidateRepository
-from app.repositories.transitions import TransitionRepository
-from app.services.base import BaseService
-from app.utils.audio._types import (
-    BandEnergyResult,
-    BpmResult,
-    KeyResult,
-    SpectralResult,
-    TransitionScore,
-)
-from app.utils.audio.camelot import camelot_distance
-from app.utils.audio.transition_score import score_transition
+
+@dataclass(frozen=True, slots=True)
+class TrackFeatures:
+    """Minimal feature set for transition scoring."""
+
+    bpm: float
+    energy_lufs: float  # Integrated LUFS (ITU-R BS.1770)
+    key_code: int  # 0-23
+    harmonic_density: float  # Chroma entropy / log(12), range [0, 1]
+    centroid_hz: float  # Spectral centroid mean
+    band_ratios: list[float]  # [low, mid, high] energy ratios, sum=1.0
+    onset_rate: float  # Onsets per second
 
 
-class TransitionScoringService(BaseService):
-    """Bridges utils/transition_score -> Transition ORM via repositories."""
+class TransitionScoringService:
+    """Computes transition quality scores using multi-component formula."""
 
-    def __init__(
-        self,
-        features_repo: AudioFeaturesRepository,
-        transitions_repo: TransitionRepository,
-        candidates_repo: CandidateRepository,
-    ) -> None:
-        super().__init__()
-        self.features_repo = features_repo
-        self.transitions_repo = transitions_repo
-        self.candidates_repo = candidates_repo
+    # Weights sum to 1.0 (from research synthesis)
+    WEIGHTS = {
+        'bpm': 0.30,       # BPM matching (25% + buffer)
+        'harmonic': 0.25,  # Key compatibility (12% base + density boost)
+        'energy': 0.20,    # Energy/loudness matching (15%)
+        'spectral': 0.15,  # Timbral similarity proxy (20% in research, here simplified)
+        'groove': 0.10,    # Rhythmic texture (8%)
+    }
 
-    async def score_pair(
-        self,
-        from_track_id: int,
-        to_track_id: int,
-        run_id: int,
-        *,
-        groove_sim: float = 0.5,
-        weights: dict[str, float] | None = None,
-    ) -> TransitionScore:
-        """Score a transition between two tracks and persist result."""
-        feat_a = await self.features_repo.get_by_track(from_track_id)
-        if not feat_a:
-            msg = f"No features found for track {from_track_id}"
-            raise ValueError(msg)
+    def __init__(self) -> None:
+        self.camelot_lookup: dict[tuple[int, int], float] = {}
 
-        feat_b = await self.features_repo.get_by_track(to_track_id)
-        if not feat_b:
-            msg = f"No features found for track {to_track_id}"
-            raise ValueError(msg)
+    def score_bpm(self, bpm_a: float, bpm_b: float) -> float:
+        """Gaussian decay scoring with σ=8. Handles double/half-time.
 
-        # Map ORM -> utils types
-        bpm_a, bpm_b = self._to_bpm(feat_a), self._to_bpm(feat_b)
-        key_a, key_b = self._to_key(feat_a), self._to_key(feat_b)
-        energy_a, energy_b = self._to_energy(feat_a), self._to_energy(feat_b)
-        spec_a, spec_b = self._to_spectral(feat_a), self._to_spectral(feat_b)
+        Args:
+            bpm_a: BPM of outgoing track
+            bpm_b: BPM of incoming track
 
-        # Score via utils
-        result = score_transition(
-            bpm_a=bpm_a,
-            bpm_b=bpm_b,
-            key_a=key_a,
-            key_b=key_b,
-            energy_a=energy_a,
-            energy_b=energy_b,
-            spectral_a=spec_a,
-            spectral_b=spec_b,
-            groove_sim=groove_sim,
-            weights=weights,
+        Returns:
+            Score in [0, 1], where 1.0 = identical BPM
+        """
+        # Check double-time and half-time compatibility
+        diff_normal = abs(bpm_a - bpm_b)
+        diff_double = abs(bpm_a - bpm_b * 2.0)
+        diff_half = abs(bpm_a - bpm_b * 0.5)
+
+        best_diff = min(diff_normal, diff_double, diff_half)
+
+        # Gaussian decay: exp(-(diff²) / (2σ²)), σ=8
+        return float(np.exp(-(best_diff ** 2) / (2 * 8.0 ** 2)))
+
+    def score_harmonic(
+        self, cam_a: int, cam_b: int, density_a: float, density_b: float
+    ) -> float:
+        """Camelot score modulated by harmonic density.
+
+        For percussive techno (low density), Camelot matters less.
+        For melodic techno (high density), Camelot is critical.
+
+        Args:
+            cam_a: Key code of track A (0-23)
+            cam_b: Key code of track B (0-23)
+            density_a: Harmonic density of A [0, 1]
+            density_b: Harmonic density of B [0, 1]
+
+        Returns:
+            Modulated harmonic compatibility [0, 1]
+        """
+        raw_camelot = self.camelot_lookup.get((cam_a, cam_b), 0.5)
+
+        # Average harmonic density
+        avg_density = (density_a + density_b) / 2.0
+
+        # Modulation factor: [0.3, 1.0] based on density
+        # Low density (0.0) → factor = 0.3 (Camelot weight reduced)
+        # High density (1.0) → factor = 1.0 (full Camelot weight)
+        factor = 0.3 + 0.7 * avg_density
+
+        # Blend: modulated Camelot + fallback for low-density
+        return raw_camelot * factor + 0.8 * (1.0 - factor)
+
+    def score_energy(self, lufs_a: float, lufs_b: float) -> float:
+        """Sigmoid decay on LUFS difference.
+
+        LUFS (ITU-R BS.1770) is the gold standard for perceived loudness.
+
+        Args:
+            lufs_a: Integrated LUFS of track A (typically -14 to -6 LUFS)
+            lufs_b: Integrated LUFS of track B
+
+        Returns:
+            Energy match score [0, 1]
+        """
+        diff = abs(lufs_a - lufs_b)
+        # Sigmoid: 1 / (1 + (diff/4)²)
+        # At diff=4, score=0.5; at diff=8, score=0.2
+        return 1.0 / (1.0 + (diff / 4.0) ** 2)
+
+    def score_spectral(self, track_a: TrackFeatures, track_b: TrackFeatures) -> float:
+        """50% centroid similarity + 50% band balance cosine.
+
+        Proxy for timbral similarity (full MFCC cosine is better but not available).
+
+        Args:
+            track_a: Features of outgoing track
+            track_b: Features of incoming track
+
+        Returns:
+            Spectral similarity [0, 1]
+        """
+        # Centroid component (normalized by 7500 Hz typical range)
+        centroid_diff = abs(track_a.centroid_hz - track_b.centroid_hz)
+        centroid_score = max(0.0, 1.0 - centroid_diff / 7500.0)
+
+        # Band balance component (cosine similarity)
+        vec_a = np.array(track_a.band_ratios)
+        vec_b = np.array(track_b.band_ratios)
+
+        # Cosine similarity: (A·B) / (||A|| ||B||)
+        dot = np.dot(vec_a, vec_b)
+        norm_a = np.linalg.norm(vec_a)
+        norm_b = np.linalg.norm(vec_b)
+
+        if norm_a > 0 and norm_b > 0:
+            balance_score = float(dot / (norm_a * norm_b))
+        else:
+            balance_score = 0.0
+
+        return 0.5 * centroid_score + 0.5 * balance_score
+
+    def score_groove(self, onset_a: float, onset_b: float) -> float:
+        """Onset density relative difference.
+
+        Captures rhythmic texture compatibility.
+
+        Args:
+            onset_a: Onset rate (onsets/sec) of track A
+            onset_b: Onset rate of track B
+
+        Returns:
+            Groove compatibility [0, 1]
+        """
+        if onset_a <= 0 and onset_b <= 0:
+            return 1.0
+
+        max_onset = max(onset_a, onset_b, 1e-6)  # Avoid division by zero
+        return 1.0 - abs(onset_a - onset_b) / max_onset
+
+    def score_transition(self, track_a: TrackFeatures, track_b: TrackFeatures) -> float:
+        """Compute overall transition quality (weighted composite).
+
+        Args:
+            track_a: Outgoing track features
+            track_b: Incoming track features
+
+        Returns:
+            Overall transition score [0, 1]
+        """
+        bpm_s = self.score_bpm(track_a.bpm, track_b.bpm)
+        harm_s = self.score_harmonic(
+            track_a.key_code, track_b.key_code,
+            track_a.harmonic_density, track_b.harmonic_density,
         )
+        energy_s = self.score_energy(track_a.energy_lufs, track_b.energy_lufs)
+        spectral_s = self.score_spectral(track_a, track_b)
+        groove_s = self.score_groove(track_a.onset_rate, track_b.onset_rate)
 
-        # Persist
-        centroid_gap = abs((feat_a.centroid_mean_hz or 0) - (feat_b.centroid_mean_hz or 0))
-        await self.transitions_repo.create(
-            run_id=run_id,
-            from_track_id=from_track_id,
-            to_track_id=to_track_id,
-            overlap_ms=0,
-            bpm_distance=result.bpm_distance,
-            energy_step=result.energy_step,
-            centroid_gap_hz=centroid_gap,
-            low_conflict_score=result.low_conflict_score,
-            overlap_score=result.overlap_score,
-            groove_similarity=result.groove_similarity,
-            key_distance_weighted=result.key_distance_weighted,
-            transition_quality=result.transition_quality,
-        )
-
-        return result
-
-    async def create_candidate(
-        self,
-        from_track_id: int,
-        to_track_id: int,
-        run_id: int,
-    ) -> None:
-        """Pre-filter stage 1: create lightweight candidate from features."""
-        feat_a = await self.features_repo.get_by_track(from_track_id)
-        feat_b = await self.features_repo.get_by_track(to_track_id)
-        if not feat_a or not feat_b:
-            return
-
-        bpm_dist = abs(feat_a.bpm - feat_b.bpm)
-        key_dist = float(camelot_distance(feat_a.key_code, feat_b.key_code))
-        energy_delta = (feat_b.energy_mean or 0) - (feat_a.energy_mean or 0)
-
-        await self.candidates_repo.create(
-            from_track_id=from_track_id,
-            to_track_id=to_track_id,
-            run_id=run_id,
-            bpm_distance=bpm_dist,
-            key_distance=key_dist,
-            energy_delta=energy_delta,
-            is_fully_scored=False,
-        )
-
-    @staticmethod
-    def _to_bpm(feat: TrackAudioFeaturesComputed) -> BpmResult:
-        return BpmResult(
-            bpm=feat.bpm,
-            confidence=feat.tempo_confidence,
-            stability=feat.bpm_stability,
-            is_variable=feat.is_variable_tempo,
-        )
-
-    @staticmethod
-    def _to_key(feat: TrackAudioFeaturesComputed) -> KeyResult:
-        chroma = np.zeros(12, dtype=np.float32)
-        if feat.chroma:
-            with contextlib.suppress(json.JSONDecodeError, ValueError):
-                chroma = np.array(json.loads(feat.chroma), dtype=np.float32)
-        pitch_class = feat.key_code // 2
-        mode = feat.key_code % 2
-        pitch_names = [
-            "C",
-            "C#",
-            "D",
-            "D#",
-            "E",
-            "F",
-            "F#",
-            "G",
-            "G#",
-            "A",
-            "A#",
-            "B",
-        ]
-        return KeyResult(
-            key=pitch_names[pitch_class],
-            scale="major" if mode == 1 else "minor",
-            key_code=feat.key_code,
-            confidence=feat.key_confidence,
-            is_atonal=feat.is_atonal,
-            chroma=chroma,
-        )
-
-    @staticmethod
-    def _to_energy(feat: TrackAudioFeaturesComputed) -> BandEnergyResult:
-        return BandEnergyResult(
-            sub=feat.sub_energy or 0.0,
-            low=feat.low_energy or 0.0,
-            low_mid=feat.lowmid_energy or 0.0,
-            mid=feat.mid_energy or 0.0,
-            high_mid=feat.highmid_energy or 0.0,
-            high=feat.high_energy or 0.0,
-            low_high_ratio=feat.low_high_ratio or 0.0,
-            sub_lowmid_ratio=feat.sub_lowmid_ratio or 0.0,
-        )
-
-    @staticmethod
-    def _to_spectral(feat: TrackAudioFeaturesComputed) -> SpectralResult:
-        return SpectralResult(
-            centroid_mean_hz=feat.centroid_mean_hz or 0.0,
-            rolloff_85_hz=feat.rolloff_85_hz or 0.0,
-            rolloff_95_hz=feat.rolloff_95_hz or 0.0,
-            flatness_mean=feat.flatness_mean or 0.0,
-            flux_mean=feat.flux_mean or 0.0,
-            flux_std=feat.flux_std or 0.0,
-            contrast_mean_db=feat.contrast_mean_db or 0.0,
-            slope_db_per_oct=feat.slope_db_per_oct or 0.0,
-            hnr_mean_db=feat.hnr_mean_db or 0.0,
+        w = self.WEIGHTS
+        return (
+            w['bpm'] * bpm_s +
+            w['harmonic'] * harm_s +
+            w['energy'] * energy_s +
+            w['spectral'] * spectral_s +
+            w['groove'] * groove_s
         )

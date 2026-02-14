@@ -12,7 +12,7 @@ from app.schemas.transitions import (
     TransitionList,
     TransitionRead,
 )
-from app.services.transition_scoring import TransitionScoringService
+from app.services.transition_persistence import TransitionPersistenceService
 from app.services.transitions import TransitionService
 
 router = APIRouter(prefix="/transitions", tags=["transitions"])
@@ -22,8 +22,8 @@ def _service(db: DbSession) -> TransitionService:
     return TransitionService(TransitionRepository(db))
 
 
-def _scoring_service(db: DbSession) -> TransitionScoringService:
-    return TransitionScoringService(
+def _scoring_service(db: DbSession) -> TransitionPersistenceService:
+    return TransitionPersistenceService(
         AudioFeaturesRepository(db),
         TransitionRepository(db),
         CandidateRepository(db),
