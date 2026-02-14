@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from fastmcp import FastMCP
 
@@ -21,6 +22,7 @@ def create_dj_mcp() -> FastMCP:
     Mounts Yandex Music (namespace "ym") and DJ Workflows (namespace "dj").
     Applies observability middleware and lifespan management.
     Configures AnthropicSamplingHandler as fallback when ANTHROPIC_API_KEY is set.
+    Exposes DJ workflow skills as MCP resources via SkillsDirectoryProvider.
     Adds PromptsAsTools and ResourcesAsTools transforms so that tool-only
     clients can still access prompts and resources.
     """
@@ -48,6 +50,19 @@ def create_dj_mcp() -> FastMCP:
         sampling_handler=sampling_handler,
         sampling_handler_behavior="fallback",
     )
+
+    # Expose DJ workflow skills as MCP resources (before mount for proper merging)
+    try:
+        from fastmcp.server.providers.skills import SkillsDirectoryProvider
+
+        skills_dir = Path(__file__).parent / "skills"
+        if skills_dir.exists():
+            gateway.add_provider(SkillsDirectoryProvider(
+                roots=skills_dir,
+                supporting_files="template",
+            ))
+    except ImportError:
+        logger.debug("SkillsDirectoryProvider not available; skipping skills")
 
     ym = create_yandex_music_mcp()
     gateway.mount(ym, namespace="ym")
