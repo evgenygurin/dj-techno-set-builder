@@ -13,6 +13,14 @@ Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
 ## Commands
 
 ```bash
+fd
+rg
+ast-grep
+jq
+yq
+```
+
+```bash
 uv sync --all-extras                    # Install all deps (audio + ml)
 uv sync --extra audio                   # Audio deps only (no ML/torch)
 uv run pytest -v                        # Run all tests

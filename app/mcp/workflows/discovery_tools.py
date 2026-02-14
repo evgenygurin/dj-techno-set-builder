@@ -128,12 +128,14 @@ def register_discovery_tools(mcp: FastMCP) -> None:
                 camelot: str | None = None
                 with contextlib.suppress(ValueError):
                     camelot = key_code_to_camelot(feat.key_code)
-                matches.append({
-                    "track_id": feat.track_id,
-                    "bpm": feat.bpm,
-                    "key": camelot,
-                    "energy_lufs": feat.lufs_i,
-                })
+                matches.append(
+                    {
+                        "track_id": feat.track_id,
+                        "bpm": feat.bpm,
+                        "key": camelot,
+                        "energy_lufs": feat.lufs_i,
+                    }
+                )
                 if len(matches) >= count * 3:
                     break
             return matches

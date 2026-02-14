@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "dj-techno": {
-      "type": "url",
+      "type": "http",
       "url": "http://localhost:9100/mcp"
     }
   }
