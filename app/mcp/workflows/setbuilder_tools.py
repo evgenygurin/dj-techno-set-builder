@@ -147,7 +147,9 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
 
         # Score consecutive pairs
         results: list[TransitionScoreResult] = []
-        for i in range(len(items) - 1):
+        pairs_total = len(items) - 1
+        for i in range(pairs_total):
+            await ctx.report_progress(progress=i, total=pairs_total)
             from_item = items[i]
             to_item = items[i + 1]
 
@@ -212,6 +214,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 )
             )
 
+        await ctx.report_progress(progress=pairs_total, total=pairs_total)
         return results
 
     @mcp.tool(tags={"setbuilder"})
