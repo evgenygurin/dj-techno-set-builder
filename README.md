@@ -261,36 +261,47 @@ Multi-step recipes that guide an AI through complete DJ workflows:
 
 ### Running the MCP Server
 
+Central config: [`fastmcp.json`](fastmcp.json) — auto-detected by `fastmcp run`.
+
 ```bash
-# Embedded in FastAPI (StreamableHTTP at /mcp/mcp)
-uv run uvicorn app.main:app --reload
+# Dev: HTTP with hot-reload (edit app/mcp/ → auto-restart, clients reconnect)
+make mcp-dev                    # http://127.0.0.1:9100/mcp
 
-# Standalone (stdio transport)
-uv run python -m app.mcp.gateway
+# Visual debugger in browser
+make mcp-inspect                # http://localhost:6274
 
-# Via FastMCP CLI
-fastmcp run app.mcp.gateway:create_dj_mcp
-fastmcp run app.mcp.gateway:create_dj_mcp --transport http --port 9000
+# List all registered tools (46)
+make mcp-list
 
-# List all tools
-fastmcp list app.mcp.gateway:create_dj_mcp --json
+# Call a specific tool
+make mcp-call TOOL=dj_get_track_details ARGS='{"track_id": 45}'
+
+# Embedded in FastAPI (REST + MCP together)
+make run                        # REST at /api/v1, MCP at /mcp/mcp
 ```
 
-### Claude Desktop Configuration
+### Client Configuration
 
-Add to `~/.claude/mcp_servers.json`:
+**Claude Code** — auto-connects via [`.mcp.json`](.mcp.json) when `make mcp-dev` is running:
 
 ```json
 {
   "mcpServers": {
     "dj-techno": {
-      "command": "uv",
-      "args": ["run", "python", "-m", "app.mcp.gateway"],
-      "cwd": "/path/to/dj-techno-set-builder"
+      "type": "url",
+      "url": "http://localhost:9100/mcp"
     }
   }
 }
 ```
+
+**Claude Desktop** — one-command install (stdio transport):
+
+```bash
+make mcp-install-desktop
+```
+
+This writes to `~/Library/Application Support/Claude/claude_desktop_config.json` automatically.
 
 ## Project Structure
 

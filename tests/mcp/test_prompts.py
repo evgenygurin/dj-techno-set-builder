@@ -2,25 +2,21 @@
 
 from __future__ import annotations
 
+from fastmcp import FastMCP
 
-async def test_prompts_are_listed():
+
+async def test_prompts_are_listed(workflow_mcp: FastMCP):
     """All three workflow prompts should be registered."""
-    from app.mcp.workflows import create_workflow_mcp
-
-    mcp = create_workflow_mcp()
-    prompts = await mcp.list_prompts()
+    prompts = await workflow_mcp.list_prompts()
     prompt_names = {p.name for p in prompts}
     assert "expand_playlist" in prompt_names
     assert "build_set_from_scratch" in prompt_names
     assert "improve_set" in prompt_names
 
 
-async def test_expand_playlist_arguments():
+async def test_expand_playlist_arguments(workflow_mcp: FastMCP):
     """expand_playlist should accept playlist_name (required), count, style."""
-    from app.mcp.workflows import create_workflow_mcp
-
-    mcp = create_workflow_mcp()
-    prompts = await mcp.list_prompts()
+    prompts = await workflow_mcp.list_prompts()
     prompt = next(p for p in prompts if p.name == "expand_playlist")
 
     arg_names = {a.name for a in prompt.arguments}
@@ -35,12 +31,9 @@ async def test_expand_playlist_arguments():
     assert "style" not in required
 
 
-async def test_build_set_from_scratch_arguments():
+async def test_build_set_from_scratch_arguments(workflow_mcp: FastMCP):
     """build_set_from_scratch should accept genre (required), duration_minutes, energy_arc."""
-    from app.mcp.workflows import create_workflow_mcp
-
-    mcp = create_workflow_mcp()
-    prompts = await mcp.list_prompts()
+    prompts = await workflow_mcp.list_prompts()
     prompt = next(p for p in prompts if p.name == "build_set_from_scratch")
 
     arg_names = {a.name for a in prompt.arguments}
@@ -52,12 +45,9 @@ async def test_build_set_from_scratch_arguments():
     assert "genre" in required
 
 
-async def test_improve_set_arguments():
+async def test_improve_set_arguments(workflow_mcp: FastMCP):
     """improve_set should accept set_id, version_id (required), feedback (optional)."""
-    from app.mcp.workflows import create_workflow_mcp
-
-    mcp = create_workflow_mcp()
-    prompts = await mcp.list_prompts()
+    prompts = await workflow_mcp.list_prompts()
     prompt = next(p for p in prompts if p.name == "improve_set")
 
     arg_names = {a.name for a in prompt.arguments}
@@ -71,24 +61,18 @@ async def test_improve_set_arguments():
     assert "feedback" not in required
 
 
-async def test_prompts_appear_through_gateway_with_prefix():
+async def test_prompts_appear_through_gateway_with_prefix(gateway_mcp: FastMCP):
     """Prompts should be available via gateway with dj_ namespace prefix."""
-    from app.mcp.gateway import create_dj_mcp
-
-    mcp = create_dj_mcp()
-    prompts = await mcp.list_prompts()
+    prompts = await gateway_mcp.list_prompts()
     prompt_names = {p.name for p in prompts}
     assert "dj_expand_playlist" in prompt_names
     assert "dj_build_set_from_scratch" in prompt_names
     assert "dj_improve_set" in prompt_names
 
 
-async def test_expand_playlist_renders_messages():
+async def test_expand_playlist_renders_messages(workflow_mcp: FastMCP):
     """expand_playlist prompt should render a list with a user message."""
-    from app.mcp.workflows import create_workflow_mcp
-
-    mcp = create_workflow_mcp()
-    result = await mcp.render_prompt(
+    result = await workflow_mcp.render_prompt(
         "expand_playlist",
         arguments={"playlist_name": "My Mix"},
     )
@@ -97,12 +81,9 @@ async def test_expand_playlist_renders_messages():
     assert first_msg.role == "user"
 
 
-async def test_build_set_from_scratch_renders_messages():
+async def test_build_set_from_scratch_renders_messages(workflow_mcp: FastMCP):
     """build_set_from_scratch prompt should render a user message."""
-    from app.mcp.workflows import create_workflow_mcp
-
-    mcp = create_workflow_mcp()
-    result = await mcp.render_prompt(
+    result = await workflow_mcp.render_prompt(
         "build_set_from_scratch",
         arguments={"genre": "dark techno"},
     )
@@ -110,12 +91,9 @@ async def test_build_set_from_scratch_renders_messages():
     assert result.messages[0].role == "user"
 
 
-async def test_improve_set_renders_messages():
+async def test_improve_set_renders_messages(workflow_mcp: FastMCP):
     """improve_set prompt should render a user message."""
-    from app.mcp.workflows import create_workflow_mcp
-
-    mcp = create_workflow_mcp()
-    result = await mcp.render_prompt(
+    result = await workflow_mcp.render_prompt(
         "improve_set",
         arguments={"set_id": "1", "version_id": "2"},
     )

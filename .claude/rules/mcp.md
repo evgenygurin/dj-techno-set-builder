@@ -162,7 +162,29 @@ MCP endpoint: `POST /mcp/mcp` (StreamableHTTP). The double `/mcp` is because Fas
 - **OpenAPI spec patching**: `_patch_spec()` in `yandex_music/server.py` fixes: integer response codes (YAML parses `200` as int), missing operationIds, and circular `$ref` chains (Genre.subGenres, Artist.popularTracks, Album.artists/volumes).
 - **`Context` parameter**: Always non-optional (`ctx: Context`), never `ctx: Context = None`. FastMCP injects it automatically.
 - **mypy + fastmcp**: `fastmcp` is in `ignore_missing_imports` since it lacks type stubs.
-- **MCP tests don't need DB**: Tool registration tests use `create_workflow_mcp()` / `create_dj_mcp()` directly and call `mcp.list_tools()` — no database fixtures needed.
+- **MCP tests — two layers**: (1) Metadata tests verify tool names/tags/annotations via `mcp.list_tools()`. (2) Client integration tests use `Client(server)` for in-memory tool invocation. Both use shared fixtures from `tests/mcp/conftest.py`.
+- **Server in fixture, Client in test body**: Don't open `Client` in fixtures — create server in fixture, open `Client` context manager inside test functions.
+- **Stub tools testable without DB**: `import_playlist` and `import_tracks` are stubs — no database needed. DB-dependent tools need session mocking.
+
+## Testing
+
+Two-layer testing in `tests/mcp/` (see `rules/testing.md` for full details):
+
+| Layer | What | How | DB needed |
+|-------|------|-----|-----------|
+| Metadata | Tool names, tags, annotations, namespacing | `mcp.list_tools()` on fixture | No |
+| Client integration | Tool invocation, structured output, errors | `Client(server)` in-memory | Stubs: No, real tools: Yes |
+
+Shared fixtures in `tests/mcp/conftest.py`: `workflow_mcp`, `gateway_mcp`, `ym_mcp`.
+
+```python
+# Client integration test pattern
+async def test_import_tracks_stub(workflow_mcp: FastMCP):
+    async with Client(workflow_mcp) as client:
+        result = await client.call_tool("import_tracks", {"track_ids": [1, 2, 3]})
+        assert not result.is_error
+        assert result.data.skipped_count == 3
+```
 
 ## Dev workflow
 

@@ -34,6 +34,12 @@ make test-k MATCH=x  # pytest -k x
 make coverage        # pytest-cov (html + terminal)
 make ruff-fix        # auto-fix + format
 make run             # uvicorn --reload (PORT=8000)
+make mcp-dev         # HTTP dev-сервер с hot-reload (PORT=9100)
+make mcp-inspect     # MCP Inspector UI (порт 6274)
+make mcp-list        # Список всех MCP-инструментов
+make mcp-call TOOL=x ARGS='{...}'  # Вызов инструмента
+make mcp-install-desktop  # Установить в Claude Desktop (stdio)
+make mcp-install-code     # Установить в Claude Code (stdio)
 ```
 
 ## Architecture

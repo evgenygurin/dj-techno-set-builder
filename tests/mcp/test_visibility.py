@@ -2,27 +2,23 @@
 
 from __future__ import annotations
 
+from fastmcp import FastMCP
 
-async def test_activate_heavy_mode_tool_exists():
+
+async def test_activate_heavy_mode_tool_exists(workflow_mcp: FastMCP):
     """The activate_heavy_mode tool should be registered."""
-    from app.mcp.workflows import create_workflow_mcp
-
-    mcp = create_workflow_mcp()
-    tools = await mcp.list_tools()
+    tools = await workflow_mcp.list_tools()
     tool_names = {t.name for t in tools}
     assert "activate_heavy_mode" in tool_names
 
 
-async def test_heavy_tagged_tools_hidden_by_default():
+async def test_heavy_tagged_tools_hidden_by_default(workflow_mcp: FastMCP):
     """Tools tagged with 'heavy' should not appear in the default tool list.
 
     Currently no tools are tagged 'heavy' yet, but the disable(tags={'heavy'})
     call should not break anything. This test verifies the mechanism works.
     """
-    from app.mcp.workflows import create_workflow_mcp
-
-    mcp = create_workflow_mcp()
-    tools = await mcp.list_tools()
+    tools = await workflow_mcp.list_tools()
     tool_names = {t.name for t in tools}
 
     # activate_heavy_mode is tagged "admin", not "heavy", so it's visible
@@ -36,12 +32,9 @@ async def test_heavy_tagged_tools_hidden_by_default():
             )
 
 
-async def test_gateway_has_transform_tools():
+async def test_gateway_has_transform_tools(gateway_mcp: FastMCP):
     """Gateway should have PromptsAsTools/ResourcesAsTools transform tools."""
-    from app.mcp.gateway import create_dj_mcp
-
-    mcp = create_dj_mcp()
-    tools = await mcp.list_tools()
+    tools = await gateway_mcp.list_tools()
     tool_names = {t.name for t in tools}
 
     # PromptsAsTools adds: list_prompts, get_prompt
@@ -52,12 +45,9 @@ async def test_gateway_has_transform_tools():
     assert "read_resource" in tool_names
 
 
-async def test_gateway_preserves_all_dj_tools():
+async def test_gateway_preserves_all_dj_tools(gateway_mcp: FastMCP):
     """Adding transforms should not remove any existing dj_ tools."""
-    from app.mcp.gateway import create_dj_mcp
-
-    mcp = create_dj_mcp()
-    tools = await mcp.list_tools()
+    tools = await gateway_mcp.list_tools()
     tool_names = {t.name for t in tools}
 
     # Spot-check a few core tools still present
@@ -66,12 +56,9 @@ async def test_gateway_preserves_all_dj_tools():
     assert "dj_export_set_m3u" in tool_names
 
 
-async def test_gateway_preserves_ym_tools():
+async def test_gateway_preserves_ym_tools(gateway_mcp: FastMCP):
     """Adding transforms should not remove any existing ym_ tools."""
-    from app.mcp.gateway import create_dj_mcp
-
-    mcp = create_dj_mcp()
-    tools = await mcp.list_tools()
+    tools = await gateway_mcp.list_tools()
     tool_names = {t.name for t in tools}
     ym_tools = {n for n in tool_names if n.startswith("ym_")}
     assert len(ym_tools) > 0, f"No ym_ tools found. Available: {tool_names}"
