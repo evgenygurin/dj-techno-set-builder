@@ -48,10 +48,12 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                         roller, or wave.
         """
         # 1. Create DJ set
+        await ctx.report_progress(progress=0, total=100)
         dj_set = await set_svc.create(
             DjSetCreate(name=set_name),
         )
 
+        await ctx.report_progress(progress=10, total=100)
         await ctx.info(
             f"Created set '{set_name}' (id={dj_set.set_id}), "
             f"running GA with energy_arc={energy_arc}..."
@@ -60,11 +62,13 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         # 2. Generate optimal ordering via GA
         request = SetGenerationRequest(energy_arc_type=energy_arc)
         gen_result = await gen_svc.generate(dj_set.set_id, request)
+        await ctx.report_progress(progress=80, total=100)
 
         avg_score = 0.0
         if gen_result.transition_scores:
             avg_score = sum(gen_result.transition_scores) / len(gen_result.transition_scores)
 
+        await ctx.report_progress(progress=100, total=100)
         return SetBuildResult(
             set_id=dj_set.set_id,
             version_id=gen_result.set_version_id,
