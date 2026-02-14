@@ -28,3 +28,20 @@ async def test_existing_yandex_music_tests_still_pass(ym_mcp: FastMCP):
     """Existing YM MCP tests should still work via direct import."""
     tools = await ym_mcp.list_tools()
     assert len(tools) > 0
+
+
+async def test_gateway_has_middleware(gateway_mcp: FastMCP):
+    """Gateway should have observability middleware."""
+    # gateway_mcp is a fixture from tests/mcp/conftest.py
+    # After wiring, gateway should have 7+ middleware
+    # (1 default DereferenceRefsMiddleware + 6 from observability)
+    assert len(gateway_mcp.middleware) >= 7
+
+
+async def test_gateway_has_lifespan(gateway_mcp: FastMCP):
+    """Gateway should have custom lifespan configured (not default)."""
+    from fastmcp.server.lifespan import Lifespan
+    from fastmcp.server.server import default_lifespan
+
+    assert gateway_mcp._lifespan is not default_lifespan
+    assert isinstance(gateway_mcp._lifespan, Lifespan)
