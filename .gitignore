@@ -105,8 +105,9 @@ docs/plans/
 # GraphQL schema files
 schema.graphql
 
-# Data
-data/
+# Data (keep API specs tracked)
+data/*
+!data/yandex-music.yaml
 
 cert/
 
