@@ -25,6 +25,10 @@ ml = [
     "demucs>=4.0",
     "torch>=2.0",
 ]
+observability = [
+    "sentry-sdk[fastapi]>=2.50",
+    "opentelemetry-exporter-otlp>=1.29",
+]
 
 [dependency-groups]
 dev = [
@@ -92,6 +96,18 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["yaml", "yaml.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["sentry_sdk.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["opentelemetry.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["key_value.*"]
 ignore_missing_imports = true
 
 # ── Pytest ────────────────────────────────────────────────────────────────────
