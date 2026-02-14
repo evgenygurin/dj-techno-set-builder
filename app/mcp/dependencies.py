@@ -1,10 +1,15 @@
-"""Dependency injection providers for MCP tools."""
+"""Dependency injection providers for MCP tools.
+
+Uses FastMCP's Depends() for automatic DI chain resolution.
+Session is created once per-request and shared across all services.
+"""
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.yandex_music import YandexMusicClient
@@ -32,12 +37,16 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         yield session
 
 
-def get_track_service(session: AsyncSession) -> TrackService:
+def get_track_service(
+    session: AsyncSession = Depends(get_session),
+) -> TrackService:
     """Build a TrackService with all required repositories."""
     return TrackService(TrackRepository(session))
 
 
-def get_playlist_service(session: AsyncSession) -> DjPlaylistService:
+def get_playlist_service(
+    session: AsyncSession = Depends(get_session),
+) -> DjPlaylistService:
     """Build a DjPlaylistService with playlist and item repositories."""
     return DjPlaylistService(
         DjPlaylistRepository(session),
@@ -45,7 +54,9 @@ def get_playlist_service(session: AsyncSession) -> DjPlaylistService:
     )
 
 
-def get_features_service(session: AsyncSession) -> AudioFeaturesService:
+def get_features_service(
+    session: AsyncSession = Depends(get_session),
+) -> AudioFeaturesService:
     """Build an AudioFeaturesService with features and track repositories."""
     return AudioFeaturesService(
         AudioFeaturesRepository(session),
@@ -53,8 +64,10 @@ def get_features_service(session: AsyncSession) -> AudioFeaturesService:
     )
 
 
-def get_analysis_service(session: AsyncSession) -> TrackAnalysisService:
-    """Build a TrackAnalysisService with track, features, and sections repositories."""
+def get_analysis_service(
+    session: AsyncSession = Depends(get_session),
+) -> TrackAnalysisService:
+    """Build a TrackAnalysisService with track, features, and sections repos."""
     return TrackAnalysisService(
         TrackRepository(session),
         AudioFeaturesRepository(session),
@@ -62,7 +75,9 @@ def get_analysis_service(session: AsyncSession) -> TrackAnalysisService:
     )
 
 
-def get_set_service(session: AsyncSession) -> DjSetService:
+def get_set_service(
+    session: AsyncSession = Depends(get_session),
+) -> DjSetService:
     """Build a DjSetService with set, version, and item repositories."""
     return DjSetService(
         DjSetRepository(session),
@@ -71,8 +86,10 @@ def get_set_service(session: AsyncSession) -> DjSetService:
     )
 
 
-def get_set_generation_service(session: AsyncSession) -> SetGenerationService:
-    """Build a SetGenerationService with set, version, item, and features repositories."""
+def get_set_generation_service(
+    session: AsyncSession = Depends(get_session),
+) -> SetGenerationService:
+    """Build a SetGenerationService with all required repositories."""
     return SetGenerationService(
         DjSetRepository(session),
         DjSetVersionRepository(session),
@@ -81,7 +98,9 @@ def get_set_generation_service(session: AsyncSession) -> SetGenerationService:
     )
 
 
-def get_transition_service(session: AsyncSession) -> TransitionService:
+def get_transition_service(
+    session: AsyncSession = Depends(get_session),
+) -> TransitionService:
     """Build a TransitionService with a transition repository."""
     return TransitionService(TransitionRepository(session))
 
