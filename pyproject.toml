@@ -29,6 +29,9 @@ observability = [
     "sentry-sdk[fastapi]>=2.50",
     "opentelemetry-exporter-otlp>=1.29",
 ]
+sampling = [
+    "fastmcp[anthropic]",
+]
 
 [dependency-groups]
 dev = [

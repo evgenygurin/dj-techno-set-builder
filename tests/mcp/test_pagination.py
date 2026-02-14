@@ -66,4 +66,5 @@ async def test_gateway_has_page_size():
 
     gateway = create_dj_mcp()
     # list_page_size is set on the server settings
-    assert gateway._list_page_size is not None
+    # list_page_size > 0 means pagination is configured
+    assert gateway._list_page_size is not None  # type: ignore[attr-defined]

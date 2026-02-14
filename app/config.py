@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     mcp_ping_interval: int = 30
     mcp_log_payloads: bool = False
 
+    # Sampling (LLM fallback)
+    anthropic_api_key: str = ""
+    sampling_model: str = "claude-sonnet-4-5-20250929"
+    sampling_max_tokens: int = 1024
+
     # Pagination
     mcp_page_size: int = 50
 

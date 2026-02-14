@@ -20,13 +20,33 @@ def create_dj_mcp() -> FastMCP:
 
     Mounts Yandex Music (namespace "ym") and DJ Workflows (namespace "dj").
     Applies observability middleware and lifespan management.
+    Configures AnthropicSamplingHandler as fallback when ANTHROPIC_API_KEY is set.
     Adds PromptsAsTools and ResourcesAsTools transforms so that tool-only
     clients can still access prompts and resources.
     """
+    # Build sampling handler (fallback for clients without sampling support)
+    sampling_handler = None
+    if settings.anthropic_api_key:
+        try:
+            from fastmcp.client.sampling.handlers.anthropic import (
+                AnthropicSamplingHandler,
+            )
+
+            sampling_handler = AnthropicSamplingHandler(
+                default_model=settings.sampling_model,
+            )
+        except ImportError:
+            logger.warning(
+                "anthropic_api_key set but fastmcp[anthropic] not installed; "
+                "sampling fallback disabled"
+            )
+
     gateway = FastMCP(
         "DJ Set Builder",
         lifespan=mcp_lifespan,
         list_page_size=settings.mcp_page_size,
+        sampling_handler=sampling_handler,
+        sampling_handler_behavior="fallback",
     )
 
     ym = create_yandex_music_mcp()
