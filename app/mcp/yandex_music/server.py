@@ -28,6 +28,7 @@ def _patch_spec(spec: dict[str, Any]) -> dict[str, Any]:
 
     1. Convert integer response status codes to strings (YAML ``200`` -> ``"200"``).
     2. Inject missing ``operationId`` values for endpoints that lack them.
+    3. Break circular ``$ref`` in schemas (Genre.subGenres -> Genre).
     """
     paths: dict[str, Any] = spec.get("paths", {})
 
@@ -48,7 +49,42 @@ def _patch_spec(spec: dict[str, Any]) -> dict[str, Any]:
             if op_key in _MISSING_OPERATION_IDS and "operationId" not in method_obj:
                 method_obj["operationId"] = _MISSING_OPERATION_IDS[op_key]
 
+    # --- break circular $ref chains ---
+    # Cycles: Artist.popularTracks→Track, Track.artists→Artist,
+    #         Track.albums→Album, Album.artists→Artist, Genre.subGenres→Genre
+    _break_circular_refs(spec)
+
     return spec
+
+
+# (schema_name, property_name) pairs where $ref creates a cycle.
+# Replace the $ref with a plain object/array stub.
+_CIRCULAR_REFS: list[tuple[str, str]] = [
+    ("Artist", "popularTracks"),  # Artist → Track → Artist
+    ("Album", "artists"),  # Album → Artist → Track → Album
+    ("Album", "volumes"),  # Album → Track → Album
+    ("Genre", "subGenres"),  # Genre → Genre
+]
+
+
+def _break_circular_refs(spec: dict[str, Any]) -> None:
+    """Replace circular $ref pointers with plain ``object`` stubs."""
+    schemas = spec.get("components", {}).get("schemas", {})
+    for schema_name, prop_name in _CIRCULAR_REFS:
+        prop = schemas.get(schema_name, {}).get("properties", {}).get(prop_name)
+        if prop is None:
+            continue
+        _remove_nested_refs(prop)
+
+
+def _remove_nested_refs(obj: dict[str, Any]) -> None:
+    """Recursively remove $ref from a property, replacing with object stubs."""
+    if "$ref" in obj:
+        obj.pop("$ref")
+        obj["type"] = "object"
+    items = obj.get("items")
+    if isinstance(items, dict):
+        _remove_nested_refs(items)
 
 
 def _load_spec() -> dict[str, Any]:
