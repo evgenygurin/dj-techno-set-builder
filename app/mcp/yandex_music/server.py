@@ -117,4 +117,5 @@ def create_yandex_music_mcp() -> FastMCP:
         name="Yandex Music",
         route_maps=EXCLUDE_ROUTE_MAPS,
         mcp_names=build_mcp_names(spec),
+        validate_output=False,  # YM API responses don't match the (unofficial) OpenAPI spec
     )

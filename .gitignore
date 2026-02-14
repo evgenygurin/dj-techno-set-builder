@@ -122,3 +122,6 @@ db_schema.md
 in-memoria.db
 in-memoria-vectors.db
 .in-memoria/cache/
+
+# Override global gitignore for project-level configs
+!.mcp.json

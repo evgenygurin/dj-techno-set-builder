@@ -6,6 +6,8 @@ APP      := app
 TESTS    := tests
 PORT     ?= 8000
 WORKERS  ?= 4
+MCP_PORT ?= 9100
+MCP_SPEC := app/mcp/gateway.py:create_dj_mcp
 
 # Docker compose file combinations
 DC       := docker compose
@@ -19,6 +21,7 @@ DC_PROD  := $(DC) -f compose.yaml -f compose.prod.yaml
         run run-prod kill \
         db db-upgrade db-downgrade db-revision db-history db-current db-reset \
         docker-local docker-dev docker-prod docker-down docker-logs docker-ps docker-shell docker-test \
+        mcp-dev mcp-inspect mcp-list mcp-call mcp-install-desktop mcp-install-code \
         all ci
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -79,6 +82,15 @@ help:
 	@echo "  docker-ps      Статус контейнеров"
 	@echo "  docker-shell   Shell в app контейнере"
 	@echo "  docker-test    Запуск тестов в dev контейнере"
+	@echo ""
+	@echo "  MCP Server"
+	@echo "  ─────────────────────────────────────"
+	@echo "  mcp-dev        HTTP dev-сервер с hot-reload (порт $(MCP_PORT))"
+	@echo "  mcp-inspect    MCP Inspector UI (порт 6274)"
+	@echo "  mcp-list       Список всех MCP-инструментов"
+	@echo "  mcp-call TOOL= Вызов инструмента (make mcp-call TOOL=dj_get_track_details ARGS='{\"track_id\": 45}')"
+	@echo "  mcp-install-desktop  Установить в Claude Desktop (stdio)"
+	@echo "  mcp-install-code     Установить в Claude Code глобально (stdio)"
 	@echo ""
 	@echo "  CI / All"
 	@echo "  ─────────────────────────────────────"
@@ -233,6 +245,31 @@ docker-shell:
 
 docker-test:
 	$(DC_DEV) run --rm -e DATABASE_URL=sqlite+aiosqlite:///./dev.db -v $(CURDIR)/tests:/app/tests app pytest -v tests
+
+# ═════════════════════════════════════════════════════════════════════════════
+# MCP Server
+# ═════════════════════════════════════════════════════════════════════════════
+
+mcp-dev:
+	$(UV) run fastmcp run --transport http --host 127.0.0.1 --port $(MCP_PORT) --reload --reload-dir $(APP)/mcp --skip-env
+
+mcp-inspect:
+	$(UV) run fastmcp dev inspector $(MCP_SPEC) --ui-port 6274 --reload --reload-dir $(APP)/mcp
+
+mcp-list:
+	$(UV) run fastmcp list --command "$(UV) run fastmcp run $(MCP_SPEC) --skip-env"
+
+mcp-call:
+ifndef TOOL
+	$(error Укажи инструмент: make mcp-call TOOL=dj_get_track_details ARGS='{"track_id": 45}')
+endif
+	$(UV) run fastmcp call --command "$(UV) run fastmcp run $(MCP_SPEC) --skip-env" --target $(TOOL) --input-json '$(ARGS)'
+
+mcp-install-desktop:
+	$(UV) run fastmcp install claude-desktop $(MCP_SPEC) --name dj-techno --env-file .env --with-editable .
+
+mcp-install-code:
+	$(UV) run fastmcp install claude-code $(MCP_SPEC) --name dj-techno --env-file .env --with-editable .
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CI / All

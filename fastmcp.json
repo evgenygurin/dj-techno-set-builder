@@ -1,0 +1,22 @@
+{
+  "$schema": "https://gofastmcp.com/public/schemas/fastmcp.json/v1.json",
+  "source": {
+    "type": "filesystem",
+    "path": "app/mcp/gateway.py",
+    "entrypoint": "create_dj_mcp"
+  },
+  "environment": {
+    "type": "uv",
+    "python": "3.12",
+    "editable": ["."]
+  },
+  "deployment": {
+    "transport": "stdio",
+    "log_level": "INFO",
+    "env": {
+      "YANDEX_MUSIC_TOKEN": "${YANDEX_MUSIC_TOKEN}",
+      "YANDEX_MUSIC_USER_ID": "${YANDEX_MUSIC_USER_ID}",
+      "YANDEX_MUSIC_BASE_URL": "${YANDEX_MUSIC_BASE_URL}"
+    }
+  }
+}
