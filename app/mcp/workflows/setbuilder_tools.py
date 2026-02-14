@@ -258,20 +258,39 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         track_summary = ", ".join(f"#{i.sort_index}: track {i.track_id}" for i in items)
 
         # Try LLM-assisted adjustment
+        from app.mcp.types import AdjustmentPlan
+
+        plan: AdjustmentPlan | None = None
         suggestion: str | None = None
         try:
             prompt = (
                 f"Current set order: [{track_summary}]. "
                 f"User instructions: {instructions}. "
-                "Suggest specific changes (swaps, inserts, removals) "
-                "as a numbered list."
+                "Analyze the set and suggest specific changes."
             )
-            result = await ctx.sample(prompt)
-            suggestion = result.text if hasattr(result, "text") else str(result)
+            result = await ctx.sample(
+                messages=prompt,
+                system_prompt=(
+                    "You are a DJ assistant optimizing set ordering. "
+                    "Suggest track swaps and reorderings to improve "
+                    "transitions and energy flow."
+                ),
+                result_type=AdjustmentPlan,
+            )
+            plan = result.result
+            suggestion = result.text
         except (NotImplementedError, AttributeError, TypeError):
+            plan = None
             suggestion = None
 
-        if suggestion:
+        if plan:
+            with contextlib.suppress(Exception):
+                await ctx.info(
+                    f"Adjustment plan: {plan.reasoning[:200]}\n"
+                    f"Swaps: {len(plan.swap_suggestions)}, "
+                    f"Reorders: {len(plan.reorder_suggestions)}"
+                )
+        elif suggestion:
             with contextlib.suppress(Exception):
                 await ctx.info(f"Suggested changes:\n{suggestion[:500]}")
 
@@ -284,6 +303,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                     "algorithm": "manual_adjust",
                     "instructions": instructions,
                     "suggestion": suggestion,
+                    "plan": plan.model_dump() if plan else None,
                 },
             ),
         )
