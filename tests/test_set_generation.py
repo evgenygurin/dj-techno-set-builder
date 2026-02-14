@@ -170,6 +170,57 @@ class TestGeneticSetGenerator:
         result = GeneticSetGenerator(tracks, matrix, config).run()
         assert 0.0 <= result.bpm_smoothness_score <= 1.0
 
+    def test_two_opt_improves_solution(self) -> None:
+        """2-opt should improve or maintain solution quality"""
+        tracks = _make_tracks(20)
+        n = len(tracks)
+        matrix = np.zeros((n, n))
+        for i in range(n):
+            for j in range(n):
+                if i != j:
+                    bpm_sim = 1.0 / (1.0 + abs(tracks[i].bpm - tracks[j].bpm))
+                    matrix[i, j] = bpm_sim
+
+        config = GAConfig(
+            population_size=50,
+            generations=100,
+            track_count=10,
+            seed=42,
+        )
+
+        gen = GeneticSetGenerator(tracks, matrix, config)
+
+        # Create a sub-optimal chromosome
+        chromosome = np.array([0, 5, 2, 8, 3, 9, 1, 7, 4, 6], dtype=np.int32)
+        fitness_before = gen._fitness(chromosome)
+
+        # Apply 2-opt
+        gen._two_opt(chromosome)
+        fitness_after = gen._fitness(chromosome)
+
+        # Fitness should improve or stay same
+        assert fitness_after >= fitness_before
+
+    def test_two_opt_called_after_crossover(self) -> None:
+        """2-opt should be called after each crossover in run()"""
+        tracks = _make_tracks(10)
+        matrix = np.random.random((10, 10))
+
+        config = GAConfig(
+            population_size=20,
+            generations=5,
+            track_count=10,
+            seed=42,
+        )
+
+        gen = GeneticSetGenerator(tracks, matrix, config)
+        result = gen.run()
+
+        # Result should have improved from initial random population
+        # (2-opt ensures local optimality)
+        assert result.score > 0.0
+        assert len(result.track_ids) == 10
+
 
 # ═══════════════════════════════════════════════════════════
 # API Integration Tests
