@@ -95,6 +95,49 @@ def register_discovery_tools(mcp: FastMCP) -> None:
 
         await ctx.report_progress(progress=25, total=100)
 
+        # Define a local search tool for the LLM to call during sampling
+        async def _search_local_tracks(
+            bpm_min: float | None = None,
+            bpm_max: float | None = None,
+            target_keys: list[str] | None = None,
+            energy_min: float | None = None,
+            energy_max: float | None = None,
+        ) -> list[dict[str, object]]:
+            """Search local tracks by BPM, key, and energy criteria.
+
+            Returns a list of matching tracks with their audio features.
+            """
+            all_feats = await features_svc.list_all()
+            matches: list[dict[str, object]] = []
+            for feat in all_feats:
+                if bpm_min is not None and feat.bpm < bpm_min:
+                    continue
+                if bpm_max is not None and feat.bpm > bpm_max:
+                    continue
+                if energy_min is not None and feat.lufs_i < energy_min:
+                    continue
+                if energy_max is not None and feat.lufs_i > energy_max:
+                    continue
+                if target_keys is not None:
+                    try:
+                        cam = key_code_to_camelot(feat.key_code)
+                    except ValueError:
+                        continue
+                    if cam not in target_keys:
+                        continue
+                camelot: str | None = None
+                with contextlib.suppress(ValueError):
+                    camelot = key_code_to_camelot(feat.key_code)
+                matches.append({
+                    "track_id": feat.track_id,
+                    "bpm": feat.bpm,
+                    "key": camelot,
+                    "energy_lufs": feat.lufs_i,
+                })
+                if len(matches) >= count * 3:
+                    break
+            return matches
+
         # Sampling requires client support — gracefully degrade
         from app.mcp.types import SearchStrategy
 
@@ -105,10 +148,11 @@ def register_discovery_tools(mcp: FastMCP) -> None:
                 messages=profile_text,
                 system_prompt=(
                     "You are a DJ assistant. Analyze the playlist audio profile "
-                    "and generate a search strategy to find similar tracks. "
-                    "Return target BPM range, compatible Camelot keys, energy range, "
-                    "and search queries for music platforms."
+                    "and use the search tool to find similar tracks. "
+                    "Try different search criteria to find the best matches. "
+                    "Return a SearchStrategy with your findings."
                 ),
+                tools=[_search_local_tracks],
                 result_type=SearchStrategy,
             )
             strategy = result.result
