@@ -5,6 +5,7 @@ description = "DJ Techno Set Builder — automated set construction from track a
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
+    "fastmcp>=3.0.0rc1",
     "uvicorn[standard]>=0.34",
     "sqlalchemy[asyncio]>=2.0",
     "aiosqlite>=0.21",
@@ -23,6 +24,13 @@ audio = [
 ml = [
     "demucs>=4.0",
     "torch>=2.0",
+]
+observability = [
+    "sentry-sdk[fastapi]>=2.50",
+    "opentelemetry-exporter-otlp>=1.29",
+]
+sampling = [
+    "fastmcp[anthropic]",
 ]
 
 [dependency-groups]
@@ -51,6 +59,14 @@ line-length = 99
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 
+[tool.ruff.lint.per-file-ignores]
+"app/mcp/dependencies.py" = ["B008"]  # Depends() in defaults is the FastMCP DI pattern
+"app/mcp/workflows/analysis_tools.py" = ["B008"]
+"app/mcp/workflows/discovery_tools.py" = ["B008"]
+"app/mcp/workflows/setbuilder_tools.py" = ["B008"]
+"app/mcp/workflows/export_tools.py" = ["B008"]
+"app/mcp/resources/status.py" = ["B008"]  # Depends() in defaults is the FastMCP DI pattern
+
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 
@@ -71,6 +87,30 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["demucs.*", "torch.*", "torchaudio.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["fastmcp.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["alembic.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["yaml", "yaml.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["sentry_sdk.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["opentelemetry.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["key_value.*"]
 ignore_missing_imports = true
 
 # ── Pytest ────────────────────────────────────────────────────────────────────

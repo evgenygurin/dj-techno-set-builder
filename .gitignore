@@ -92,27 +92,30 @@ dmypy.json
 # ruff
 .ruff_cache/
 
-.cursorignore
-.cursorrules
-.cursor/
-.codegen/
-*.codee-workspace/
-csv_processor/
-
-docs/
+# docs/
 docs/plans/
 
-# GraphQL schema files
-schema.graphql
-
-# Data
-data/
+# Data (keep API specs tracked)
+data/*
+!data/yandex-music.yaml
 
 cert/
-
-icloude/
 
 # Generated/temporary files
 openapi.json
 *.bak
 db_schema.md
+
+# MCP response cache (DiskStore)
+cache/
+
+# In-Memoria (codebase intelligence)
+in-memoria.db
+in-memoria-vectors.db
+.in-memoria/cache/
+
+# Override global gitignore for project-level configs
+!.mcp.json
+
+dev.db-shm
+dev.db-wal

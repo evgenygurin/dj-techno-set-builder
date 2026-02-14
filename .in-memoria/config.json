@@ -1,0 +1,52 @@
+{
+  "version": "0.6.0",
+  "project": {
+    "name": "DJ Techno Set Builder",
+    "languages": ["python", "sql"]
+  },
+  "intelligence": {
+    "enableRealTimeAnalysis": true,
+    "enablePatternLearning": true,
+    "vectorEmbeddings": true,
+    "confidenceThreshold": 0.6,
+    "patternCategories": {
+      "naming": { "enabled": true, "weight": 1.0 },
+      "architecture": { "enabled": true, "weight": 1.5 },
+      "testing": { "enabled": true, "weight": 1.0 }
+    }
+  },
+  "watching": {
+    "patterns": [
+      "app/**/*.py",
+      "tests/**/*.py",
+      "migrations/**/*.py"
+    ],
+    "ignored": [
+      "**/__pycache__/**",
+      "**/.git/**",
+      "**/.venv/**",
+      "**/.ruff_cache/**",
+      "**/.mypy_cache/**",
+      "**/.pytest_cache/**",
+      "**/htmlcov/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/*.egg-info/**",
+      "**/node_modules/**",
+      "**/icloude/**",
+      "**/generated-sets/**",
+      "data/**"
+    ],
+    "debounceMs": 500
+  },
+  "performance": {
+    "batchSize": 50,
+    "maxConcurrentFiles": 10,
+    "timeoutMs": 60000,
+    "maxMemoryMb": 512
+  },
+  "mcp": {
+    "serverPort": 3000,
+    "enableAllTools": true
+  }
+}

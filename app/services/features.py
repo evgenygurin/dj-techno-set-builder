@@ -24,6 +24,11 @@ class AudioFeaturesService(BaseService):
             raise NotFoundError("AudioFeatures", track_id=track_id)
         return AudioFeaturesRead.model_validate(features)
 
+    async def list_all(self) -> list[AudioFeaturesRead]:
+        """Get latest features for every track (one row per track_id)."""
+        rows = await self.features_repo.list_all()
+        return [AudioFeaturesRead.model_validate(r) for r in rows]
+
     async def list_for_track(
         self,
         track_id: int,
