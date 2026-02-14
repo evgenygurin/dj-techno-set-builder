@@ -69,6 +69,29 @@ class SearchStrategy(BaseModel):
     reasoning: str
 
 
+class SwapSuggestion(BaseModel):
+    """Suggestion to swap a track at a given position."""
+
+    position: int
+    reason: str
+
+
+class ReorderSuggestion(BaseModel):
+    """Suggestion to move a track to a new position."""
+
+    from_position: int
+    to_position: int
+    reason: str
+
+
+class AdjustmentPlan(BaseModel):
+    """LLM-generated plan for adjusting a DJ set."""
+
+    reasoning: str
+    swap_suggestions: list[SwapSuggestion] = []
+    reorder_suggestions: list[ReorderSuggestion] = []
+
+
 class SetBuildResult(BaseModel):
     """Result of building/optimizing a DJ set."""
 
