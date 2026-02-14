@@ -10,10 +10,11 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
 from app.errors import NotFoundError
-from app.mcp.dependencies import get_features_service, get_set_service
+from app.mcp.dependencies import get_features_service, get_set_service, get_track_service
 from app.mcp.types import ExportResult
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
+from app.services.tracks import TrackService
 from app.utils.audio.camelot import key_code_to_camelot
 
 
@@ -29,11 +30,14 @@ def register_export_tools(mcp: FastMCP) -> None:
         version_id: int,
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
+        track_svc: TrackService = Depends(get_track_service),
     ) -> ExportResult:
         """Export a set version as an M3U playlist string.
 
         Builds an extended M3U (#EXTM3U) representation of the set
-        with track titles and durations.
+        with track titles and durations.  File paths use track_id
+        placeholders since actual file locations are stored in
+        DjLibraryItem, not Track.
 
         Args:
             set_id: DJ set ID (for validation).
@@ -49,11 +53,15 @@ def register_export_tools(mcp: FastMCP) -> None:
 
         lines: list[str] = ["#EXTM3U"]
         for item in items:
-            # We only have track_id here; real filenames would need
-            # a file_path column on the Track model.
             duration_s = -1
             title = f"Track {item.track_id}"
+            with contextlib.suppress(NotFoundError):
+                track = await track_svc.get(item.track_id)
+                title = track.title
+                duration_s = track.duration_ms // 1000
+
             lines.append(f"#EXTINF:{duration_s},{title}")
+            # File paths are stored in DjLibraryItem, not Track
             lines.append(f"track_{item.track_id}.mp3")
 
         m3u_content = "\n".join(lines) + "\n"
@@ -74,12 +82,12 @@ def register_export_tools(mcp: FastMCP) -> None:
         version_id: int,
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
+        track_svc: TrackService = Depends(get_track_service),
         features_svc: AudioFeaturesService = Depends(get_features_service),
     ) -> ExportResult:
         """Export a set version as a JSON document with full details.
 
-        Includes track ordering, audio features, transition scores,
-        and energy curve data.
+        Includes track ordering, titles, audio features, and energy curve.
 
         Args:
             set_id: DJ set ID.
@@ -101,6 +109,12 @@ def register_export_tools(mcp: FastMCP) -> None:
                 "sort_index": item.sort_index,
                 "track_id": item.track_id,
             }
+
+            # Enrich with track title
+            with contextlib.suppress(NotFoundError):
+                track = await track_svc.get(item.track_id)
+                track_entry["title"] = track.title
+                track_entry["duration_ms"] = track.duration_ms
 
             try:
                 feat = await features_svc.get_latest(item.track_id)

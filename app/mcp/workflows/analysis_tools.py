@@ -28,6 +28,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         playlist_id: int,
         ctx: Context,
         playlist_svc: DjPlaylistService = Depends(get_playlist_service),
+        track_svc: TrackService = Depends(get_track_service),
         features_svc: AudioFeaturesService = Depends(get_features_service),
     ) -> PlaylistStatus:
         """Get full status of a playlist: tracks, analysis progress, BPM/key/energy stats.
@@ -41,9 +42,15 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         bpms: list[float] = []
         keys: list[str] = []
         energies: list[float] = []
+        total_duration_ms = 0
         analyzed = 0
 
         for item in items_list.items:
+            # Accumulate duration from track metadata
+            with contextlib.suppress(NotFoundError):
+                track = await track_svc.get(item.track_id)
+                total_duration_ms += track.duration_ms
+
             try:
                 features = await features_svc.get_latest(item.track_id)
             except NotFoundError:
@@ -68,6 +75,8 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         if energies:
             avg_energy = sum(energies) / len(energies)
 
+        duration_minutes = total_duration_ms / 60_000.0
+
         return PlaylistStatus(
             playlist_id=playlist.playlist_id,
             name=playlist.name,
@@ -76,6 +85,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             bpm_range=bpm_range,
             keys=keys,
             avg_energy=avg_energy,
+            duration_minutes=round(duration_minutes, 1),
         )
 
     @mcp.tool(

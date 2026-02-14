@@ -22,9 +22,9 @@ def register_discovery_tools(mcp: FastMCP) -> None:
     @mcp.tool(tags={"discovery"})
     async def find_similar_tracks(
         playlist_id: int,
+        ctx: Context,
         count: int = 10,
         criteria: str = "bpm,key,energy",
-        ctx: Context = None,  # type: ignore[assignment]
         playlist_svc: DjPlaylistService = Depends(get_playlist_service),
         features_svc: AudioFeaturesService = Depends(get_features_service),
     ) -> SimilarTracksResult:
@@ -34,6 +34,10 @@ def register_discovery_tools(mcp: FastMCP) -> None:
         uses ctx.sample() to generate a smart search strategy.  Falls back
         to a basic profile summary when the MCP client does not support
         sampling / elicitation.
+
+        Note: The actual Yandex Music search is not yet wired — this tool
+        builds a profile and returns zero candidates until the full pipeline
+        is connected.
 
         Args:
             playlist_id: Local playlist to base the search on.
@@ -83,26 +87,22 @@ def register_discovery_tools(mcp: FastMCP) -> None:
             f"Find {count} similar tracks."
         )
 
-        with contextlib.suppress(Exception):
-            if ctx is not None:
-                await ctx.info(
-                    f"Playlist profile built: {len(bpms)} analysed tracks, "
-                    f"BPM {bpm_range[0]:.0f}-{bpm_range[1]:.0f}"
-                )
+        await ctx.info(
+            f"Playlist profile built: {len(bpms)} analysed tracks, "
+            f"BPM {bpm_range[0]:.0f}-{bpm_range[1]:.0f}"
+        )
 
         # Sampling requires client support — gracefully degrade
         strategy_text: str | None = None
         try:
-            if ctx is not None:
-                result = await ctx.sample(profile_text)
-                strategy_text = result.text if hasattr(result, "text") else str(result)
+            result = await ctx.sample(profile_text)
+            strategy_text = result.text if hasattr(result, "text") else str(result)
         except (NotImplementedError, AttributeError, TypeError):
             strategy_text = None
 
         if strategy_text:
             with contextlib.suppress(Exception):
-                if ctx is not None:
-                    await ctx.info(f"LLM search strategy: {strategy_text[:200]}")
+                await ctx.info(f"LLM search strategy: {strategy_text[:200]}")
 
         # 3. Return result (actual YM search would happen here)
         return SimilarTracksResult(
@@ -137,11 +137,7 @@ def register_discovery_tools(mcp: FastMCP) -> None:
             energy_min: Minimum integrated LUFS.
             energy_max: Maximum integrated LUFS.
         """
-        from app.repositories.audio_features import AudioFeaturesRepository
-
-        # Access underlying repo for bulk query
-        repo: AudioFeaturesRepository = features_svc.features_repo
-        all_features = await repo.list_all()
+        all_features = await features_svc.list_all()
 
         results: list[TrackDetails] = []
         target_keys = set(keys) if keys else None

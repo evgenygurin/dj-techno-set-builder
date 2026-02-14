@@ -31,8 +31,8 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
     async def build_set(
         playlist_id: int,
         set_name: str,
+        ctx: Context,
         energy_arc: str = "classic",
-        ctx: Context = None,  # type: ignore[assignment]
         set_svc: DjSetService = Depends(get_set_service),
         gen_svc: SetGenerationService = Depends(get_set_generation_service),
     ) -> SetBuildResult:
@@ -52,12 +52,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             DjSetCreate(name=set_name),
         )
 
-        with contextlib.suppress(Exception):
-            if ctx is not None:
-                await ctx.info(
-                    f"Created set '{set_name}' (id={dj_set.set_id}), "
-                    f"running GA with energy_arc={energy_arc}..."
-                )
+        await ctx.info(
+            f"Created set '{set_name}' (id={dj_set.set_id}), "
+            f"running GA with energy_arc={energy_arc}..."
+        )
 
         # 2. Generate optimal ordering via GA
         request = SetGenerationRequest(energy_arc_type=energy_arc)
@@ -227,9 +225,12 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         """Adjust a DJ set version based on natural language instructions.
 
         Uses ctx.sample() to ask the LLM for specific changes (swap
-        tracks, reorder, remove), then optionally uses ctx.elicit() to
-        confirm with the user before applying.  Falls back gracefully
-        when the MCP client does not support sampling.
+        tracks, reorder, remove).  Falls back gracefully when the MCP
+        client does not support sampling.
+
+        Creates a new version that copies the current track ordering and
+        records the LLM suggestion in generator_run metadata.  The caller
+        can then apply specific reorderings via the REST API.
 
         Args:
             set_id: DJ set to adjust.
