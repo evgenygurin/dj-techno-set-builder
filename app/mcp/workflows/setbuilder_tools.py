@@ -293,8 +293,8 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                     else [0.33, 0.33, 0.34]
                 )
                 return TrackFeatures(
-                    bpm=feat.bpm,  # type: ignore[union-attr]
-                    energy_lufs=feat.lufs_i,  # type: ignore[union-attr]
+                    bpm=getattr(feat, "bpm", 0.0),
+                    energy_lufs=getattr(feat, "lufs_i", 0.0),
                     key_code=getattr(feat, "key_code", 0) or 0,
                     harmonic_density=harmonic_density,
                     centroid_hz=getattr(feat, "centroid_mean_hz", None) or 2000.0,
@@ -326,7 +326,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             )
 
             # Use sample_step for fine-grained control
-            messages: object = prompt
+            messages: str | list[str] = prompt
             max_steps = 10
             for step_num in range(max_steps):
                 step = await ctx.sample_step(
@@ -341,9 +341,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
 
                 if step.is_tool_use:
                     await ctx.report_progress(
-                        progress=step_num + 1, total=max_steps,
+                        progress=step_num + 1,
+                        total=max_steps,
                     )
-                    messages = step.history
+                    messages = step.history  # type: ignore[assignment]
                     continue
 
                 # Final text response

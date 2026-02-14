@@ -57,10 +57,12 @@ def create_dj_mcp() -> FastMCP:
 
         skills_dir = Path(__file__).parent / "skills"
         if skills_dir.exists():
-            gateway.add_provider(SkillsDirectoryProvider(
-                roots=skills_dir,
-                supporting_files="template",
-            ))
+            gateway.add_provider(
+                SkillsDirectoryProvider(
+                    roots=skills_dir,
+                    supporting_files="template",
+                )
+            )
     except ImportError:
         logger.debug("SkillsDirectoryProvider not available; skipping skills")
 

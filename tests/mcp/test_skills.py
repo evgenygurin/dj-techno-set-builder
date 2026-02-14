@@ -19,7 +19,8 @@ async def test_skill_readable(gateway_mcp: FastMCP):
         resources = await client.list_resources()
         # Find the expand-playlist skill
         expand_uris = [
-            str(r.uri) for r in resources
+            str(r.uri)
+            for r in resources
             if "expand-playlist" in str(r.uri) and "SKILL.md" in str(r.uri)
         ]
         assert len(expand_uris) > 0, f"No expand-playlist skill found in {resources}"
