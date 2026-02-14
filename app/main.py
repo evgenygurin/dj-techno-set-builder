@@ -2,10 +2,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastmcp.utilities.lifespan import combine_lifespans
 
 from app.config import settings
 from app.database import close_db, init_db
 from app.errors import register_error_handlers
+from app.mcp.yandex_music import create_yandex_music_mcp
 from app.middleware import apply_middleware
 from app.routers import register_routers
 
@@ -18,11 +20,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    mcp = create_yandex_music_mcp()
+    mcp_app = mcp.http_app(path="/mcp")
+
     application = FastAPI(
         title=settings.app_name,
         debug=settings.debug,
-        lifespan=lifespan,
+        lifespan=combine_lifespans(lifespan, mcp_app.lifespan),
     )
+    application.mount("/mcp", mcp_app)
     apply_middleware(application)
     register_error_handlers(application)
     register_routers(application)
