@@ -5,6 +5,7 @@ description = "DJ Techno Set Builder — automated set construction from track a
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
+    "fastmcp>=3.0.0rc1",
     "uvicorn[standard]>=0.34",
     "sqlalchemy[asyncio]>=2.0",
     "aiosqlite>=0.21",
@@ -71,6 +72,18 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["demucs.*", "torch.*", "torchaudio.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["fastmcp.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["alembic.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["yaml", "yaml.*"]
 ignore_missing_imports = true
 
 # ── Pytest ────────────────────────────────────────────────────────────────────
