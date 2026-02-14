@@ -46,6 +46,7 @@ def register_discovery_tools(mcp: FastMCP) -> None:
                       (bpm, key, energy).
         """
         # 1. Build playlist audio profile
+        await ctx.report_progress(progress=0, total=100)
         items_list = await playlist_svc.list_items(
             playlist_id,
             offset=0,
@@ -92,6 +93,8 @@ def register_discovery_tools(mcp: FastMCP) -> None:
             f"BPM {bpm_range[0]:.0f}-{bpm_range[1]:.0f}"
         )
 
+        await ctx.report_progress(progress=25, total=100)
+
         # Sampling requires client support — gracefully degrade
         strategy_text: str | None = None
         try:
@@ -100,11 +103,14 @@ def register_discovery_tools(mcp: FastMCP) -> None:
         except (NotImplementedError, AttributeError, TypeError):
             strategy_text = None
 
+        await ctx.report_progress(progress=75, total=100)
+
         if strategy_text:
             with contextlib.suppress(Exception):
                 await ctx.info(f"LLM search strategy: {strategy_text[:200]}")
 
         # 3. Return result (actual YM search would happen here)
+        await ctx.report_progress(progress=100, total=100)
         return SimilarTracksResult(
             playlist_id=playlist_id,
             candidates_found=0,
