@@ -36,5 +36,8 @@ class Settings(BaseSettings):
     mcp_ping_interval: int = 30
     mcp_log_payloads: bool = False
 
+    # Pagination
+    mcp_page_size: int = 50
+
 
 settings = Settings()

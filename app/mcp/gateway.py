@@ -23,7 +23,11 @@ def create_dj_mcp() -> FastMCP:
     Adds PromptsAsTools and ResourcesAsTools transforms so that tool-only
     clients can still access prompts and resources.
     """
-    gateway = FastMCP("DJ Set Builder", lifespan=mcp_lifespan)
+    gateway = FastMCP(
+        "DJ Set Builder",
+        lifespan=mcp_lifespan,
+        list_page_size=settings.mcp_page_size,
+    )
 
     ym = create_yandex_music_mcp()
     gateway.mount(ym, namespace="ym")
