@@ -18,6 +18,7 @@ class Track(TimestampMixin, Base):
     status: Mapped[int] = mapped_column(
         SmallInteger,
         CheckConstraint("status IN (0, 1)", name="ck_tracks_status_valid"),
+        default=0,
         server_default="0",
     )
     archived_at: Mapped[datetime | None] = mapped_column(default=None)

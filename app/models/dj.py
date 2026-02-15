@@ -59,8 +59,8 @@ class DjBeatgrid(TimestampMixin, Base):
         Float,
         CheckConstraint("grid_confidence BETWEEN 0 AND 1", name="ck_beatgrid_conf"),
     )
-    is_variable_tempo: Mapped[bool] = mapped_column(Boolean, server_default="0")
-    is_canonical: Mapped[bool] = mapped_column(Boolean, server_default="0")
+    is_variable_tempo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    is_canonical: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
 
 class DjBeatgridChangePoint(Base):

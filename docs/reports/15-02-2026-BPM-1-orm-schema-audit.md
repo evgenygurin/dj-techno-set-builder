@@ -14,16 +14,16 @@
 ## Decisions
 
 ### Исправленные несоответствия (5 таблиц):
-1. **`dj_beatgrid`** - добавлены `server_default="0"` для `is_variable_tempo`, `is_canonical`
-2. **`tracks`** - добавлен `server_default="0"` для `status`  
-3. **`feature_extraction_runs`** - добавлен `server_default="'running'"` для `status`
-4. **`transition_runs`** - добавлен `server_default="'running'"` для `status`
-5. **`track_audio_features_computed`** - добавлены defaults для `is_atonal`, `is_variable_tempo`, `computed_from_asset_type`
+1. **`dj_beatgrid`** - добавлены `default=False` + `server_default="0"` для `is_variable_tempo`, `is_canonical`
+2. **`tracks`** - добавлен `default=0` + `server_default="0"` для `status`  
+3. **`feature_extraction_runs`** - добавлен `default="running"` + `server_default=text("'running'")` для `status`
+4. **`transition_runs`** - добавлен `default="running"` + `server_default=text("'running'")` для `status`
+5. **`track_audio_features_computed`** - добавлены двойные defaults для `is_atonal`, `is_variable_tempo`, `computed_from_asset_type`
 
 ### Стратегия исправления:
-- Использование `server_default` вместо Python `default` для критически важных полей
-- Приоритет на boolean и enum поля (наименьший риск)
-- Сохранение обратной совместимости
+- Использование `server_default` + Python `default` для полной совместимости
+- Корректный SQL синтаксис: `text("'running'")` для строковых defaults
+- Импорт `text` из SQLAlchemy для правильной SQL генерации
 
 ## Risks
 
