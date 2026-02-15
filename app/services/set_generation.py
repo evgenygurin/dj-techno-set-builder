@@ -177,13 +177,12 @@ class SetGenerationService(BaseService):
         n = len(tracks)
         matrix = np.zeros((n, n), dtype=np.float64)
 
-        # Build Camelot lookup
-        camelot_service = CamelotLookupService()  # No session = uses defaults
-        await camelot_service.build_lookup_table()
+        # Build DB-backed Camelot lookup
+        camelot_service = CamelotLookupService(self.features_repo.session)
+        lookup_table = await camelot_service.build_lookup_table()
 
-        # Initialize scoring service
-        scorer = TransitionScoringService()
-        scorer.camelot_lookup = camelot_service._lookup
+        # Initialize scoring service with DB-backed lookup
+        scorer = TransitionScoringService(camelot_lookup=lookup_table)
 
         # Fetch full features for all tracks
         features_list = await self.features_repo.list_all()

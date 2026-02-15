@@ -48,8 +48,22 @@ class TransitionScoringService:
         "groove": 0.10,  # Rhythmic texture (8%)
     }
 
-    def __init__(self) -> None:
-        self.camelot_lookup: dict[tuple[int, int], float] = {}
+    def __init__(self, camelot_lookup: dict[tuple[int, int], float] | None = None) -> None:
+        if camelot_lookup is not None:
+            self.camelot_lookup = camelot_lookup
+        else:
+            # Initialize with default fallback values
+            self.camelot_lookup: dict[tuple[int, int], float] = {}
+            # Populate with default compatibility based on camelot distance
+            from app.utils.audio.camelot import camelot_distance
+            for i in range(24):
+                for j in range(24):
+                    if i == j:
+                        self.camelot_lookup[(i, j)] = 1.0  # Same key = perfect
+                    else:
+                        distance = camelot_distance(i, j)
+                        # Convert distance to score: 0 dist = 1.0, 6 dist = 0.0 
+                        self.camelot_lookup[(i, j)] = max(0.0, 1.0 - distance / 6.0)
 
     def score_bpm(self, bpm_a: float, bpm_b: float) -> float:
         """Gaussian decay scoring with sigma=8. Handles double/half-time.
@@ -87,6 +101,11 @@ class TransitionScoringService:
             Modulated harmonic compatibility [0, 1]
         """
         raw_camelot = self.camelot_lookup.get((cam_a, cam_b), 0.5)
+        if raw_camelot == 0.5 and not self.camelot_lookup:
+            # Fallback when no lookup available: use distance-based scoring
+            from app.utils.audio.camelot import camelot_distance
+            distance = camelot_distance(cam_a, cam_b)
+            raw_camelot = max(0.0, 1.0 - distance / 6.0)
 
         # Average harmonic density
         avg_density = (density_a + density_b) / 2.0

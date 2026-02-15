@@ -14,6 +14,7 @@ from app.schemas.transitions import (
 )
 from app.services.transition_persistence import TransitionPersistenceService
 from app.services.transitions import TransitionService
+from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 
 router = APIRouter(prefix="/transitions", tags=["transitions"])
 
@@ -117,4 +118,39 @@ async def compute_transition(
         low_conflict_score=result.low_conflict_score,
         overlap_score=result.overlap_score,
         groove_similarity=result.groove_similarity,
+    )
+
+
+@router.post(
+    "/compute-unified",
+    response_model=TransitionComputeResponse,
+    summary="Compute transition score (unified path)",
+    description=(
+        "Score a transition using the unified TransitionScoringService. "
+        "This uses the same scoring logic as the GA and MCP paths, "
+        "ensuring consistent results across all entry points."
+    ),
+    response_description="Computed transition score using unified scoring",
+    operation_id="compute_transition_unified",
+)
+async def compute_transition_unified(
+    data: TransitionComputeRequest, db: DbSession
+) -> TransitionComputeResponse:
+    unified_svc = UnifiedTransitionScoringService(db)
+    try:
+        components = await unified_svc.score_transition_components_by_ids(
+            from_track_id=data.from_track_id,
+            to_track_id=data.to_track_id,
+        )
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+        
+    return TransitionComputeResponse(
+        transition_quality=components["total"],
+        bpm_distance=0.0,  # Not directly available from unified service
+        key_distance_weighted=components["harmonic"],
+        energy_step=0.0,   # Not directly available from unified service
+        low_conflict_score=components["spectral"],
+        overlap_score=components["spectral"],
+        groove_similarity=components["groove"],
     )

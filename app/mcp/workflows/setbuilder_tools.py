@@ -112,14 +112,13 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         if len(items) < 2:
             return []
 
-        # Build scorer
+        # Build DB-backed scorer
         from app.services.camelot_lookup import CamelotLookupService
 
-        camelot_svc = CamelotLookupService()
-        await camelot_svc.build_lookup_table()
+        camelot_svc = CamelotLookupService(features_svc.features_repo.session)
+        lookup_table = await camelot_svc.build_lookup_table()
 
-        scorer = TransitionScoringService()
-        scorer.camelot_lookup = camelot_svc._lookup
+        scorer = TransitionScoringService(camelot_lookup=lookup_table)
 
         # Build features map
         track_ids = [item.track_id for item in items]
@@ -275,42 +274,13 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             except NotFoundError:
                 return {"error": 1.0, "total": 0.0}
 
-            camelot_svc = CamelotLookupService()
-            await camelot_svc.build_lookup_table()
-
-            scorer = TransitionScoringService()
-            scorer.camelot_lookup = camelot_svc._lookup
-
-            def _build_tf(feat: object) -> TrackFeatures:
-                harmonic_density = getattr(feat, "key_confidence", None) or 0.5
-                low = getattr(feat, "low_energy", None) or 0.33
-                mid = getattr(feat, "mid_energy", None) or 0.33
-                high = getattr(feat, "high_energy", None) or 0.34
-                total_e = low + mid + high
-                band_ratios = (
-                    [low / total_e, mid / total_e, high / total_e]
-                    if total_e > 0
-                    else [0.33, 0.33, 0.34]
-                )
-                return TrackFeatures(
-                    bpm=getattr(feat, "bpm", 0.0),
-                    energy_lufs=getattr(feat, "lufs_i", 0.0),
-                    key_code=getattr(feat, "key_code", 0) or 0,
-                    harmonic_density=harmonic_density,
-                    centroid_hz=getattr(feat, "centroid_mean_hz", None) or 2000.0,
-                    band_ratios=band_ratios,
-                    onset_rate=getattr(feat, "onset_rate_mean", None) or 5.0,
-                )
-
-            tf_a = _build_tf(feat_a_raw)
-            tf_b = _build_tf(feat_b_raw)
-            total_s = scorer.score_transition(tf_a, tf_b)
-
-            return {
-                "total": round(total_s, 4),
-                "bpm": round(scorer.score_bpm(tf_a.bpm, tf_b.bpm), 4),
-                "energy": round(scorer.score_energy(tf_a.energy_lufs, tf_b.energy_lufs), 4),
-            }
+            unified_svc = UnifiedTransitionScoringService(features_svc.features_repo.session)
+            
+            try:
+                components = await unified_svc.score_transition_components_by_ids(track_a_id, track_b_id)
+                return components
+            except ValueError:
+                return {"error": 1.0, "total": 0.0}
 
         # Try LLM-assisted adjustment with agentic loop
         from app.mcp.types import AdjustmentPlan
