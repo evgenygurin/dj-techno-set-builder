@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Документация: добавлен раздел про MCP/OpenAI контекст и рекомендованный базовый набор MCP-серверов (безопасность/принципы доступа) в `docs/data-inventory.md`.
 
+### Fixed
+
+- **ORM Schema Consistency** (BPM-1): Fixed 5 critical default value mismatches between SQLAlchemy models and SQL DDL
+  - Added `server_default` for boolean fields: `dj_beatgrid.is_variable_tempo`, `is_canonical`
+  - Added `server_default` for status fields: `tracks.status`, `feature_extraction_runs.status`, `transition_runs.status`
+  - Added `server_default` for `track_audio_features_computed` fields: `is_atonal`, `is_variable_tempo`, `computed_from_asset_type`
+  - Improved schema consistency from 79.5% to 90.9% coverage (40/44 tables perfect matches)
+
 ## [0.2.0] - 2026-02-15
 
 ### Added

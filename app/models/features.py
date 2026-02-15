@@ -31,7 +31,7 @@ class TrackAudioFeaturesComputed(Base):
         Float,
         CheckConstraint("bpm_stability BETWEEN 0 AND 1", name="ck_taf_bpm_stability"),
     )
-    is_variable_tempo: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_variable_tempo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     # -- Loudness (EBU R128) --
     lufs_i: Mapped[float] = mapped_column(Float)
@@ -129,7 +129,7 @@ class TrackAudioFeaturesComputed(Base):
         Float,
         CheckConstraint("key_confidence BETWEEN 0 AND 1", name="ck_taf_key_conf"),
     )
-    is_atonal: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_atonal: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     # chroma vector(12) — pgvector only, String placeholder for SQLite compat
     chroma: Mapped[str | None] = mapped_column(String(500))
     hnr_mean_db: Mapped[float | None] = mapped_column(Float)
@@ -154,5 +154,7 @@ class TrackAudioFeaturesComputed(Base):
     )
 
     # -- Meta --
-    computed_from_asset_type: Mapped[int | None] = mapped_column(SmallInteger, default=0)
+    computed_from_asset_type: Mapped[int | None] = mapped_column(
+        SmallInteger, default=0, server_default="0"
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

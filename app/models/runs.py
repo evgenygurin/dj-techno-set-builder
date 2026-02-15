@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, CheckConstraint, String, func
+from sqlalchemy import JSON, CheckConstraint, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -22,6 +22,7 @@ class FeatureExtractionRun(Base):
             name="ck_feature_runs_status",
         ),
         default="running",
+        server_default=text("'running'"),
     )
     started_at: Mapped[datetime] = mapped_column(server_default=func.now())
     completed_at: Mapped[datetime | None]
@@ -43,6 +44,7 @@ class TransitionRun(Base):
             name="ck_transition_runs_status",
         ),
         default="running",
+        server_default=text("'running'"),
     )
     started_at: Mapped[datetime] = mapped_column(server_default=func.now())
     completed_at: Mapped[datetime | None]
