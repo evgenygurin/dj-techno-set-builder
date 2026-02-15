@@ -44,6 +44,15 @@ YANDEX_MUSIC_TOKEN=your_oauth_token
 YANDEX_MUSIC_BASE_URL=https://api.music.yandex.net
 ```
 
+## CI
+
+GitHub Actions:
+
+- `.github/workflows/ci.yml` runs lint (`ruff`), type-check (`mypy`), and tests (`pytest` with coverage).
+- `.github/workflows/pr-title.yml` enforces PR title format: `TEAM-123: Short summary` for Linear linking.
+
+Linear linking rules and magic words are documented in `docs/linear.md`.
+
 ## Architecture
 
 ```text
@@ -341,6 +350,7 @@ data/
   yandex-music.yaml    # Yandex Music OpenAPI spec
 docs/
   plans/               # Design docs and implementation plans
+  linear.md            # Linear ↔ Git workflow (PR titles, magic words)
 ```
 
 ## License
