@@ -21,7 +21,7 @@ class FeatureExtractionRun(Base):
             "status IN ('running','completed','failed')",
             name="ck_feature_runs_status",
         ),
-        default="running",
+        server_default="'running'",
     )
     started_at: Mapped[datetime] = mapped_column(server_default=func.now())
     completed_at: Mapped[datetime | None]
@@ -42,7 +42,7 @@ class TransitionRun(Base):
             "status IN ('running','completed','failed')",
             name="ck_transition_runs_status",
         ),
-        default="running",
+        server_default="'running'",
     )
     started_at: Mapped[datetime] = mapped_column(server_default=func.now())
     completed_at: Mapped[datetime | None]

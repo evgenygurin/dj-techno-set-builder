@@ -263,5 +263,5 @@ async def clean_ym_response(response: httpx.Response) -> None:
     cleaned = clean_response_body(body)
     new_content = json.dumps(cleaned, ensure_ascii=False, separators=(",", ":")).encode()
 
-    response._content = new_content  # noqa: SLF001
+    response._content = new_content
     response.headers["content-length"] = str(len(new_content))
