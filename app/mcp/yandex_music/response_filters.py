@@ -22,54 +22,64 @@ logger = logging.getLogger(__name__)
 
 # ── Field whitelists ──────────────────────────────────────────────────────────
 
-_TRACK_FIELDS: frozenset[str] = frozenset({
-    "id",
-    "title",
-    "artists",
-    "albums",
-    "durationMs",
-})
+_TRACK_FIELDS: frozenset[str] = frozenset(
+    {
+        "id",
+        "title",
+        "artists",
+        "albums",
+        "durationMs",
+    }
+)
 
-_ALBUM_FIELDS: frozenset[str] = frozenset({
-    "id",
-    "title",
-    "genre",
-    "year",
-    "releaseDate",
-    "labels",
-    "trackCount",
-})
+_ALBUM_FIELDS: frozenset[str] = frozenset(
+    {
+        "id",
+        "title",
+        "genre",
+        "year",
+        "releaseDate",
+        "labels",
+        "trackCount",
+    }
+)
 
-_ARTIST_FIELDS: frozenset[str] = frozenset({
-    "id",
-    "name",
-})
+_ARTIST_FIELDS: frozenset[str] = frozenset(
+    {
+        "id",
+        "name",
+    }
+)
 
-_PLAYLIST_FIELDS: frozenset[str] = frozenset({
-    "uid",
-    "kind",
-    "title",
-    "description",
-    "visibility",
-    "trackCount",
-    "durationMs",
-    "revision",
-    "owner",
-    "tags",
-    "tracks",
-    "created",
-    "modified",
-    "playlistUuid",
-})
+_PLAYLIST_FIELDS: frozenset[str] = frozenset(
+    {
+        "uid",
+        "kind",
+        "title",
+        "description",
+        "visibility",
+        "trackCount",
+        "durationMs",
+        "revision",
+        "owner",
+        "tags",
+        "tracks",
+        "created",
+        "modified",
+        "playlistUuid",
+    }
+)
 
 # Search categories worth keeping (videos, podcasts, etc. stripped)
-_SEARCH_KEEP_KEYS: frozenset[str] = frozenset({
-    "text",
-    "best",
-    "tracks",
-    "artists",
-    "albums",
-})
+_SEARCH_KEEP_KEYS: frozenset[str] = frozenset(
+    {
+        "text",
+        "best",
+        "tracks",
+        "artists",
+        "albums",
+    }
+)
 
 
 # ── Object cleaners ──────────────────────────────────────────────────────────
@@ -179,8 +189,7 @@ def clean_response_body(body: dict[str, Any]) -> dict[str, Any]:
 
     # ── Search response ──
     if "searchRequestId" in result or (
-        isinstance(result.get("tracks"), dict)
-        and "results" in result.get("tracks", {})
+        isinstance(result.get("tracks"), dict) and "results" in result.get("tracks", {})
     ):
         body["result"] = _clean_search_result(result)
         return body
