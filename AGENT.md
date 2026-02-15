@@ -31,6 +31,16 @@ uv run alembic revision --autogenerate -m "message"
 uv run alembic upgrade head
 ```
 
+## Linear / PR Naming (required)
+
+This repo links work to Linear issues via the issue identifier (e.g. `BPM-123`).
+
+- **Branch name**: start with the issue ID, e.g. `BPM-123-orm-schema-audit`
+- **PR title**: start with the issue ID, e.g. `BPM-123: Fix ORM default consistency`
+- **PR description**: include a magic-word link line, e.g. `Fixes BPM-123` (or `Related to BPM-123`)
+
+Details: `docs/linear.md`
+
 ## Architecture Rules
 
 - Keep the layered flow: Router -> Service -> Repository -> DB session.
