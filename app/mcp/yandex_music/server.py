@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 import yaml
@@ -11,6 +14,64 @@ from fastmcp import FastMCP
 
 from app.config import settings
 from app.mcp.yandex_music.config import EXCLUDE_ROUTE_MAPS, build_mcp_names
+from app.mcp.yandex_music.response_filters import clean_ym_response
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# httpx event hook: convert JSON POST bodies to application/x-www-form-urlencoded.
+#
+# FastMCP's RequestDirector.build() always uses ``json=`` for dict bodies,
+# producing ``Content-Type: application/json``.  Yandex Music API expects
+# ``application/x-www-form-urlencoded`` for ALL POST endpoints, so
+# parameters arrive empty → 400 "Parameter value is not set".
+#
+# This hook runs *after* the request is built but *before* it is sent,
+# transparently re-encoding JSON bodies as form data.
+# ---------------------------------------------------------------------------
+def _strip_empty(body: dict[str, Any]) -> dict[str, Any]:
+    """Remove keys with None or empty-string values.
+
+    YM API returns 400 "Parameters requirements are not met" when it
+    receives keys with empty values (e.g. ``albumId=``).
+    """
+    return {k: v for k, v in body.items() if v is not None and v != ""}
+
+
+async def _json_to_form_urlencoded(request: httpx.Request) -> None:
+    """Convert JSON POST bodies to form-urlencoded for YM API compatibility.
+
+    Must be ``async`` because httpx 0.28+ ``await``s request event hooks
+    in ``AsyncClient`` (line 1692 of ``_client.py``).
+
+    Also strips keys with None / empty-string values — YM API rejects them.
+    """
+    if request.method != "POST":
+        return
+
+    content_type = request.headers.get("content-type", "")
+    if "application/json" not in content_type:
+        return
+
+    # Decode JSON body → strip empty values → re-encode as form data
+    try:
+        body = json.loads(request.content)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return
+
+    if not isinstance(body, dict):
+        return
+
+    body = _strip_empty(body)
+    form_body = urlencode(body, doseq=True).encode("utf-8")
+
+    # Replace content, headers, and internal stream
+    request.headers["content-type"] = "application/x-www-form-urlencoded"
+    request.headers["content-length"] = str(len(form_body))
+    request.stream = httpx.ByteStream(form_body)
+    # httpx caches decoded content in _content; update it too
+    request._content = form_body
 
 _SPEC_PATH = Path(__file__).resolve().parents[3] / "data" / "yandex-music.yaml"
 
@@ -109,6 +170,10 @@ def create_yandex_music_mcp() -> FastMCP:
             "Accept": "application/json",
         },
         timeout=30.0,
+        event_hooks={
+            "request": [_json_to_form_urlencoded],
+            "response": [clean_ym_response],
+        },
     )
 
     return FastMCP.from_openapi(
