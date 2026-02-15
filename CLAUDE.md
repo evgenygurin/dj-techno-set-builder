@@ -10,6 +10,10 @@ Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
 - `mcp.md` — FastMCP server, tools, DI, gateway
 - `documentation.md` — meta-rules for maintaining this documentation system
 
+## Workflow
+
+- **Linear**: branches and PR titles must start with the Linear issue ID (e.g. `BPM-123: ...`). See `docs/linear.md`.
+
 ## Commands
 
 ```bash
