@@ -73,6 +73,7 @@ async def _json_to_form_urlencoded(request: httpx.Request) -> None:
     # httpx caches decoded content in _content; update it too
     request._content = form_body
 
+
 _SPEC_PATH = Path(__file__).resolve().parents[3] / "data" / "yandex-music.yaml"
 
 

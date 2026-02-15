@@ -358,7 +358,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 except (ValueError, KeyError):
                     plan = None
 
-        except (NotImplementedError, AttributeError, TypeError):
+        except (NotImplementedError, AttributeError, TypeError, ValueError):
             plan = None
             suggestion = None
 

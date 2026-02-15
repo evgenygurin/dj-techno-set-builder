@@ -159,7 +159,7 @@ def register_discovery_tools(mcp: FastMCP) -> None:
             )
             strategy = result.result
             strategy_text = result.text
-        except (NotImplementedError, AttributeError, TypeError):
+        except (NotImplementedError, AttributeError, TypeError, ValueError):
             strategy = None
             strategy_text = None
 
