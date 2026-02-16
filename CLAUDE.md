@@ -65,7 +65,7 @@ Schemas   Errors     Models
 
 MCP Gateway (FastMCP 3.0)
   ├── Yandex Music (namespace "ym") — ~30 OpenAPI-generated tools
-  └── DJ Workflows (namespace "dj") — 12 hand-written tools
+  └── DJ Workflows (namespace "dj") — 13 hand-written tools
 ```
 
 - **DI**: `DbSession = Annotated[AsyncSession, Depends(get_session)]` in `app/dependencies.py`

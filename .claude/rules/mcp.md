@@ -17,7 +17,7 @@ app/mcp/
 │   ├── __init__.py          # re-exports create_workflow_mcp
 │   ├── server.py            # Factory + visibility control
 │   ├── analysis_tools.py    # get_playlist_status, get_track_details
-│   ├── import_tools.py      # import_playlist, import_tracks (stubs)
+│   ├── import_tools.py      # import_playlist, import_tracks (stubs), download_tracks
 │   ├── discovery_tools.py   # find_similar_tracks, search_by_criteria
 │   ├── setbuilder_tools.py  # build_set, score_transitions, adjust_set
 │   └── export_tools.py      # export_set_m3u, export_set_json
@@ -35,9 +35,9 @@ app/mcp/
 
 `create_dj_mcp()` in `app/mcp/gateway.py`:
 - Mounts **Yandex Music** sub-server at namespace `"ym"` (~30 tools from OpenAPI)
-- Mounts **DJ Workflows** sub-server at namespace `"dj"` (12 hand-written tools)
+- Mounts **DJ Workflows** sub-server at namespace `"dj"` (13 hand-written tools)
 - Adds `PromptsAsTools` + `ResourcesAsTools` transforms for tool-only MCP clients
-- Total: ~46 tools (30 YM + 12 DJ + 4 transforms)
+- Total: ~47 tools (30 YM + 13 DJ + 4 transforms)
 
 ## DJ Workflow tools (namespace "dj")
 
@@ -45,8 +45,9 @@ app/mcp/
 |------|-----|-----------|-------------|
 | `get_playlist_status` | analysis | Yes | Playlist stats: tracks, BPM range, keys, energy, duration |
 | `get_track_details` | analysis | Yes | Track metadata + audio features (BPM, key, energy) |
-| `import_playlist` | import | No | Import from external source (stub) |
+| `import_playlist` | import | No | Import from external source (stub), supports `download_files` param |
 | `import_tracks` | import | No | Import tracks by YM IDs (stub) |
+| `download_tracks` | download, yandex | No | Download MP3 files from Yandex Music to iCloud library |
 | `find_similar_tracks` | discovery | No | LLM-assisted similar track search via `ctx.sample()` |
 | `search_by_criteria` | discovery | Yes | Filter local tracks by BPM/key/energy ranges |
 | `build_set` | setbuilder | No | Create DJ set + GA optimization |
