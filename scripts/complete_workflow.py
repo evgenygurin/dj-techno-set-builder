@@ -396,6 +396,107 @@ class WorkflowOrchestrator:
 
         return finalists
 
+    async def stage_6_deep_analysis(self, finalist_ids: list[int]) -> dict[str, object]:
+        """Stage 6: Deep ML analysis with Demucs stem separation.
+
+        Args:
+            finalist_ids: List of finalist track IDs
+
+        Returns:
+            Deep analysis statistics dict
+        """
+        stage_name = "deep_analysis"
+
+        # Check checkpoint
+        if self.checkpoint.exists(stage_name):
+            logger.info("✓ Stage 6: Loading from checkpoint")
+            data = self.checkpoint.load(stage_name)
+            return data if data else {}
+
+        logger.info(f"Stage 6: Deep ML analysis for {len(finalist_ids)} finalists...")
+
+        from app.database import session_factory
+        from app.repositories.audio_features import AudioFeaturesRepository
+        from app.repositories.runs import FeatureRunRepository
+        from app.repositories.tracks import TrackRepository
+        from app.services.track_analysis import TrackAnalysisService
+
+        analyzed = 0
+        skipped = 0
+        failed_ids: list[int] = []
+
+        async with session_factory() as session:
+            # Create repositories
+            track_repo = TrackRepository(session)
+            features_repo = AudioFeaturesRepository(session)
+            run_repo = FeatureRunRepository(session)
+
+            # Create FeatureExtractionRun
+            run = await run_repo.create(
+                pipeline_name="complete_workflow",
+                pipeline_version="1.0",
+                parameters={"stage": "deep_analysis", "use_ml": True},
+            )
+            run_id = run.run_id
+            await session.commit()
+
+            # Create analysis service
+            analysis_service = TrackAnalysisService(
+                track_repo=track_repo,
+                features_repo=features_repo,
+            )
+
+            for track_id in finalist_ids:
+                try:
+                    # Get track from DB
+                    track = await track_repo.get_by_id(track_id)
+                    if not track:
+                        logger.warning(f"Track {track_id} not found in database")
+                        failed_ids.append(track_id)
+                        continue
+
+                    # Generate filename
+                    sanitized = self._sanitize_title(track.title)
+                    filename = f"{track.track_id}_{sanitized}.mp3"
+                    audio_path = self.tracks_dir / filename
+
+                    if not audio_path.exists():
+                        logger.warning(f"Audio file not found: {audio_path}")
+                        failed_ids.append(track_id)
+                        continue
+
+                    # Deep ML analysis with Demucs (stem separation)
+                    await analysis_service.analyze_track_full(
+                        track_id=track_id,
+                        audio_path=audio_path,
+                        run_id=run_id,
+                    )
+                    analyzed += 1
+
+                except Exception as e:
+                    logger.error(f"Failed deep analysis for track {track_id}: {e}")
+                    failed_ids.append(track_id)
+
+            # Mark run as completed
+            await run_repo.mark_completed(run_id)
+            await session.commit()
+
+        logger.info(
+            f"✓ Stage 6: Deep analyzed {analyzed}, skipped {skipped}, failed {len(failed_ids)}"
+        )
+
+        # Save checkpoint
+        stats = {
+            "analyzed": analyzed,
+            "skipped": skipped,
+            "failed": len(failed_ids),
+            "failed_track_ids": failed_ids,
+            "run_id": run_id,
+        }
+        self.checkpoint.save(stage_name, stats)
+
+        return stats
+
     @staticmethod
     def _sanitize_title(title: str, max_len: int = 50) -> str:
         """Sanitize title for use in filename (matches DownloadService).
@@ -461,7 +562,11 @@ class WorkflowOrchestrator:
         finalist_ids = await self.stage_5_select_finalists(track_ids)
         logger.info(f"Selected {len(finalist_ids)} finalists")
 
-        logger.info("Workflow stages 1-5 complete")
+        # Stage 6: Deep analysis
+        deep_stats = await self.stage_6_deep_analysis(finalist_ids)
+        logger.info(f"Deep analyzed {deep_stats['analyzed']} finalists")
+
+        logger.info("Workflow stages 1-6 complete")
 
 async def async_main() -> None:
     """Async CLI entry point."""
