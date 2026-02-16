@@ -49,7 +49,8 @@ class TrackService(BaseService):
         await self.repo.delete(track)
 
     async def get_track_artists(
-        self, track_ids: builtins.list[int],
+        self,
+        track_ids: builtins.list[int],
     ) -> dict[int, builtins.list[str]]:
         """Get artist names for given track IDs.
 

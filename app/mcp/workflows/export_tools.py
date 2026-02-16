@@ -448,18 +448,10 @@ def register_export_tools(mcp: FastMCP) -> None:
         track_repo = TrackRepository(session)
 
         cues_map = await cue_repo.get_by_track_ids(track_ids) if include_cues else {}
-        loops_map = (
-            await loop_repo.get_by_track_ids(track_ids) if include_loops else {}
-        )
-        bg_map = (
-            await bg_repo.get_canonical_by_track_ids(track_ids)
-            if include_beatgrid
-            else {}
-        )
+        loops_map = await loop_repo.get_by_track_ids(track_ids) if include_loops else {}
+        bg_map = await bg_repo.get_canonical_by_track_ids(track_ids) if include_beatgrid else {}
         sections_map = (
-            await sec_repo.get_latest_by_track_ids(track_ids)
-            if include_sections_as_cues
-            else {}
+            await sec_repo.get_latest_by_track_ids(track_ids) if include_sections_as_cues else {}
         )
 
         # Batch-load genres, labels, albums
@@ -475,9 +467,7 @@ def register_export_tools(mcp: FastMCP) -> None:
                 feat = await features_svc.get_latest(item.track_id)
                 features_map[item.track_id] = feat
                 key_codes.add(feat.key_code)
-        key_names = (
-            await key_repo.get_key_names(list(key_codes)) if key_codes else {}
-        )
+        key_names = await key_repo.get_key_names(list(key_codes)) if key_codes else {}
 
         # --- Build RekordboxTrackData list ---
         rb_tracks: list[RekordboxTrackData] = []
@@ -495,9 +485,7 @@ def register_export_tools(mcp: FastMCP) -> None:
             artists = artists_map.get(item.track_id, [])
             display = _build_display_name(title, artists)
             safe = _safe_filename(display)
-            location = (
-                f"file://localhost{base_path}/{quote(f'{pos:03d}. {safe}.mp3')}"
-            )
+            location = f"file://localhost{base_path}/{quote(f'{pos:03d}. {safe}.mp3')}"
 
             # Audio features
             track_feat: Any = features_map.get(item.track_id)

@@ -25,7 +25,8 @@ class TrackRepository(BaseRepository[Track]):
         return await self.list(offset=offset, limit=limit, filters=filters)
 
     async def get_artists_for_tracks(
-        self, track_ids: list[int],
+        self,
+        track_ids: list[int],
     ) -> dict[int, list[str]]:
         """Batch-load artist names for given track IDs.
 

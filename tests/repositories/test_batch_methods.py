@@ -49,11 +49,13 @@ class TestDjCuePointRepository:
         two_tracks: tuple[int, int],
     ):
         tid1, tid2 = two_tracks
-        session.add_all([
-            DjCuePoint(track_id=tid1, position_ms=0, cue_kind=0, hotcue_index=0),
-            DjCuePoint(track_id=tid1, position_ms=64000, cue_kind=0, hotcue_index=1),
-            DjCuePoint(track_id=tid2, position_ms=32000, cue_kind=0),
-        ])
+        session.add_all(
+            [
+                DjCuePoint(track_id=tid1, position_ms=0, cue_kind=0, hotcue_index=0),
+                DjCuePoint(track_id=tid1, position_ms=64000, cue_kind=0, hotcue_index=1),
+                DjCuePoint(track_id=tid2, position_ms=32000, cue_kind=0),
+            ]
+        )
         await session.flush()
 
         repo = DjCuePointRepository(session)
@@ -83,9 +85,14 @@ class TestDjSavedLoopRepository:
         two_tracks: tuple[int, int],
     ):
         tid1, _ = two_tracks
-        session.add(DjSavedLoop(
-            track_id=tid1, in_ms=96000, out_ms=104000, length_ms=8000,
-        ))
+        session.add(
+            DjSavedLoop(
+                track_id=tid1,
+                in_ms=96000,
+                out_ms=104000,
+                length_ms=8000,
+            )
+        )
         await session.flush()
 
         repo = DjSavedLoopRepository(session)
@@ -101,20 +108,31 @@ class TestDjBeatgridRepository:
         two_tracks: tuple[int, int],
     ):
         tid1, tid2 = two_tracks
-        session.add_all([
-            DjBeatgrid(
-                track_id=tid1, source_app=1, bpm=136.0,
-                first_downbeat_ms=98, is_canonical=True,
-            ),
-            DjBeatgrid(
-                track_id=tid1, source_app=2, bpm=136.0,
-                first_downbeat_ms=100, is_canonical=False,
-            ),
-            DjBeatgrid(
-                track_id=tid2, source_app=1, bpm=140.0,
-                first_downbeat_ms=50, is_canonical=True,
-            ),
-        ])
+        session.add_all(
+            [
+                DjBeatgrid(
+                    track_id=tid1,
+                    source_app=1,
+                    bpm=136.0,
+                    first_downbeat_ms=98,
+                    is_canonical=True,
+                ),
+                DjBeatgrid(
+                    track_id=tid1,
+                    source_app=2,
+                    bpm=136.0,
+                    first_downbeat_ms=100,
+                    is_canonical=False,
+                ),
+                DjBeatgrid(
+                    track_id=tid2,
+                    source_app=1,
+                    bpm=140.0,
+                    first_downbeat_ms=50,
+                    is_canonical=True,
+                ),
+            ]
+        )
         await session.flush()
 
         repo = DjBeatgridRepository(session)
@@ -129,10 +147,15 @@ class TestDjBeatgridRepository:
         two_tracks: tuple[int, int],
     ):
         tid1, _ = two_tracks
-        session.add(DjBeatgrid(
-            track_id=tid1, source_app=1, bpm=136.0,
-            first_downbeat_ms=98, is_canonical=False,
-        ))
+        session.add(
+            DjBeatgrid(
+                track_id=tid1,
+                source_app=1,
+                bpm=136.0,
+                first_downbeat_ms=98,
+                is_canonical=False,
+            )
+        )
         await session.flush()
 
         repo = DjBeatgridRepository(session)
@@ -149,24 +172,33 @@ class TestSectionsRepositoryBatch:
         tid1, _ = two_tracks
         # FeatureExtractionRun has no track_id — it's a standalone entity
         run = FeatureExtractionRun(
-            pipeline_name="test", pipeline_version="1",
+            pipeline_name="test",
+            pipeline_version="1",
             status="completed",
         )
         session.add(run)
         await session.flush()
 
-        session.add_all([
-            TrackSection(
-                track_id=tid1, run_id=run.run_id,
-                start_ms=0, end_ms=32000, section_type=0,
-                section_duration_ms=32000,
-            ),
-            TrackSection(
-                track_id=tid1, run_id=run.run_id,
-                start_ms=32000, end_ms=96000, section_type=2,
-                section_duration_ms=64000,
-            ),
-        ])
+        session.add_all(
+            [
+                TrackSection(
+                    track_id=tid1,
+                    run_id=run.run_id,
+                    start_ms=0,
+                    end_ms=32000,
+                    section_type=0,
+                    section_duration_ms=32000,
+                ),
+                TrackSection(
+                    track_id=tid1,
+                    run_id=run.run_id,
+                    start_ms=32000,
+                    end_ms=96000,
+                    section_type=2,
+                    section_duration_ms=64000,
+                ),
+            ]
+        )
         await session.flush()
 
         repo = SectionsRepository(session)
@@ -234,10 +266,12 @@ class TestTrackRepositoryBatch:
 
 class TestKeyRepositoryBatch:
     async def test_get_key_names(self, session: AsyncSession):
-        session.add_all([
-            Key(key_code=18, pitch_class=9, mode=0, name="Am", camelot="8A"),
-            Key(key_code=0, pitch_class=0, mode=0, name="Cm", camelot="5A"),
-        ])
+        session.add_all(
+            [
+                Key(key_code=18, pitch_class=9, mode=0, name="Am", camelot="8A"),
+                Key(key_code=0, pitch_class=0, mode=0, name="Cm", camelot="5A"),
+            ]
+        )
         await session.flush()
 
         repo = KeyRepository(session)

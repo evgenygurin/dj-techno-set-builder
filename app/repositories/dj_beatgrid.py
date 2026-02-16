@@ -20,12 +20,9 @@ class DjBeatgridRepository(BaseRepository[DjBeatgrid]):
         """
         if not track_ids:
             return {}
-        stmt = (
-            select(DjBeatgrid)
-            .where(
-                DjBeatgrid.track_id.in_(track_ids),
-                DjBeatgrid.is_canonical.is_(True),
-            )
+        stmt = select(DjBeatgrid).where(
+            DjBeatgrid.track_id.in_(track_ids),
+            DjBeatgrid.is_canonical.is_(True),
         )
         result = await self.session.execute(stmt)
         return {bg.track_id: bg for bg in result.scalars()}
