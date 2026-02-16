@@ -358,3 +358,22 @@ def test_score_groove_backward_compatible():
     # kick default 0.5 vs 0.5 → kick_score = 1.0
     # onset_score = 1.0 → total = 0.7*1.0 + 0.3*1.0 = 1.0
     assert score == pytest.approx(1.0)
+
+
+# ── Phase 3: TrackFeatures extension ──
+
+
+def test_track_features_phase3_fields_have_defaults():
+    """Phase 3 fields should be optional with defaults."""
+    tf = TrackFeatures(
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
+    )
+    assert tf.hp_ratio == 0.5
+    assert tf.last_section is None
+    assert tf.first_section is None

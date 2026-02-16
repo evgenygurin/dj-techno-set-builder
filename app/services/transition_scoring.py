@@ -44,6 +44,10 @@ class TrackFeatures:
     kick_prominence: float = 0.5  # 0-1, kick energy at beat positions
     hnr_db: float = 0.0  # Harmonics-to-noise ratio (dB)
     spectral_slope: float = 0.0  # Spectral slope (dB/octave)
+    # Phase 3 fields
+    hp_ratio: float = 0.5  # harmonic/percussive energy ratio (0 = percussive, 1 = harmonic)
+    last_section: str | None = None  # last section type name (e.g. "outro", "breakdown")
+    first_section: str | None = None  # first section type name (e.g. "intro", "drop")
 
 
 @dataclass(frozen=True, slots=True)

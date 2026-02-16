@@ -57,4 +57,5 @@ def orm_features_to_track_features(feat: TrackAudioFeaturesComputed) -> TrackFea
         kick_prominence=feat.kick_prominence if feat.kick_prominence is not None else 0.5,
         hnr_db=feat.hnr_mean_db if feat.hnr_mean_db is not None else 0.0,
         spectral_slope=feat.slope_db_per_oct if feat.slope_db_per_oct is not None else 0.0,
+        hp_ratio=feat.hp_ratio if feat.hp_ratio is not None else 0.5,
     )
