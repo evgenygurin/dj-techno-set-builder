@@ -119,3 +119,4 @@ in-memoria-vectors.db
 
 dev.db-shm
 dev.db-wal
+.worktrees/
