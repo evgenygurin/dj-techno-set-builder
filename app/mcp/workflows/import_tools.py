@@ -24,6 +24,7 @@ def register_import_tools(mcp: FastMCP) -> None:
         source: str,
         playlist_id: str,
         ctx: Context,
+        download_files: bool = False,
     ) -> ImportResult:
         """Import a playlist from an external source into the local database.
 
@@ -35,6 +36,7 @@ def register_import_tools(mcp: FastMCP) -> None:
         Args:
             source: Source platform name (e.g. "yandex").
             playlist_id: Playlist identifier on the source platform.
+            download_files: If True, download MP3 files after importing tracks.
         """
         supported = {"yandex"}
         if source.lower() not in supported:
@@ -44,13 +46,16 @@ def register_import_tools(mcp: FastMCP) -> None:
 
         await ctx.report_progress(progress=0, total=100)
 
+        download_note = (
+            "\n5. Download MP3 files (download_files=True)" if download_files else ""
+        )
         await ctx.info(
             f"Import from '{source}' playlist {playlist_id} is not yet "
             "automated end-to-end.  Manual steps required:\n"
             "1. Use ym_search_tracks / ym_fetch_tracks to get metadata\n"
             "2. Create tracks via the REST API (POST /api/v1/tracks)\n"
             "3. Add tracks to a local playlist\n"
-            "4. Run audio analysis on each track"
+            f"4. Run audio analysis on each track{download_note}"
         )
 
         await ctx.report_progress(progress=100, total=100)
