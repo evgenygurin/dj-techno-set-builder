@@ -1,6 +1,7 @@
 """Tests for DownloadService."""
 
 import pytest
+from unittest.mock import Mock
 
 from app.services.download import DownloadService
 
@@ -32,3 +33,17 @@ class TestDownloadService:
         """_sanitize_filename returns 'untitled' for empty input."""
         result = DownloadService._sanitize_filename('////')
         assert result == "untitled"
+
+    def test_generate_filename_combines_track_id_and_title(self):
+        """_generate_filename creates {track_id}_{sanitized_title}.mp3"""
+        svc = DownloadService(Mock(), Mock(), Mock())
+        track = Mock(track_id=42, title="Fire Eyes")
+        result = svc._generate_filename(track)
+        assert result == "42_fire_eyes.mp3"
+
+    def test_generate_filename_sanitizes_title(self):
+        """_generate_filename sanitizes track title."""
+        svc = DownloadService(Mock(), Mock(), Mock())
+        track = Mock(track_id=137, title="Track / Name?")
+        result = svc._generate_filename(track)
+        assert result == "137_track_name.mp3"
