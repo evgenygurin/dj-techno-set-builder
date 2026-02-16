@@ -20,7 +20,7 @@ from app.schemas.sets import DjSetCreate, DjSetVersionCreate
 from app.services.features import AudioFeaturesService
 from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
-from app.services.transition_scoring import TrackFeatures, TransitionScoringService
+from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 from app.utils.audio.camelot import key_code_to_camelot
 
 
@@ -112,41 +112,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         if len(items) < 2:
             return []
 
-        # Build DB-backed scorer
-        from app.services.camelot_lookup import CamelotLookupService
-
-        camelot_svc = CamelotLookupService(features_svc.features_repo.session)
-        lookup_table = await camelot_svc.build_lookup_table()
-
-        scorer = TransitionScoringService(camelot_lookup=lookup_table)
-
-        # Build features map
-        track_ids = [item.track_id for item in items]
-        features_map: dict[int, TrackFeatures] = {}
-        for tid in track_ids:
-            try:
-                feat = await features_svc.get_latest(tid)
-            except NotFoundError:
-                continue
-
-            harmonic_density = feat.key_confidence or 0.5
-            low = feat.low_energy or 0.33
-            mid = feat.mid_energy or 0.33
-            high = feat.high_energy or 0.34
-            total = low + mid + high
-            band_ratios = (
-                [low / total, mid / total, high / total] if total > 0 else [0.33, 0.33, 0.34]
-            )
-
-            features_map[tid] = TrackFeatures(
-                bpm=feat.bpm,
-                energy_lufs=feat.lufs_i,
-                key_code=feat.key_code or 0,
-                harmonic_density=harmonic_density,
-                centroid_hz=feat.centroid_mean_hz or 2000.0,
-                band_ratios=band_ratios,
-                onset_rate=feat.onset_rate_mean or 5.0,
-            )
+        # Use unified scoring service (same path as GA and API)
+        unified_svc = UnifiedTransitionScoringService(
+            features_svc.features_repo.session,
+        )
 
         # Score consecutive pairs
         results: list[TransitionScoreResult] = []
@@ -156,10 +125,12 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             from_item = items[i]
             to_item = items[i + 1]
 
-            feat_a = features_map.get(from_item.track_id)
-            feat_b = features_map.get(to_item.track_id)
-
-            if feat_a is None or feat_b is None:
+            try:
+                components = await unified_svc.score_components_by_ids(
+                    from_item.track_id,
+                    to_item.track_id,
+                )
+            except ValueError:
                 results.append(
                     TransitionScoreResult(
                         from_track_id=from_item.track_id,
@@ -176,31 +147,21 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 )
                 continue
 
-            bpm_s = scorer.score_bpm(feat_a.bpm, feat_b.bpm)
-            harm_s = scorer.score_harmonic(
-                feat_a.key_code,
-                feat_b.key_code,
-                feat_a.harmonic_density,
-                feat_b.harmonic_density,
-            )
-            energy_s = scorer.score_energy(
-                feat_a.energy_lufs,
-                feat_b.energy_lufs,
-            )
-            spectral_s = scorer.score_spectral(feat_a, feat_b)
-            groove_s = scorer.score_groove(
-                feat_a.onset_rate,
-                feat_b.onset_rate,
-            )
-            total_s = scorer.score_transition(feat_a, feat_b)
-
             # Try to get Camelot key for title enrichment
             from_key: str | None = None
             to_key: str | None = None
-            with contextlib.suppress(ValueError):
-                from_key = key_code_to_camelot(feat_a.key_code)
-            with contextlib.suppress(ValueError):
-                to_key = key_code_to_camelot(feat_b.key_code)
+            try:
+                feat_a_raw = await features_svc.get_latest(from_item.track_id)
+                with contextlib.suppress(ValueError):
+                    from_key = key_code_to_camelot(feat_a_raw.key_code)
+            except NotFoundError:
+                pass
+            try:
+                feat_b_raw = await features_svc.get_latest(to_item.track_id)
+                with contextlib.suppress(ValueError):
+                    to_key = key_code_to_camelot(feat_b_raw.key_code)
+            except NotFoundError:
+                pass
 
             results.append(
                 TransitionScoreResult(
@@ -208,12 +169,12 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                     to_track_id=to_item.track_id,
                     from_title=from_key or "",
                     to_title=to_key or "",
-                    total=round(total_s, 4),
-                    bpm=round(bpm_s, 4),
-                    harmonic=round(harm_s, 4),
-                    energy=round(energy_s, 4),
-                    spectral=round(spectral_s, 4),
-                    groove=round(groove_s, 4),
+                    total=components["total"],
+                    bpm=components["bpm"],
+                    harmonic=components["harmonic"],
+                    energy=components["energy"],
+                    spectral=components["spectral"],
+                    groove=components["groove"],
                 )
             )
 
@@ -258,6 +219,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         track_summary = ", ".join(f"#{i.sort_index}: track {i.track_id}" for i in items)
 
         # Define score_pair tool for LLM to evaluate transitions
+        unified_svc = UnifiedTransitionScoringService(
+            features_svc.features_repo.session,
+        )
+
         async def _score_pair(
             track_a_id: int,
             track_b_id: int,
@@ -266,20 +231,12 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
 
             Returns BPM, harmonic, energy, spectral, groove and total scores.
             """
-            from app.services.camelot_lookup import CamelotLookupService
-
             try:
-                feat_a_raw = await features_svc.get_latest(track_a_id)
-                feat_b_raw = await features_svc.get_latest(track_b_id)
-            except NotFoundError:
-                return {"error": 1.0, "total": 0.0}
-
-            unified_svc = UnifiedTransitionScoringService(features_svc.features_repo.session)
-            
-            try:
-                components = await unified_svc.score_transition_components_by_ids(track_a_id, track_b_id)
-                return components
-            except ValueError:
+                return await unified_svc.score_components_by_ids(
+                    track_a_id,
+                    track_b_id,
+                )
+            except (ValueError, NotFoundError):
                 return {"error": 1.0, "total": 0.0}
 
         # Try LLM-assisted adjustment with agentic loop

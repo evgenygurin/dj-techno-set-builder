@@ -173,6 +173,7 @@ class SetGenerationService(BaseService):
         """
         from app.services.camelot_lookup import CamelotLookupService
         from app.services.transition_scoring import TrackFeatures, TransitionScoringService
+        from app.utils.audio.feature_conversion import orm_features_to_track_features
 
         n = len(tracks)
         matrix = np.zeros((n, n), dtype=np.float64)
@@ -188,42 +189,14 @@ class SetGenerationService(BaseService):
         features_list = await self.features_repo.list_all()
         features_map = {f.track_id: f for f in features_list}
 
-        # Build feature objects
+        # Build feature objects via canonical conversion
         track_features: list[TrackFeatures | None] = []
         for track in tracks:
             feat_db = features_map.get(track.track_id)
             if feat_db is None:
-                # Fallback to basic TrackData
                 track_features.append(None)
                 continue
-
-            # Compute harmonic density from chroma if available
-            # TODO: Add chroma_entropy computation in audio analysis pipeline
-            # For now, use placeholder based on key_confidence
-            harmonic_density = feat_db.key_confidence or 0.5
-
-            # Compute band ratios from energy bands
-            # [low, mid, high] = [low_energy, mid_energy, high_energy]
-            low = feat_db.low_energy or 0.33
-            mid = feat_db.mid_energy or 0.33
-            high = feat_db.high_energy or 0.34
-            total = low + mid + high
-            if total > 0:
-                band_ratios = [low / total, mid / total, high / total]
-            else:
-                band_ratios = [0.33, 0.33, 0.34]
-
-            track_features.append(
-                TrackFeatures(
-                    bpm=feat_db.bpm,
-                    energy_lufs=feat_db.lufs_i,
-                    key_code=feat_db.key_code or 0,
-                    harmonic_density=harmonic_density,
-                    centroid_hz=feat_db.centroid_mean_hz or 2000.0,
-                    band_ratios=band_ratios,
-                    onset_rate=feat_db.onset_rate_mean or 5.0,
-                )
-            )
+            track_features.append(orm_features_to_track_features(feat_db))
 
         # Compute pairwise scores
         for i in range(n):
