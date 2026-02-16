@@ -44,6 +44,7 @@ def _fake_features(*, with_beats: bool = False) -> TrackFeatures:
             confidence=0.85,
             is_atonal=False,
             chroma=np.zeros(12, dtype=np.float32),
+            chroma_entropy=0.5,
         ),
         loudness=LoudnessResult(
             lufs_i=-8.0,

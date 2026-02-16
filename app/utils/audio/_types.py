@@ -31,6 +31,7 @@ class KeyResult:
     confidence: float  # 0-1
     is_atonal: bool
     chroma: NDArray[np.float32]  # 12-dim mean HPCP vector
+    chroma_entropy: float  # Shannon entropy / log2(12), normalized [0, 1]
 
 
 @dataclass(frozen=True, slots=True)

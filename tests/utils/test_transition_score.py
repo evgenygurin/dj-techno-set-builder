@@ -26,6 +26,7 @@ def _make_key(key_code: int, conf: float = 0.8) -> KeyResult:
         confidence=conf,
         is_atonal=False,
         chroma=np.zeros(12, dtype=np.float32),
+        chroma_entropy=0.5,
     )
 
 

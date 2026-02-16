@@ -36,6 +36,7 @@ def _mock_features(track_id: int, bpm: float = 140.0, key_code: int = 18) -> Mag
     feat.contrast_mean_db = 20.0
     feat.energy_mean = 0.4
     feat.chroma = "[0,0,0,0,0,0,0,0,0,0,0,0]"
+    feat.chroma_entropy = 0.5
     return feat
 
 
