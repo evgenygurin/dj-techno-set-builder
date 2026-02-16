@@ -377,7 +377,7 @@ def export_rekordbox_xml(
         if td.colour:
             attrs["Colour"] = td.colour
 
-        track_el = ET.SubElement(collection, "TRACK", **attrs)
+        track_el = ET.SubElement(collection, "TRACK", **attrs)  # type: ignore[arg-type]
 
         # TEMPO elements (beatgrid)
         for tempo in td.tempos:
@@ -405,7 +405,7 @@ def export_rekordbox_xml(
                 pm_attrs["Red"] = str(pm.red)
                 pm_attrs["Green"] = str(pm.green)
                 pm_attrs["Blue"] = str(pm.blue)
-            ET.SubElement(track_el, "POSITION_MARK", **pm_attrs)
+            ET.SubElement(track_el, "POSITION_MARK", **pm_attrs)  # type: ignore[arg-type]
 
     # --- PLAYLISTS ---
     playlists = ET.SubElement(root, "PLAYLISTS")

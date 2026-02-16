@@ -500,9 +500,9 @@ def register_export_tools(mcp: FastMCP) -> None:
             )
 
             # Audio features
-            feat = features_map.get(item.track_id)
-            bpm = feat.bpm if feat else None
-            tonality = key_names.get(feat.key_code) if feat else None
+            track_feat: Any = features_map.get(item.track_id)
+            bpm = track_feat.bpm if track_feat else None
+            tonality = key_names.get(track_feat.key_code) if track_feat else None
 
             # Tempos from beatgrid
             tempos: list[RekordboxTempo] = []
@@ -538,11 +538,12 @@ def register_export_tools(mcp: FastMCP) -> None:
                 elif cue.cue_kind in (5, 6):  # LOOP_IN, LOOP_OUT — skip
                     continue
 
+                hcn = cue.hotcue_index if is_hot and cue.hotcue_index is not None else -1
                 marks.append(
                     RekordboxCuePoint(
                         position_s=cue.position_ms / 1000.0,
                         cue_type=rb_type,
-                        hotcue_num=cue.hotcue_index if is_hot else -1,
+                        hotcue_num=hcn,
                         name=cue.label or "",
                         red=r,
                         green=g,
@@ -558,11 +559,12 @@ def register_export_tools(mcp: FastMCP) -> None:
                     r = (loop.color_rgb >> 16) & 0xFF
                     g = (loop.color_rgb >> 8) & 0xFF
                     b = loop.color_rgb & 0xFF
+                hcn = loop.hotcue_index if is_hot and loop.hotcue_index is not None else -1
                 marks.append(
                     RekordboxCuePoint(
                         position_s=loop.in_ms / 1000.0,
                         cue_type=4,
-                        hotcue_num=loop.hotcue_index if is_hot else -1,
+                        hotcue_num=hcn,
                         end_s=loop.out_ms / 1000.0,
                         name=loop.label or "",
                         red=r,

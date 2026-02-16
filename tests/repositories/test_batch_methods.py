@@ -16,11 +16,13 @@ from app.models.catalog import (
     TrackRelease,
 )
 from app.models.dj import DjBeatgrid, DjCuePoint, DjSavedLoop
+from app.models.harmony import Key
 from app.models.runs import FeatureExtractionRun
 from app.models.sections import TrackSection
 from app.repositories.dj_beatgrid import DjBeatgridRepository
 from app.repositories.dj_cue_points import DjCuePointRepository
 from app.repositories.dj_saved_loops import DjSavedLoopRepository
+from app.repositories.keys import KeyRepository
 from app.repositories.sections import SectionsRepository
 from app.repositories.tracks import TrackRepository
 
@@ -228,9 +230,6 @@ class TestTrackRepositoryBatch:
 # ---------------------------------------------------------------------------
 # Key repository batch
 # ---------------------------------------------------------------------------
-
-from app.models.harmony import Key
-from app.repositories.keys import KeyRepository
 
 
 class TestKeyRepositoryBatch:
