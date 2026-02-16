@@ -86,3 +86,40 @@ def test_nn_init_produces_better_initial_fitness():
 
     # NN init should produce reasonable initial fitness
     assert avg_fitness > 0.2
+
+
+def test_track_replacement_mutation():
+    """Track replacement should swap one gene with an unused track.
+
+    Only applies when track_count < total tracks available.
+    """
+    tracks = _make_tracks(20)
+    matrix = _make_matrix(tracks)
+
+    config = GAConfig(
+        population_size=10,
+        generations=0,
+        track_count=10,  # Use 10 out of 20
+        seed=42,
+    )
+    gen = GeneticSetGenerator(tracks, matrix, config)
+
+    # Create a chromosome using first 10 tracks
+    original = np.arange(10, dtype=np.int32)
+
+    # Force replacement (call many times to trigger 5% probability)
+    replaced = False
+    for _ in range(100):
+        test_ch = original.copy()
+        gen._mutate_replace(test_ch)
+        if not np.array_equal(test_ch, original):
+            replaced = True
+            # Verify: still has n_select unique elements
+            assert len(set(test_ch.tolist())) == 10
+            # Verify: one element is from the pool (index >= 10)
+            new_tracks = set(test_ch.tolist()) - set(original.tolist())
+            assert len(new_tracks) == 1
+            assert next(iter(new_tracks)) >= 10
+            break
+
+    assert replaced, "Track replacement never triggered in 100 attempts"

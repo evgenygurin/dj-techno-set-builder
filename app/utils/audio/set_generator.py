@@ -238,6 +238,9 @@ class GeneticSetGenerator:
                 if self._rng.random() < cfg.mutation_rate:
                     self._mutate(child)
 
+                # Track replacement mutation (5% chance)
+                self._mutate_replace(child)
+
                 # Apply 2-opt local search after crossover/mutation
                 self._two_opt(child)
 
@@ -432,6 +435,35 @@ class GeneticSetGenerator:
                 chromosome_list.pop(src)
                 chromosome_list.insert(dst, gene)
                 chromosome[:] = chromosome_list
+
+    def _mutate_replace(self, chromosome: NDArray[np.int32]) -> None:
+        """Replace one track with an unused track from the pool (in-place).
+
+        Only effective when track_count < len(all_tracks).
+        5% probability per call.
+
+        Args:
+            chromosome: Permutation to modify (in-place).
+        """
+        n_all = len(self._all_tracks)
+        n_select = len(chromosome)
+
+        if n_select >= n_all:
+            return  # No unused tracks available
+
+        if self._rng.random() > 0.05:
+            return  # 5% probability gate
+
+        # Find unused tracks
+        used = set(chromosome.tolist())
+        unused = [i for i in range(n_all) if i not in used]
+        if not unused:
+            return
+
+        # Replace a random position with a random unused track
+        pos = self._rng.randrange(n_select)
+        replacement = self._rng.choice(unused)
+        chromosome[pos] = replacement
 
     def _two_opt(self, chromosome: NDArray[np.int32]) -> None:
         """Apply 2-opt local search using full composite fitness (in-place).
