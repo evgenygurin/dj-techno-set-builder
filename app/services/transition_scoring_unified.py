@@ -116,10 +116,23 @@ def _score_components(
                 tf_b.key_code,
                 tf_a.harmonic_density,
                 tf_b.harmonic_density,
+                tf_a.hnr_db,
+                tf_b.hnr_db,
             ),
             4,
         ),
         "energy": round(scorer.score_energy(tf_a.energy_lufs, tf_b.energy_lufs), 4),
         "spectral": round(scorer.score_spectral(tf_a, tf_b), 4),
-        "groove": round(scorer.score_groove(tf_a.onset_rate, tf_b.onset_rate), 4),
+        "groove": round(
+            scorer.score_groove(
+                tf_a.onset_rate,
+                tf_b.onset_rate,
+                tf_a.kick_prominence,
+                tf_b.kick_prominence,
+            ),
+            4,
+        ),
+        "structure": round(
+            scorer.score_structure(tf_a.last_section, tf_b.first_section), 4
+        ),
     }

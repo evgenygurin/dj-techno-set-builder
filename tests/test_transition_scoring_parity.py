@@ -292,7 +292,9 @@ class TestScoreComponentsHelper:
             onset_rate=6.0,
         )
         result = _score_components(scorer, tf, tf)
-        assert set(result.keys()) == {"total", "bpm", "harmonic", "energy", "spectral", "groove"}
+        assert set(result.keys()) == {
+            "total", "bpm", "harmonic", "energy", "spectral", "groove", "structure",
+        }
 
     def test_self_transition_is_maximal(self) -> None:
         scorer = TransitionScoringService()
