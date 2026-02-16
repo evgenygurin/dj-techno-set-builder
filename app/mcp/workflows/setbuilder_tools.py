@@ -175,9 +175,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 tf_b = orm_features_to_track_features(feat_b_raw)  # type: ignore[arg-type]
                 cam_dist = camelot_distance(tf_a.key_code, tf_b.key_code)
 
-                rec = recommend_transition(
-                    tf_a, tf_b, camelot_compatible=cam_dist <= 1
-                )
+                rec = recommend_transition(tf_a, tf_b, camelot_compatible=cam_dist <= 1)
                 rec_type = str(rec.transition_type)
                 rec_confidence = rec.confidence
                 rec_reason = rec.reason
@@ -438,10 +436,12 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
 
         tracks_data: list[dict[str, Any]] = []
         for item in items:
-            tracks_data.append({
-                "title": f"Track {item.track_id}",
-                "path": f"track_{item.track_id}.mp3",
-            })
+            tracks_data.append(
+                {
+                    "title": f"Track {item.track_id}",
+                    "path": f"track_{item.track_id}.mp3",
+                }
+            )
 
         transitions_data: list[dict[str, Any]] = []
         for i in range(len(items) - 1):
@@ -472,18 +472,14 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 tf_b = orm_features_to_track_features(feat_b_obj)  # type: ignore[arg-type]
 
                 trans["bpm_delta"] = round(abs(tf_a.bpm - tf_b.bpm), 1)
-                trans["energy_delta"] = round(
-                    abs(tf_a.energy_lufs - tf_b.energy_lufs), 1
-                )
+                trans["energy_delta"] = round(abs(tf_a.energy_lufs - tf_b.energy_lufs), 1)
 
                 cam_dist = camelot_distance(tf_a.key_code, tf_b.key_code)
                 cam_a = key_code_to_camelot(tf_a.key_code)
                 cam_b = key_code_to_camelot(tf_b.key_code)
                 trans["camelot"] = f"{cam_a} -> {cam_b}"
 
-                rec = recommend_transition(
-                    tf_a, tf_b, camelot_compatible=cam_dist <= 1
-                )
+                rec = recommend_transition(tf_a, tf_b, camelot_compatible=cam_dist <= 1)
                 trans["recommendation"] = rec
             except (NotFoundError, ValueError):
                 pass
@@ -492,9 +488,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
 
         quality = 0.0
         if transitions_data:
-            quality = sum(t["score"] for t in transitions_data) / len(
-                transitions_data
-            )
+            quality = sum(t["score"] for t in transitions_data) / len(transitions_data)
 
         content = export_json_guide(
             set_name=f"Set {set_id}",

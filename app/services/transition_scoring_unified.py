@@ -132,7 +132,5 @@ def _score_components(
             ),
             4,
         ),
-        "structure": round(
-            scorer.score_structure(tf_a.last_section, tf_b.first_section), 4
-        ),
+        "structure": round(scorer.score_structure(tf_a.last_section, tf_b.first_section), 4),
     }

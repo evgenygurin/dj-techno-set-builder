@@ -293,7 +293,13 @@ class TestScoreComponentsHelper:
         )
         result = _score_components(scorer, tf, tf)
         assert set(result.keys()) == {
-            "total", "bpm", "harmonic", "energy", "spectral", "groove", "structure",
+            "total",
+            "bpm",
+            "harmonic",
+            "energy",
+            "spectral",
+            "groove",
+            "structure",
         }
 
     def test_self_transition_is_maximal(self) -> None:
