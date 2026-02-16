@@ -14,7 +14,7 @@ from app.mcp.dependencies import (
     get_set_generation_service,
     get_set_service,
 )
-from app.mcp.types import SetBuildResult, TransitionScoreResult
+from app.mcp.types import ExportResult, SetBuildResult, TransitionScoreResult
 from app.schemas.set_generation import SetGenerationRequest
 from app.schemas.sets import DjSetCreate, DjSetVersionCreate
 from app.services.features import AudioFeaturesService
@@ -147,20 +147,42 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 )
                 continue
 
-            # Try to get Camelot key for title enrichment
+            # Try to get features for Camelot key + transition recommendation
             from_key: str | None = None
             to_key: str | None = None
+            rec_type: str | None = None
+            rec_confidence: float | None = None
+            rec_reason: str | None = None
+            rec_alt: str | None = None
+
             try:
                 feat_a_raw = await features_svc.get_latest(from_item.track_id)
+                feat_b_raw = await features_svc.get_latest(to_item.track_id)
+
                 with contextlib.suppress(ValueError):
                     from_key = key_code_to_camelot(feat_a_raw.key_code)
-            except NotFoundError:
-                pass
-            try:
-                feat_b_raw = await features_svc.get_latest(to_item.track_id)
                 with contextlib.suppress(ValueError):
                     to_key = key_code_to_camelot(feat_b_raw.key_code)
-            except NotFoundError:
+
+                # Phase 3: Transition type recommendation
+                from app.services.transition_type import recommend_transition
+                from app.utils.audio.camelot import camelot_distance
+                from app.utils.audio.feature_conversion import (
+                    orm_features_to_track_features,
+                )
+
+                tf_a = orm_features_to_track_features(feat_a_raw)  # type: ignore[arg-type]
+                tf_b = orm_features_to_track_features(feat_b_raw)  # type: ignore[arg-type]
+                cam_dist = camelot_distance(tf_a.key_code, tf_b.key_code)
+
+                rec = recommend_transition(
+                    tf_a, tf_b, camelot_compatible=cam_dist <= 1
+                )
+                rec_type = str(rec.transition_type)
+                rec_confidence = rec.confidence
+                rec_reason = rec.reason
+                rec_alt = str(rec.alt_type) if rec.alt_type else None
+            except (NotFoundError, ValueError):
                 pass
 
             results.append(
@@ -175,6 +197,11 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                     energy=components["energy"],
                     spectral=components["spectral"],
                     groove=components["groove"],
+                    structure=components.get("structure", 0.5),
+                    recommended_type=rec_type,
+                    type_confidence=rec_confidence,
+                    reason=rec_reason,
+                    alt_type=rec_alt,
                 )
             )
 
@@ -333,4 +360,153 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             total_score=0.0,
             avg_transition_score=0.0,
             energy_curve=[],
+        )
+
+    @mcp.tool(tags={"setbuilder"})
+    async def export_set_m3u(
+        set_id: int,
+        version_id: int,
+        ctx: Context,
+        set_svc: DjSetService = Depends(get_set_service),
+    ) -> ExportResult:
+        """Export a DJ set version as M3U8 playlist for djay Pro import.
+
+        Generates an M3U8 file with track ordering matching the set version.
+
+        Args:
+            set_id: DJ set ID.
+            version_id: Set version to export.
+        """
+        from app.services.set_export import export_m3u
+
+        await set_svc.get(set_id)
+        items_list = await set_svc.list_items(version_id, offset=0, limit=500)
+        items = sorted(items_list.items, key=lambda i: i.sort_index)
+
+        tracks = [
+            {
+                "title": f"Track {item.track_id}",
+                "duration_s": 0,
+                "path": f"track_{item.track_id}.mp3",
+            }
+            for item in items
+        ]
+
+        content = export_m3u(tracks)
+
+        return ExportResult(
+            set_id=set_id,
+            format="m3u8",
+            track_count=len(items),
+            content=content,
+        )
+
+    @mcp.tool(
+        annotations={"readOnlyHint": True},
+        tags={"setbuilder"},
+    )
+    async def export_set_json(
+        set_id: int,
+        version_id: int,
+        ctx: Context,
+        set_svc: DjSetService = Depends(get_set_service),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
+    ) -> ExportResult:
+        """Export a DJ set version as JSON transition guide.
+
+        Includes track order, per-transition scores, recommended transition
+        types, and set quality metrics. A DJ cheat sheet.
+
+        Args:
+            set_id: DJ set ID.
+            version_id: Set version to export.
+        """
+        from typing import Any
+
+        from app.services.set_export import export_json_guide
+        from app.services.transition_type import recommend_transition
+        from app.utils.audio.camelot import camelot_distance
+        from app.utils.audio.feature_conversion import orm_features_to_track_features
+
+        await set_svc.get(set_id)
+        items_list = await set_svc.list_items(version_id, offset=0, limit=500)
+        items = sorted(items_list.items, key=lambda i: i.sort_index)
+
+        unified_svc = UnifiedTransitionScoringService(
+            features_svc.features_repo.session,
+        )
+
+        tracks_data: list[dict[str, Any]] = []
+        for item in items:
+            tracks_data.append({
+                "title": f"Track {item.track_id}",
+                "path": f"track_{item.track_id}.mp3",
+            })
+
+        transitions_data: list[dict[str, Any]] = []
+        for i in range(len(items) - 1):
+            from_item = items[i]
+            to_item = items[i + 1]
+
+            trans: dict[str, Any] = {
+                "score": 0.0,
+                "bpm_delta": 0.0,
+                "energy_delta": 0.0,
+                "camelot": "",
+                "recommendation": None,
+            }
+
+            try:
+                components = await unified_svc.score_components_by_ids(
+                    from_item.track_id,
+                    to_item.track_id,
+                )
+                trans["score"] = components["total"]
+            except ValueError:
+                pass
+
+            try:
+                feat_a_obj = await features_svc.get_latest(from_item.track_id)
+                feat_b_obj = await features_svc.get_latest(to_item.track_id)
+                tf_a = orm_features_to_track_features(feat_a_obj)  # type: ignore[arg-type]
+                tf_b = orm_features_to_track_features(feat_b_obj)  # type: ignore[arg-type]
+
+                trans["bpm_delta"] = round(abs(tf_a.bpm - tf_b.bpm), 1)
+                trans["energy_delta"] = round(
+                    abs(tf_a.energy_lufs - tf_b.energy_lufs), 1
+                )
+
+                cam_dist = camelot_distance(tf_a.key_code, tf_b.key_code)
+                cam_a = key_code_to_camelot(tf_a.key_code)
+                cam_b = key_code_to_camelot(tf_b.key_code)
+                trans["camelot"] = f"{cam_a} -> {cam_b}"
+
+                rec = recommend_transition(
+                    tf_a, tf_b, camelot_compatible=cam_dist <= 1
+                )
+                trans["recommendation"] = rec
+            except (NotFoundError, ValueError):
+                pass
+
+            transitions_data.append(trans)
+
+        quality = 0.0
+        if transitions_data:
+            quality = sum(t["score"] for t in transitions_data) / len(
+                transitions_data
+            )
+
+        content = export_json_guide(
+            set_name=f"Set {set_id}",
+            energy_arc="classic",
+            quality_score=round(quality, 3),
+            tracks=tracks_data,
+            transitions=transitions_data,
+        )
+
+        return ExportResult(
+            set_id=set_id,
+            format="json",
+            track_count=len(items),
+            content=content,
         )
