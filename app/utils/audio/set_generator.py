@@ -271,15 +271,62 @@ class GeneticSetGenerator:
 
     # ── Population ──────────────────────────────────────────
 
+    def _nearest_neighbor_path(
+        self, start: int, candidates: NDArray[np.int32]
+    ) -> NDArray[np.int32]:
+        """Build a greedy path starting from *start*, picking best neighbor.
+
+        Args:
+            start: Index of starting track in self._all_tracks.
+            candidates: Array of track indices to visit.
+
+        Returns:
+            Ordered path as array of track indices.
+        """
+        n = len(candidates)
+        visited = np.zeros(len(self._all_tracks), dtype=bool)
+        path = np.empty(n, dtype=np.int32)
+
+        current = start
+        path[0] = current
+        visited[current] = True
+
+        for step in range(1, n):
+            best_score = -1.0
+            best_next = candidates[0]
+            for c in candidates:
+                if not visited[c] and self._matrix[current, c] > best_score:
+                    best_score = self._matrix[current, c]
+                    best_next = c
+            path[step] = best_next
+            visited[best_next] = True
+            current = best_next
+
+        return path
+
     def _init_population(
         self, n_all: int, n_select: int, pop_size: int
     ) -> list[NDArray[np.int32]]:
-        """Create initial population of random permutations."""
+        """Create initial population: 50% NN-seeded + 2-opt, 50% random."""
         population: list[NDArray[np.int32]] = []
         indices = np.arange(n_all, dtype=np.int32)
-        for _ in range(pop_size):
+
+        nn_count = pop_size // 2
+
+        # NN-seeded individuals
+        for _ in range(nn_count):
+            perm = self._np_rng.permutation(indices)
+            subset = perm[:n_select].copy()
+            start_idx = int(self._np_rng.choice(subset))
+            path = self._nearest_neighbor_path(start_idx, subset)
+            self._two_opt(path)
+            population.append(path)
+
+        # Random individuals
+        for _ in range(pop_size - nn_count):
             perm = self._np_rng.permutation(indices)
             population.append(perm[:n_select].copy())
+
         return population
 
     # ── Fitness ─────────────────────────────────────────────

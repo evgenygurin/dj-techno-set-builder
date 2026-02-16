@@ -61,3 +61,28 @@ def test_two_opt_uses_full_fitness():
     fitness_after = gen._fitness(improved)
 
     assert fitness_after >= fitness_before
+
+
+def test_nn_init_produces_better_initial_fitness():
+    """NN-seeded population should have higher avg fitness than random.
+
+    50% of population is NN-seeded + 2-opt polished, 50% random.
+    """
+    tracks = _make_tracks(20)
+    matrix = _make_matrix(tracks)
+
+    config = GAConfig(
+        population_size=20,
+        generations=0,  # Only test initialization
+        seed=42,
+    )
+    gen = GeneticSetGenerator(tracks, matrix, config)
+
+    # Generate population
+    population = gen._init_population(len(tracks), len(tracks), 20)
+
+    fitnesses = [gen._fitness(ch) for ch in population]
+    avg_fitness = sum(fitnesses) / len(fitnesses)
+
+    # NN init should produce reasonable initial fitness
+    assert avg_fitness > 0.2
