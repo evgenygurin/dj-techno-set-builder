@@ -447,3 +447,97 @@ def test_score_transition_includes_structure_when_available():
     score = service.score_transition(features_a, features_b)
     assert score > 0.8  # Near-identical tracks + perfect section pairing
     assert score <= 1.0
+
+
+# ── Two-tier optimisation: quick_score ──
+
+
+def _make_features(**overrides: object) -> TrackFeatures:
+    """Helper: create TrackFeatures with sensible defaults."""
+    defaults: dict[str, object] = {
+        "bpm": 128.0,
+        "energy_lufs": -14.0,
+        "key_code": 0,
+        "harmonic_density": 0.7,
+        "centroid_hz": 2000.0,
+        "band_ratios": [0.3, 0.5, 0.2],
+        "onset_rate": 5.0,
+    }
+    defaults.update(overrides)
+    return TrackFeatures(**defaults)  # type: ignore[arg-type]
+
+
+def test_quick_score_identical_tracks_high():
+    """Identical features → quick_score > 0.8."""
+    service = TransitionScoringService()
+    a = _make_features()
+    b = _make_features()
+    score = service.quick_score(a, b)
+    assert score > 0.8
+
+
+def test_quick_score_very_different_pair_low():
+    """Widely mismatched BPM + key + energy → quick_score < 0.4."""
+    service = TransitionScoringService()
+    a = _make_features(bpm=128.0, key_code=0, energy_lufs=-8.0)
+    b = _make_features(bpm=170.0, key_code=12, energy_lufs=-18.0)
+    score = service.quick_score(a, b)
+    assert score < 0.4
+
+
+def test_quick_score_never_returns_zero():
+    """Even the worst possible pair must get score > 0.0 (floor 0.01)."""
+    service = TransitionScoringService()
+    # Maximally different: extreme BPM, different key, huge energy gap
+    a = _make_features(bpm=70.0, key_code=0, energy_lufs=-6.0)
+    b = _make_features(bpm=170.0, key_code=12, energy_lufs=-20.0)
+    score = service.quick_score(a, b)
+    assert score > 0.0
+    assert score >= 0.01
+
+
+def test_quick_score_correlates_with_full_score():
+    """quick_score ordering should correlate with score_transition ordering.
+
+    Generate several pairs with varying BPM/key/energy diffs.
+    Rank by quick_score and by full score_transition.
+    Spearman rank correlation should be > 0.6.
+    """
+    service = TransitionScoringService()
+
+    base = _make_features()
+    variants = [
+        _make_features(bpm=129.0, key_code=1, energy_lufs=-14.5),  # very close
+        _make_features(bpm=132.0, key_code=3, energy_lufs=-12.0),  # moderate
+        _make_features(bpm=140.0, key_code=6, energy_lufs=-9.0),  # far
+        _make_features(bpm=150.0, key_code=12, energy_lufs=-6.0),  # very far
+        _make_features(bpm=128.0, key_code=0, energy_lufs=-14.0),  # identical
+    ]
+
+    quick_scores = [service.quick_score(base, v) for v in variants]
+    full_scores = [service.score_transition(base, v) for v in variants]
+
+    # Compute Spearman rank correlation
+    def _rank(values: list[float]) -> list[float]:
+        indexed = sorted(enumerate(values), key=lambda x: x[1])
+        ranks = [0.0] * len(values)
+        for rank, (idx, _) in enumerate(indexed):
+            ranks[idx] = float(rank)
+        return ranks
+
+    qr = _rank(quick_scores)
+    fr = _rank(full_scores)
+    n = len(qr)
+    d_sq = sum((a - b) ** 2 for a, b in zip(qr, fr, strict=True))
+    spearman = 1.0 - 6.0 * d_sq / (n * (n**2 - 1))
+
+    assert spearman > 0.6, f"Spearman correlation too low: {spearman:.3f}"
+
+
+def test_quick_score_double_time_compatible():
+    """Double-time pairs (64 vs 128 BPM) should score well in quick_score."""
+    service = TransitionScoringService()
+    a = _make_features(bpm=64.0)
+    b = _make_features(bpm=128.0)
+    score = service.quick_score(a, b)
+    assert score > 0.7

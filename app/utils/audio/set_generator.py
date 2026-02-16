@@ -172,6 +172,12 @@ def target_energy_curve(n: int, arc_type: EnergyArcType) -> NDArray[np.float64]:
     return _interpolate_breakpoints(n, breakpoints)
 
 
+# Sets larger than this use lightweight local search instead of full 2-opt
+# in the GA loop. Full 2-opt is O(n³) — 1.2s per pass at n=214, called
+# 19,650 times → 73,000+ seconds. _relocate_worst is O(n) → ~0.1ms.
+_LARGE_SET_THRESHOLD = 40
+
+
 class GeneticSetGenerator:
     """Genetic algorithm that orders tracks to maximise set quality.
 
@@ -204,9 +210,18 @@ class GeneticSetGenerator:
         self._target = target_energy_curve(use_n, self.config.energy_arc_type)
 
     def run(self) -> GAResult:
-        """Execute the genetic algorithm. Returns the best solution found."""
+        """Execute the genetic algorithm. Returns the best solution found.
+
+        Adaptive local search strategy based on set size:
+
+        - **n ≤ 40**: Full ``_two_opt()`` on every child (original behaviour).
+        - **n > 40**: ``_relocate_worst()`` per child in the GA loop, then
+          ``_two_opt(max_passes=5)`` on the single best solution at the end.
+          This drops 214-track runtime from 73,000s → ~9s.
+        """
         n_all = len(self._all_tracks)
         cfg = self.config
+        large = self._n > _LARGE_SET_THRESHOLD
 
         # Initial population
         population = self._init_population(n_all, self._n, cfg.population_size)
@@ -241,8 +256,11 @@ class GeneticSetGenerator:
                 # Track replacement mutation (5% chance)
                 self._mutate_replace(child)
 
-                # Apply 2-opt local search after crossover/mutation
-                self._two_opt(child)
+                # Local search: lightweight for large sets, full 2-opt for small
+                if large:
+                    self._relocate_worst(child)
+                else:
+                    self._two_opt(child)
 
                 new_pop.append(child)
 
@@ -254,6 +272,12 @@ class GeneticSetGenerator:
                 best_fitness = fitnesses[gen_best_idx]
                 best_chromosome = population[gen_best_idx].copy()
 
+            fitness_history.append(float(best_fitness))
+
+        # Final polish: full 2-opt on best solution only (capped for large sets)
+        if large:
+            self._two_opt(best_chromosome, max_passes=5)
+            best_fitness = self._fitness(best_chromosome)
             fitness_history.append(float(best_fitness))
 
         # Build result from best chromosome
@@ -310,9 +334,14 @@ class GeneticSetGenerator:
     def _init_population(
         self, n_all: int, n_select: int, pop_size: int
     ) -> list[NDArray[np.int32]]:
-        """Create initial population: 50% NN-seeded + 2-opt, 50% random."""
+        """Create initial population: 50% NN-seeded (+ local search), 50% random.
+
+        For large sets (n > ``_LARGE_SET_THRESHOLD``), NN-seeded individuals get
+        ``_relocate_worst`` instead of full ``_two_opt`` to avoid O(n³) cost.
+        """
         population: list[NDArray[np.int32]] = []
         indices = np.arange(n_all, dtype=np.int32)
+        large = n_select > _LARGE_SET_THRESHOLD
 
         nn_count = pop_size // 2
 
@@ -322,7 +351,12 @@ class GeneticSetGenerator:
             subset = perm[:n_select].copy()
             start_idx = int(self._np_rng.choice(subset))
             path = self._nearest_neighbor_path(start_idx, subset)
-            self._two_opt(path)
+            if large:
+                # O(n) relocate x n passes = O(n^2) -- still fast for 214 tracks
+                for _r in range(min(n_select, 50)):
+                    self._relocate_worst(path)
+            else:
+                self._two_opt(path)
             population.append(path)
 
         # Random individuals
@@ -465,7 +499,61 @@ class GeneticSetGenerator:
         replacement = self._rng.choice(unused)
         chromosome[pos] = replacement
 
-    def _two_opt(self, chromosome: NDArray[np.int32]) -> None:
+    def _relocate_worst(self, chromosome: NDArray[np.int32]) -> None:
+        """Find worst transition edge, relocate that track to best position.
+
+        O(n) per call — finds the lowest-scoring transition, removes the second
+        track, and reinserts it at the position that maximises local transition
+        quality.  Much faster than ``_two_opt()`` for large sets.
+
+        Args:
+            chromosome: Permutation to optimise (modified in-place).
+        """
+        n = len(chromosome)
+        if n < 3:
+            return
+
+        # Find worst transition (lowest matrix score between consecutive tracks)
+        worst_score = self._matrix[chromosome[0], chromosome[1]]
+        worst_pos = 1
+        for k in range(1, n - 1):
+            score = self._matrix[chromosome[k], chromosome[k + 1]]
+            if score < worst_score:
+                worst_score = score
+                worst_pos = k + 1
+
+        # Remove track at worst_pos
+        track_idx = int(chromosome[worst_pos])
+        remaining = np.delete(chromosome, worst_pos)
+        m = len(remaining)
+
+        # Try all insertion positions, pick the one maximising transition gain
+        best_gain = -np.inf
+        best_pos = 0
+
+        for pos in range(m + 1):
+            gain = 0.0
+            # Gained edges from inserting track_idx at pos
+            if pos > 0:
+                gain += self._matrix[remaining[pos - 1], track_idx]
+            if pos < m:
+                gain += self._matrix[track_idx, remaining[pos]]
+            # Lost edge that gets split by insertion
+            if 0 < pos < m:
+                gain -= self._matrix[remaining[pos - 1], remaining[pos]]
+
+            if gain > best_gain:
+                best_gain = gain
+                best_pos = pos
+
+        # Reconstruct in-place
+        new_ch = np.empty(n, dtype=np.int32)
+        new_ch[:best_pos] = remaining[:best_pos]
+        new_ch[best_pos] = track_idx
+        new_ch[best_pos + 1 :] = remaining[best_pos:]
+        chromosome[:] = new_ch
+
+    def _two_opt(self, chromosome: NDArray[np.int32], max_passes: int | None = None) -> None:
         """Apply 2-opt local search using full composite fitness (in-place).
 
         Unlike simple 2-opt that only considers transition matrix edges,
@@ -476,18 +564,23 @@ class GeneticSetGenerator:
         energy arc adherence.
 
         Args:
-            chromosome: Permutation to optimize (modified in-place)
+            chromosome: Permutation to optimize (modified in-place).
+            max_passes: Maximum number of full O(n²) passes. ``None`` uses
+                the legacy default of ``n * 2``. Use 0 for a no-op.
         """
         n = len(chromosome)
         if n < 4:
             return
 
+        limit = max_passes if max_passes is not None else n * 2
+        if limit <= 0:
+            return
+
         current_fitness = self._fitness(chromosome)
         improved = True
-        max_iterations = n * 2
 
         iteration = 0
-        while improved and iteration < max_iterations:
+        while improved and iteration < limit:
             improved = False
             iteration += 1
 

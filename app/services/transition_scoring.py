@@ -347,6 +347,37 @@ class TransitionScoringService:
 
         return False
 
+    def quick_score(self, track_a: TrackFeatures, track_b: TrackFeatures) -> float:
+        """Cheap approximation using only BPM + harmonic + energy (65% of weights).
+
+        Intended for two-tier matrix building: screen ALL pairs cheaply,
+        then run full ``score_transition()`` only on promising ones.
+
+        **Never returns 0.0** — every pair gets at least 0.01 so the GA
+        can still explore "impossible" transitions (Nina Kraviz principle).
+
+        Complexity: O(1) with no numpy array allocations (~100ns vs ~1-5μs).
+
+        Returns:
+            Quick score in ``[0.01, 1.0]``.
+        """
+        bpm_s = self.score_bpm(track_a.bpm, track_b.bpm)
+        harm_s = self.score_harmonic(
+            track_a.key_code,
+            track_b.key_code,
+            track_a.harmonic_density,
+            track_b.harmonic_density,
+            track_a.hnr_db,
+            track_b.hnr_db,
+        )
+        energy_s = self.score_energy(track_a.energy_lufs, track_b.energy_lufs)
+
+        w = self.WEIGHTS
+        tier1_weight = w["bpm"] + w["harmonic"] + w["energy"]  # 0.65
+        raw = (w["bpm"] * bpm_s + w["harmonic"] * harm_s + w["energy"] * energy_s) / tier1_weight
+
+        return max(raw, 0.01)
+
     def score_transition(self, track_a: TrackFeatures, track_b: TrackFeatures) -> float:
         """Compute overall transition quality (filter-then-rank).
 

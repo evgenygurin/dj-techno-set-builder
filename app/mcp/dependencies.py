@@ -32,9 +32,18 @@ from app.services.transitions import TransitionService
 
 @asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """Provide an async DB session scoped to a single MCP tool call."""
+    """Provide an async DB session scoped to a single MCP tool call.
+
+    Commits on success, rolls back on exception.  Without this,
+    repository ``flush()`` writes are lost when the session closes.
+    """
     async with session_factory() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 def get_track_service(

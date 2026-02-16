@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+// Всегда думай по-русски и отвечай по-русски, если только явно не просят другое.
+
 Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
 - `api.md` — routers, schemas, services, error handling
 - `database.md` — models, repositories, migrations, SQLite compat

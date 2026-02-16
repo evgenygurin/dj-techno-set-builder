@@ -9,12 +9,52 @@ from app.repositories.audio_features import AudioFeaturesRepository
 from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
 from app.schemas.set_generation import SetGenerationRequest, SetGenerationResponse
 from app.services.base import BaseService
+from app.services.transition_scoring import TrackFeatures, TransitionScoringService
 from app.utils.audio.set_generator import (
     EnergyArcType,
     GAConfig,
     GeneticSetGenerator,
     TrackData,
 )
+
+
+def _build_matrix_two_tier(
+    scorer: TransitionScoringService,
+    features: list[TrackFeatures],
+    tier1_threshold: float = 0.15,
+) -> np.ndarray:
+    """Build NxN transition matrix using two-tier scoring.
+
+    Tier 1 (cheap): ``quick_score()`` — BPM + harmonic + energy only.
+    Tier 2 (expensive): ``score_transition()`` — full 6-component with MFCC.
+
+    Pairs where quick_score < tier1_threshold keep the cheap score (skip tier 2).
+    When ``score_transition()`` returns 0.0 (hard-reject), the quick_score is
+    used instead so **no pair ever gets zero** (Nina Kraviz principle).
+
+    Args:
+        scorer: Pre-configured TransitionScoringService instance.
+        features: List of TrackFeatures for all tracks.
+        tier1_threshold: Cutoff for tier 2 promotion. 0.0 = always full score.
+
+    Returns:
+        NxN numpy matrix of transition scores.
+    """
+    n = len(features)
+    matrix = np.zeros((n, n), dtype=np.float64)
+
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                continue
+            quick = scorer.quick_score(features[i], features[j])
+            if quick < tier1_threshold:
+                matrix[i, j] = quick
+            else:
+                full = scorer.score_transition(features[i], features[j])
+                matrix[i, j] = full if full > 0.0 else quick
+
+    return matrix
 
 
 class SetGenerationService(BaseService):
@@ -68,8 +108,11 @@ class SetGenerationService(BaseService):
             for f in features_list
         ]
 
-        # Build transition matrix using TransitionScoringService
-        transition_matrix = await self._build_transition_matrix_scored(tracks)
+        # Build transition matrix using two-tier scoring
+        transition_matrix = await self._build_transition_matrix_scored(
+            tracks,
+            tier1_threshold=data.tier1_threshold,
+        )
 
         # Configure GA
         config = GAConfig(
@@ -160,29 +203,36 @@ class SetGenerationService(BaseService):
 
         return matrix
 
-    async def _build_transition_matrix_scored(self, tracks: list[TrackData]) -> np.ndarray:
-        """Build transition quality matrix using TransitionScoringService.
+    async def _build_transition_matrix_scored(
+        self,
+        tracks: list[TrackData],
+        tier1_threshold: float = 0.15,
+    ) -> np.ndarray:
+        """Build transition quality matrix using two-tier scoring.
 
-        Replaces primitive linear scoring with research-backed multi-component formula.
+        Uses ``_build_matrix_two_tier()`` for tracks with full features.
+        Falls back to primitive BPM+key scoring for tracks missing features.
 
         Args:
             tracks: List of tracks with basic features (bpm, energy, key_code)
+            tier1_threshold: quick_score cutoff for full scoring (0.0 = always full)
 
         Returns:
             NxN matrix where [i, j] = quality of i→j transition
         """
+        import logging
+        import time
+
         from app.services.camelot_lookup import CamelotLookupService
-        from app.services.transition_scoring import TrackFeatures, TransitionScoringService
         from app.utils.audio.feature_conversion import orm_features_to_track_features
 
+        logger = logging.getLogger(__name__)
+
         n = len(tracks)
-        matrix = np.zeros((n, n), dtype=np.float64)
 
         # Build DB-backed Camelot lookup
         camelot_service = CamelotLookupService(self.features_repo.session)
         lookup_table = await camelot_service.build_lookup_table()
-
-        # Initialize scoring service with DB-backed lookup
         scorer = TransitionScoringService(camelot_lookup=lookup_table)
 
         # Fetch full features for all tracks
@@ -198,25 +248,54 @@ class SetGenerationService(BaseService):
                 continue
             track_features.append(orm_features_to_track_features(feat_db))
 
-        # Compute pairwise scores
+        # Separate tracks with features from those without
+        has_features = [f is not None for f in track_features]
+        featured_indices = [i for i, h in enumerate(has_features) if h]
+        # All items are non-None because we filtered via has_features
+        featured_list: list[TrackFeatures] = [f for f in track_features if f is not None]
+
+        t0 = time.perf_counter()
+
+        # Two-tier scoring for tracks with features
+        if featured_list:
+            sub_matrix = _build_matrix_two_tier(
+                scorer,
+                featured_list,
+                tier1_threshold=tier1_threshold,
+            )
+        else:
+            sub_matrix = np.zeros((0, 0), dtype=np.float64)
+
+        elapsed = time.perf_counter() - t0
+
+        # Map sub-matrix back to full NxN
+        matrix = np.zeros((n, n), dtype=np.float64)
+        for si, gi in enumerate(featured_indices):
+            for sj, gj in enumerate(featured_indices):
+                matrix[gi, gj] = sub_matrix[si, sj]
+
+        # Fallback for tracks without features
         for i in range(n):
             for j in range(n):
-                if i == j:
-                    matrix[i, j] = 0.0  # No self-transitions
+                if i == j or (has_features[i] and has_features[j]):
                     continue
+                bpm_diff = abs(tracks[i].bpm - tracks[j].bpm)
+                bpm_score = max(0.0, 0.5 - bpm_diff / 20.0)
+                key_diff = abs(tracks[i].key_code - tracks[j].key_code)
+                key_score = max(0.0, 0.5 - key_diff / 24.0)
+                matrix[i, j] = bpm_score + key_score
 
-                feat_i = track_features[i]
-                feat_j = track_features[j]
-
-                if feat_i is None or feat_j is None:
-                    # Fallback to primitive scoring
-                    bpm_diff = abs(tracks[i].bpm - tracks[j].bpm)
-                    bpm_score = max(0.0, 0.5 - bpm_diff / 20.0)
-                    key_diff = abs(tracks[i].key_code - tracks[j].key_code)
-                    key_score = max(0.0, 0.5 - key_diff / 24.0)
-                    matrix[i, j] = bpm_score + key_score
-                else:
-                    # Use full scoring formula
-                    matrix[i, j] = scorer.score_transition(feat_i, feat_j)
+        total_pairs = n * (n - 1)
+        featured_pairs = len(featured_indices) * (len(featured_indices) - 1)
+        logger.info(
+            "Transition matrix %dx%d built in %.2fs "
+            "(total_pairs=%d, featured_pairs=%d, tier1_threshold=%.2f)",
+            n,
+            n,
+            elapsed,
+            total_pairs,
+            featured_pairs,
+            tier1_threshold,
+        )
 
         return matrix
