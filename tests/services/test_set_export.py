@@ -1242,10 +1242,7 @@ class TestRekordboxXMLTrackAttributes:
         )
         track = _parse_xml(xml).find(".//COLLECTION/TRACK")
         assert track is not None
-        assert (
-            track.attrib["Location"]
-            == "file://localhost/Users/dj/Music/001.%20Exhale.mp3"
-        )
+        assert track.attrib["Location"] == "file://localhost/Users/dj/Music/001.%20Exhale.mp3"
 
 
 class TestRekordboxXMLTempo:
@@ -1465,9 +1462,7 @@ class TestRekordboxXMLPositionMarks:
     def test_multiple_marks_ordered(self):
         marks = [
             RekordboxCuePoint(position_s=0.0, cue_type=3, hotcue_num=-1),
-            RekordboxCuePoint(
-                position_s=0.0, cue_type=0, hotcue_num=-1, name="Intro"
-            ),
+            RekordboxCuePoint(position_s=0.0, cue_type=0, hotcue_num=-1, name="Intro"),
             RekordboxCuePoint(
                 position_s=64.0,
                 cue_type=0,
@@ -1477,15 +1472,9 @@ class TestRekordboxXMLPositionMarks:
                 green=0,
                 blue=0,
             ),
-            RekordboxCuePoint(
-                position_s=0.0, cue_type=1, hotcue_num=-1, end_s=32.0
-            ),
-            RekordboxCuePoint(
-                position_s=384.0, cue_type=2, hotcue_num=-1, end_s=420.0
-            ),
-            RekordboxCuePoint(
-                position_s=192.0, cue_type=4, hotcue_num=-1, end_s=200.0
-            ),
+            RekordboxCuePoint(position_s=0.0, cue_type=1, hotcue_num=-1, end_s=32.0),
+            RekordboxCuePoint(position_s=384.0, cue_type=2, hotcue_num=-1, end_s=420.0),
+            RekordboxCuePoint(position_s=192.0, cue_type=4, hotcue_num=-1, end_s=200.0),
         ]
         xml = export_rekordbox_xml(
             [_make_rb_track(position_marks=marks)],
@@ -1515,9 +1504,7 @@ class TestRekordboxXMLComprehensive:
                 colour="0xFF0000",
                 tempos=[RekordboxTempo(position_s=0.098, bpm=136.0)],
                 position_marks=[
-                    RekordboxCuePoint(
-                        position_s=0.098, cue_type=3, hotcue_num=-1
-                    ),
+                    RekordboxCuePoint(position_s=0.098, cue_type=3, hotcue_num=-1),
                     RekordboxCuePoint(
                         position_s=0.098,
                         cue_type=0,
@@ -1596,4 +1583,4 @@ class TestRekordboxXMLComprehensive:
 
     def test_valid_xml_declaration(self):
         xml = export_rekordbox_xml([], set_name="Test")
-        assert xml.startswith('<?xml version=\'1.0\' encoding=\'UTF-8\'?>')
+        assert xml.startswith("<?xml version='1.0' encoding='UTF-8'?>")

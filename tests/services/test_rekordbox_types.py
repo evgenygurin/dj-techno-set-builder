@@ -85,9 +85,7 @@ class TestRekordboxTrackData:
             colour="0xFF0000",
             tempos=[RekordboxTempo(position_s=0.098, bpm=136.0)],
             position_marks=[
-                RekordboxCuePoint(
-                    position_s=0.0, cue_type=0, hotcue_num=0, name="Intro"
-                ),
+                RekordboxCuePoint(position_s=0.0, cue_type=0, hotcue_num=0, name="Intro"),
             ],
         )
         assert td.bpm == 136.0
