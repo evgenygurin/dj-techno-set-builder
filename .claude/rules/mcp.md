@@ -52,8 +52,8 @@ app/mcp/
 | `build_set` | setbuilder | No | Create DJ set + GA optimization |
 | `score_transitions` | setbuilder | Yes | Score all transitions in a set version |
 | `adjust_set` | setbuilder | No | LLM-assisted set adjustment via `ctx.sample()` |
-| `export_set_m3u` | export | Yes | Export set as M3U playlist |
-| `export_set_json` | export | Yes | Export set as JSON with audio features |
+| `export_set_m3u` | export | Yes | Export set as Extended M3U8 with VLC opts, DJ metadata (cues, loops, sections, transitions, EQ) |
+| `export_set_json` | export | Yes | Export set as JSON transition guide with full scoring, recommendations, and set analytics |
 | `activate_heavy_mode` | admin | No | Enable heavy analysis tools |
 
 ## Yandex Music tools (namespace "ym")

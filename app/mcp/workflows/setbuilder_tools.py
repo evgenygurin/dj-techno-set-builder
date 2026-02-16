@@ -367,9 +367,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
     ) -> ExportResult:
-        """Export a DJ set version as M3U8 playlist for djay Pro import.
+        """Export a DJ set version as Extended M3U8 playlist.
 
-        Generates an M3U8 file with track ordering matching the set version.
+        Generates an M3U8 file with track ordering, ``#PLAYLIST:`` header,
+        mix in/out points, planned EQ, and notes from set items.
 
         Args:
             set_id: DJ set ID.
@@ -377,20 +378,31 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         """
         from app.services.set_export import export_m3u
 
-        await set_svc.get(set_id)
+        dj_set = await set_svc.get(set_id)
         items_list = await set_svc.list_items(version_id, offset=0, limit=500)
         items = sorted(items_list.items, key=lambda i: i.sort_index)
 
-        tracks = [
-            {
+        tracks: list[dict[str, object]] = []
+        for item in items:
+            entry: dict[str, object] = {
                 "title": f"Track {item.track_id}",
                 "duration_s": 0,
                 "path": f"track_{item.track_id}.mp3",
             }
-            for item in items
-        ]
+            if item.mix_in_ms is not None:
+                entry["mix_in_s"] = item.mix_in_ms / 1000.0
+            if item.mix_out_ms is not None:
+                entry["mix_out_s"] = item.mix_out_ms / 1000.0
+            if item.planned_eq:
+                entry["planned_eq"] = item.planned_eq
+            if item.notes:
+                entry["notes"] = item.notes
+            tracks.append(entry)
 
-        content = export_m3u(tracks)
+        content = export_m3u(
+            tracks,
+            set_name=dj_set.name,
+        )
 
         return ExportResult(
             set_id=set_id,
