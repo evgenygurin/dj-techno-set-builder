@@ -3,6 +3,23 @@ import pytest
 from app.services.transition_scoring import TrackFeatures, TransitionScoringService
 
 
+def test_track_features_new_fields_have_defaults():
+    """Phase 2 fields should be optional with defaults."""
+    tf = TrackFeatures(
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
+    )
+    assert tf.mfcc_vector is None
+    assert tf.kick_prominence == 0.5
+    assert tf.hnr_db == 0.0
+    assert tf.spectral_slope == 0.0
+
+
 def test_score_bpm_identical():
     """Identical BPM should score 1.0"""
     service = TransitionScoringService()

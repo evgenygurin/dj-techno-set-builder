@@ -34,6 +34,11 @@ class TrackFeatures:
     centroid_hz: float  # Spectral centroid mean
     band_ratios: list[float]  # [low, mid, high] energy ratios, sum=1.0
     onset_rate: float  # Onsets per second
+    # Phase 2 enrichment fields (all optional with backward-compat defaults)
+    mfcc_vector: list[float] | None = None  # 13 mean MFCC coefficients
+    kick_prominence: float = 0.5  # 0-1, kick energy at beat positions
+    hnr_db: float = 0.0  # Harmonics-to-noise ratio (dB)
+    spectral_slope: float = 0.0  # Spectral slope (dB/octave)
 
 
 @dataclass(frozen=True, slots=True)
