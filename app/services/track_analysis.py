@@ -10,7 +10,7 @@ from app.repositories.sections import SectionsRepository
 from app.repositories.tracks import TrackRepository
 from app.services.base import BaseService
 from app.utils.audio import TrackFeatures
-from app.utils.audio._types import BeatsResult
+from app.utils.audio._types import BeatsResult, MfccResult
 from app.utils.audio.loader import load_audio, validate_audio
 from app.utils.audio.pipeline import extract_all_features
 
@@ -143,6 +143,17 @@ class TrackAnalysisService(BaseService):
         except Exception:
             self.logger.warning("Beat detection failed for track %d", track_id, exc_info=True)
 
+        # Phase 2: MFCC extraction (optional, graceful failure)
+        mfcc_result: MfccResult | None = None
+        try:
+            from app.utils.audio.mfcc import extract_mfcc
+
+            mfcc_result = extract_mfcc(signal)
+        except Exception:
+            self.logger.warning(
+                "MFCC extraction failed for track %d", track_id, exc_info=True
+            )
+
         return TrackFeatures(
             bpm=bpm_result,
             key=key_result,
@@ -150,6 +161,7 @@ class TrackAnalysisService(BaseService):
             band_energy=band_energy_result,
             spectral=spectral_result,
             beats=beats_result,
+            mfcc=mfcc_result,
         )
 
     @staticmethod
