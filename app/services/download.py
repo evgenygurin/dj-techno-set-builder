@@ -3,8 +3,11 @@
 import re
 from pathlib import Path
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.ingestion import ProviderTrackId
+from app.models.providers import Provider
 from app.services.yandex_music_client import YandexMusicClient
 
 
@@ -41,6 +44,24 @@ class DownloadService:
         """
         sanitized = self._sanitize_filename(track.title)
         return f"{track.track_id}_{sanitized}.mp3"
+
+    async def _get_yandex_track_id(self, track_id: int) -> str | None:
+        """Get Yandex Music track ID from provider_track_ids table.
+
+        Args:
+            track_id: Local track ID
+
+        Returns:
+            Yandex Music track ID string, or None if not found
+        """
+        stmt = (
+            select(ProviderTrackId.provider_track_id)
+            .join(Provider)
+            .where(ProviderTrackId.track_id == track_id)
+            .where(Provider.provider_code == "yandex")
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
     @staticmethod
     def _sanitize_filename(title: str, max_len: int = 50) -> str:

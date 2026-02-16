@@ -2,7 +2,11 @@
 
 import pytest
 from unittest.mock import Mock
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.catalog import Track
+from app.models.ingestion import ProviderTrackId
+from app.models.providers import Provider
 from app.services.download import DownloadService
 
 
@@ -47,3 +51,41 @@ class TestDownloadService:
         track = Mock(track_id=137, title="Track / Name?")
         result = svc._generate_filename(track)
         assert result == "137_track_name.mp3"
+
+    async def test_get_yandex_track_id_returns_value_when_exists(
+        self, session: AsyncSession, tmp_path
+    ):
+        """_get_yandex_track_id returns YM track_id from provider_track_ids."""
+        # Create provider (Yandex)
+        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        session.add(provider)
+        await session.flush()
+
+        # Create track
+        track = Track(title="Test", duration_ms=300000)
+        session.add(track)
+        await session.flush()
+
+        # Create provider track ID
+        provider_track_id = ProviderTrackId(
+            track_id=track.track_id,
+            provider_id=provider.provider_id,
+            provider_track_id="12345678",
+        )
+        session.add(provider_track_id)
+        await session.commit()
+
+        # Test
+        svc = DownloadService(session, Mock(), tmp_path)
+        result = await svc._get_yandex_track_id(track.track_id)
+
+        assert result == "12345678"
+
+    async def test_get_yandex_track_id_returns_none_when_not_exists(
+        self, session: AsyncSession, tmp_path
+    ):
+        """_get_yandex_track_id returns None when no YM ID exists."""
+        svc = DownloadService(session, Mock(), tmp_path)
+        result = await svc._get_yandex_track_id(999)
+
+        assert result is None
