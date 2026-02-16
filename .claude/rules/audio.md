@@ -5,6 +5,7 @@ paths:
   - "app/services/track_analysis.py"
   - "app/services/set_generation.py"
   - "app/services/camelot_lookup.py"
+  - "app/services/set_export.py"
 ---
 
 # Audio Analysis & Set Generation
@@ -102,3 +103,40 @@ class TrackFeatures:
 - `build_lookup_table()` — populates `_lookup: dict[int, dict[int, float]]`
 - Used by TransitionScoringService for harmonic scoring
 - Maps key codes to compatibility scores based on Camelot wheel adjacency
+
+## Set export
+
+`app/services/set_export.py` — **pure functions** (no DB deps) for M3U and JSON export:
+
+### Extended M3U8 (`export_m3u`)
+
+Generates an M3U8 playlist with standard + custom DJ extensions:
+
+| Tag | Purpose |
+|-----|---------|
+| `#EXTM3U` | M3U header |
+| `#PLAYLIST:` | Set name |
+| `#EXTINF:` | Duration + display title |
+| `#EXTART:` | Artist name(s) |
+| `#EXTGENRE:` | Genre |
+| `#EXTVLCOPT:start-time=` | Mix-in point (VLC compatible) |
+| `#EXTVLCOPT:stop-time=` | Mix-out point (VLC compatible) |
+| `#EXTDJ-BPM:` | Track BPM |
+| `#EXTDJ-KEY:` | Musical key (Camelot notation) |
+| `#EXTDJ-ENERGY:` | Energy level (LUFS) |
+| `#EXTDJ-CUE:` | Cue points: `time=,type=hot\|memory,name=,color=` |
+| `#EXTDJ-LOOP:` | Loops: `in=,out=,name=` |
+| `#EXTDJ-SECTION:` | Structural sections: `type=intro\|drop\|outro,start=,end=,energy=` |
+| `#EXTDJ-EQ:` | Planned EQ: `low=,mid=,high=` |
+| `#EXTDJ-TRANSITION:` | Transition to next: `type=,score=,confidence=,bpm_delta=,energy_delta=,camelot=,reason=,alt_type=,mix_out=,mix_in=` |
+| `#EXTDJ-NOTE:` | DJ notes |
+
+Custom `#EXTDJ-*` lines are backward compatible: players that don't recognise them simply skip them.
+
+### JSON guide (`export_json_guide`)
+
+Produces a DJ cheat sheet with:
+- Set metadata (name, energy arc, quality score, track count)
+- Per-track details (title, artists, BPM, key, energy, duration, cue points, loops, sections, EQ, notes)
+- Per-transition recommendations (type, confidence, reason, alt_type, score, BPM/energy deltas, Camelot)
+- Set-level analytics (BPM range, energy range, avg transition score, total duration)
