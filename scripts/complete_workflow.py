@@ -94,6 +94,147 @@ class WorkflowOrchestrator:
 
         return track_ids
 
+    async def stage_2_import_metadata(self, track_ids: list[int]) -> dict:
+        """Stage 2: Import track metadata into database.
+
+        Args:
+            track_ids: List of Yandex Music track IDs to import
+
+        Returns:
+            Import statistics dict
+        """
+        stage_name = "metadata"
+
+        # Check if checkpoint exists
+        if self.checkpoint.exists(stage_name):
+            logger.info("✓ Stage 2: Loading from checkpoint")
+            return self.checkpoint.load(stage_name)
+
+        logger.info(f"Stage 2: Importing metadata for {len(track_ids)} tracks...")
+
+        # Import services
+        from app.config import settings
+        from app.database import session_factory
+        from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+        from app.repositories.tracks import TrackRepository
+        from app.models.ingestion import ProviderTrackId
+
+        imported = 0
+        skipped = 0
+        failed_ids = []
+
+        async with session_factory() as session:
+            ym_client = YandexMusicClient(token=settings.yandex_music_token)
+            track_repo = TrackRepository(session)
+
+            # Fetch metadata batch from YM
+            ym_track_ids = [str(tid) for tid in track_ids]
+            tracks_data = await ym_client.fetch_tracks_metadata(ym_track_ids)
+
+            for track_data in tracks_data:
+                try:
+                    # Parse YM track
+                    parsed = parse_ym_track(track_data)
+
+                    # Check if already exists
+                    existing = await track_repo.get_by_id(int(parsed.yandex_track_id))
+                    if existing:
+                        skipped += 1
+                        continue
+
+                    # Create Track record (simplified — no artists/albums for now)
+                    track = await track_repo.create(
+                        track_id=int(parsed.yandex_track_id),
+                        title=parsed.title,
+                        duration_ms=parsed.duration_ms or 0,
+                    )
+
+                    # Create ProviderTrackId link (provider_id=4 is yandex_music)
+                    session.add(
+                        ProviderTrackId(
+                            track_id=track.track_id,
+                            provider_id=4,  # yandex_music
+                            provider_track_id=parsed.yandex_track_id,
+                        )
+                    )
+
+                    imported += 1
+
+                except Exception as e:
+                    logger.error(f"Failed to import track: {e}")
+                    failed_ids.append(int(track_data.get("id", 0)))
+
+            await session.commit()
+
+        logger.info(f"✓ Stage 2: Imported {imported}, skipped {skipped}, failed {len(failed_ids)}")
+
+        # Save checkpoint
+        stats = {
+            "imported": imported,
+            "skipped": skipped,
+            "failed": len(failed_ids),
+            "failed_track_ids": failed_ids,
+        }
+        self.checkpoint.save(stage_name, stats)
+
+        return stats
+
+    async def stage_3_download_tracks(self, track_ids: list[int]) -> dict:
+        """Stage 3: Download MP3 files from Yandex Music.
+
+        Args:
+            track_ids: List of track IDs to download
+
+        Returns:
+            Download statistics dict
+        """
+        stage_name = "downloads"
+
+        # Check if checkpoint exists
+        if self.checkpoint.exists(stage_name):
+            logger.info("✓ Stage 3: Loading from checkpoint")
+            return self.checkpoint.load(stage_name)
+
+        logger.info(f"Stage 3: Downloading {len(track_ids)} tracks...")
+
+        # Import services
+        from app.config import settings
+        from app.database import session_factory
+        from app.services.download import DownloadService
+        from app.services.yandex_music_client import YandexMusicClient
+
+        # Create download service
+        async with session_factory() as session:
+            ym_client = YandexMusicClient(token=settings.yandex_music_token)
+            download_service = DownloadService(
+                session=session,
+                ym_client=ym_client,
+                library_path=self.tracks_dir,
+            )
+
+            # Download batch
+            result = await download_service.download_tracks_batch(
+                track_ids=track_ids,
+                prefer_bitrate=320,
+            )
+
+        logger.info(
+            f"✓ Stage 3: Downloaded {result.downloaded}, "
+            f"skipped {result.skipped}, failed {result.failed}"
+        )
+
+        # Save checkpoint
+        stats = {
+            "downloaded": result.downloaded,
+            "skipped": result.skipped,
+            "failed": result.failed,
+            "failed_track_ids": result.failed_track_ids,
+            "total_bytes": result.total_bytes,
+        }
+        self.checkpoint.save(stage_name, stats)
+
+        return stats
+
     async def run(self) -> None:
         """Run complete workflow from start to finish."""
         logger.info("Starting complete workflow...")
@@ -109,7 +250,18 @@ class WorkflowOrchestrator:
         track_ids = await self.stage_1_fetch_playlist()
         logger.info(f"Playlist contains {len(track_ids)} tracks")
 
-        logger.info("Workflow stage 1 complete")
+        # Stage 2: Import metadata
+        import_stats = await self.stage_2_import_metadata(track_ids)
+        logger.info(f"Imported {import_stats['imported']} tracks metadata")
+
+        # Stage 3: Download tracks
+        download_stats = await self.stage_3_download_tracks(track_ids)
+        logger.info(
+            f"Downloaded {download_stats['downloaded']} tracks "
+            f"({download_stats['total_bytes'] / 1024 / 1024:.1f} MB)"
+        )
+
+        logger.info("Workflow stages 1-3 complete")
 
 async def async_main() -> None:
     """Async CLI entry point."""
