@@ -162,9 +162,11 @@ class TransitionScoringService:
         return 1.0 / (1.0 + (diff / 4.0) ** 2)
 
     def score_spectral(self, track_a: TrackFeatures, track_b: TrackFeatures) -> float:
-        """50% centroid similarity + 50% band balance cosine.
+        """Timbral similarity: MFCC cosine + centroid + band balance.
 
-        Proxy for timbral similarity (full MFCC cosine is better but not available).
+        When MFCC vectors are available (Phase 2), uses a 40/30/30 blend
+        of MFCC cosine similarity, centroid proximity, and band balance.
+        Falls back to 50/50 centroid+balance when MFCC is absent.
 
         Args:
             track_a: Features of outgoing track
@@ -181,14 +183,31 @@ class TransitionScoringService:
         vec_a = np.array(track_a.band_ratios)
         vec_b = np.array(track_b.band_ratios)
 
-        # Cosine similarity: (A·B) / (||A|| ||B||)
         dot = np.dot(vec_a, vec_b)
         norm_a = np.linalg.norm(vec_a)
         norm_b = np.linalg.norm(vec_b)
 
         balance_score = float(dot / (norm_a * norm_b)) if norm_a > 0 and norm_b > 0 else 0.0
 
-        return 0.5 * centroid_score + 0.5 * balance_score
+        # Phase 2: MFCC cosine similarity when available
+        if track_a.mfcc_vector and track_b.mfcc_vector:
+            mfcc_a = np.array(track_a.mfcc_vector)
+            mfcc_b = np.array(track_b.mfcc_vector)
+            mfcc_dot = np.dot(mfcc_a, mfcc_b)
+            mfcc_norm_a = np.linalg.norm(mfcc_a)
+            mfcc_norm_b = np.linalg.norm(mfcc_b)
+
+            if mfcc_norm_a > 0 and mfcc_norm_b > 0:
+                # Cosine similarity [-1, 1] → remap to [0, 1]
+                cosine_sim = float(mfcc_dot / (mfcc_norm_a * mfcc_norm_b))
+                mfcc_score = (cosine_sim + 1.0) / 2.0
+            else:
+                mfcc_score = 0.5  # Neutral fallback
+
+            return 0.40 * mfcc_score + 0.30 * centroid_score + 0.30 * balance_score
+
+        # Fallback: Phase 1 formula (no MFCC)
+        return 0.50 * centroid_score + 0.50 * balance_score
 
     def score_groove(self, onset_a: float, onset_b: float) -> float:
         """Onset density relative difference.
