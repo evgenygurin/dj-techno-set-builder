@@ -39,3 +39,28 @@ class TestDjLibraryItemRepository:
         result = await repo.get_by_track_id(999)
 
         assert result is None
+
+    async def test_create_from_download_creates_library_item(self, session: AsyncSession):
+        """create_from_download creates DjLibraryItem with file metadata."""
+        # Create track
+        track = Track(title="Test", duration_ms=300000)
+        session.add(track)
+        await session.flush()
+
+        # Create library item from download
+        repo = DjLibraryItemRepository(session)
+        item = await repo.create_from_download(
+            track_id=track.track_id,
+            file_path="/path/to/file.mp3",
+            file_size=2048,
+            file_hash=b"abc123",
+            bitrate_kbps=320,
+        )
+        await session.commit()
+
+        assert item.track_id == track.track_id
+        assert item.file_path == "/path/to/file.mp3"
+        assert item.file_size_bytes == 2048
+        assert item.file_hash == b"abc123"
+        assert item.bitrate_kbps == 320
+        assert item.mime_type == "audio/mpeg"
