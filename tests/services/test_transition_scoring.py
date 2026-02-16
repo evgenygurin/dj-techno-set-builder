@@ -48,11 +48,14 @@ def test_score_bpm_double_time():
 
 
 def test_score_harmonic_same_key():
-    """Same key without density modulation should score 1.0"""
+    """Same key with high density + HNR should score ~1.0"""
     service = TransitionScoringService()
     service.camelot_lookup = {(0, 0): 1.0}
-    score = service.score_harmonic(cam_a=0, cam_b=0, density_a=1.0, density_b=1.0)
-    assert score == pytest.approx(1.0)
+    # Full density + high HNR → factor approaches 1.0
+    score = service.score_harmonic(
+        cam_a=0, cam_b=0, density_a=1.0, density_b=1.0, hnr_a=20.0, hnr_b=20.0,
+    )
+    assert score == pytest.approx(1.0, abs=0.01)
 
 
 def test_score_harmonic_density_modulation():
@@ -242,3 +245,38 @@ def test_score_spectral_fallback_without_mfcc():
     )
     score = service.score_spectral(features_a, features_b)
     assert score > 0.9  # Identical centroid + balance
+
+
+# ── Phase 2: score_harmonic with HNR ──
+
+
+def test_score_harmonic_hnr_modulation():
+    """High HNR (more harmonic content) should increase Camelot weight."""
+    service = TransitionScoringService()
+    service.camelot_lookup = {(0, 6): 0.5}  # Mid-distance key pair
+
+    # High HNR = melodic = Camelot matters more
+    score_high_hnr = service.score_harmonic(
+        cam_a=0, cam_b=6, density_a=0.5, density_b=0.5,
+        hnr_a=20.0, hnr_b=20.0,
+    )
+
+    # Low HNR = noisy/percussive = Camelot matters less
+    score_low_hnr = service.score_harmonic(
+        cam_a=0, cam_b=6, density_a=0.5, density_b=0.5,
+        hnr_a=2.0, hnr_b=2.0,
+    )
+
+    # With bad Camelot (0.5), high HNR should produce LOWER score
+    # because it weights the bad Camelot more heavily
+    assert score_low_hnr > score_high_hnr
+
+
+def test_score_harmonic_backward_compatible():
+    """Without hnr kwargs, should still produce high score for same key."""
+    service = TransitionScoringService()
+    service.camelot_lookup = {(0, 0): 1.0}
+
+    # hnr defaults to 0.0 → combined=0.6*0.8=0.48 → factor=0.636 → ~0.93
+    score = service.score_harmonic(cam_a=0, cam_b=0, density_a=0.8, density_b=0.8)
+    assert score > 0.9

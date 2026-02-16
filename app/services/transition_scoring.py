@@ -116,30 +116,45 @@ class TransitionScoringService:
         # Gaussian decay: exp(-(diff²) / (2*sigma²)), sigma=8
         return float(np.exp(-(best_diff**2) / (2 * 8.0**2)))
 
-    def score_harmonic(self, cam_a: int, cam_b: int, density_a: float, density_b: float) -> float:
-        """Camelot score modulated by harmonic density.
+    def score_harmonic(
+        self,
+        cam_a: int,
+        cam_b: int,
+        density_a: float,
+        density_b: float,
+        hnr_a: float = 0.0,
+        hnr_b: float = 0.0,
+    ) -> float:
+        """Camelot score modulated by harmonic density and HNR.
 
-        For percussive techno (low density), Camelot matters less.
-        For melodic techno (high density), Camelot is critical.
+        For percussive techno (low density + low HNR), Camelot matters less.
+        For melodic techno (high density + high HNR), Camelot is critical.
 
         Args:
             cam_a: Key code of track A (0-23)
             cam_b: Key code of track B (0-23)
-            density_a: Harmonic density of A [0, 1]
+            density_a: Harmonic density of A [0, 1] (from chroma entropy)
             density_b: Harmonic density of B [0, 1]
+            hnr_a: Harmonics-to-noise ratio of A (dB, typically 0-30)
+            hnr_b: Harmonics-to-noise ratio of B (dB)
 
         Returns:
             Modulated harmonic compatibility [0, 1]
         """
         raw_camelot = self.camelot_lookup.get((cam_a, cam_b), 0.5)
 
-        # Average harmonic density
+        # Average harmonic density (from chroma entropy)
         avg_density = (density_a + density_b) / 2.0
 
-        # Modulation factor: [0.3, 1.0] based on density
-        # Low density (0.0) → factor = 0.3 (Camelot weight reduced)
-        # High density (1.0) → factor = 1.0 (full Camelot weight)
-        factor = 0.3 + 0.7 * avg_density
+        # HNR factor: normalize from typical [0, 20+] dB range to [0, 1]
+        avg_hnr = (hnr_a + hnr_b) / 2.0
+        hnr_factor = min(max(avg_hnr / 20.0, 0.0), 1.0)
+
+        # Combined: 60% chroma entropy + 40% HNR
+        combined = 0.6 * avg_density + 0.4 * hnr_factor
+
+        # Modulation factor: [0.3, 1.0]
+        factor = 0.3 + 0.7 * combined
 
         # Blend: modulated Camelot + fallback for low-density
         return raw_camelot * factor + 0.8 * (1.0 - factor)
@@ -288,6 +303,8 @@ class TransitionScoringService:
             track_b.key_code,
             track_a.harmonic_density,
             track_b.harmonic_density,
+            track_a.hnr_db,
+            track_b.hnr_db,
         )
         energy_s = self.score_energy(track_a.energy_lufs, track_b.energy_lufs)
         spectral_s = self.score_spectral(track_a, track_b)
