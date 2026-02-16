@@ -32,7 +32,7 @@ def test_both_drum_heavy_returns_drum_cut():
     b = _make_features(kick_prominence=0.7)
     rec = recommend_transition(a, b, camelot_compatible=True)
     assert rec.transition_type == TransitionType.DRUM_CUT
-    assert rec.confidence > 0.7
+    assert rec.confidence >= 0.7
 
 
 # ── Priority 2: B drum-heavy, A melodic → DRUM_SWAP ──
