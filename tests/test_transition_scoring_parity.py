@@ -182,6 +182,12 @@ class TestOrmFeatureConversion:
         feat.high_energy = 0.2
         feat.centroid_mean_hz = 2000.0
         feat.onset_rate_mean = 5.0
+        # Phase 2 fields
+        feat.chroma_entropy = None
+        feat.mfcc_vector = None
+        feat.kick_prominence = None
+        feat.hnr_mean_db = None
+        feat.slope_db_per_oct = None
         for k, v in overrides.items():
             setattr(feat, k, v)
         return feat
@@ -218,6 +224,48 @@ class TestOrmFeatureConversion:
         assert tf.centroid_hz == 2000.0
         assert tf.onset_rate == 5.0
         assert sum(tf.band_ratios) == pytest.approx(1.0)
+
+    def test_chroma_entropy_preferred_over_key_confidence(self) -> None:
+        """When chroma_entropy is set, it should be used for harmonic_density."""
+        feat = self._mock_feat(chroma_entropy=0.42, key_confidence=0.85)
+        tf = orm_features_to_track_features(feat)
+        assert tf.harmonic_density == 0.42
+
+    def test_chroma_entropy_fallback_to_key_confidence(self) -> None:
+        """When chroma_entropy is None, fall back to key_confidence."""
+        feat = self._mock_feat(chroma_entropy=None, key_confidence=0.85)
+        tf = orm_features_to_track_features(feat)
+        assert tf.harmonic_density == 0.85
+
+    def test_new_phase2_fields_mapped(self) -> None:
+        """kick_prominence, hnr_mean_db, slope_db_per_oct should be mapped."""
+        feat = self._mock_feat(
+            kick_prominence=0.7,
+            hnr_mean_db=12.5,
+            slope_db_per_oct=-3.2,
+            mfcc_vector='[1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0, 11.0, -12.0, 13.0]',
+        )
+        tf = orm_features_to_track_features(feat)
+        assert tf.kick_prominence == 0.7
+        assert tf.hnr_db == 12.5
+        assert tf.spectral_slope == -3.2
+        assert tf.mfcc_vector is not None
+        assert len(tf.mfcc_vector) == 13
+
+    def test_new_phase2_fields_fallbacks(self) -> None:
+        """None values should use safe defaults."""
+        feat = self._mock_feat(
+            kick_prominence=None,
+            hnr_mean_db=None,
+            slope_db_per_oct=None,
+            mfcc_vector=None,
+            chroma_entropy=None,
+        )
+        tf = orm_features_to_track_features(feat)
+        assert tf.kick_prominence == 0.5
+        assert tf.hnr_db == 0.0
+        assert tf.spectral_slope == 0.0
+        assert tf.mfcc_vector is None
 
     def test_deterministic(self) -> None:
         """Same input produces identical output."""
