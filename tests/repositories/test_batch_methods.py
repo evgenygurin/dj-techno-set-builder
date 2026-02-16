@@ -223,3 +223,30 @@ class TestTrackRepositoryBatch:
         repo = TrackRepository(session)
         result = await repo.get_albums_for_tracks([tid1])
         assert result[tid1] == ["Night Sessions"]
+
+
+# ---------------------------------------------------------------------------
+# Key repository batch
+# ---------------------------------------------------------------------------
+
+from app.models.harmony import Key
+from app.repositories.keys import KeyRepository
+
+
+class TestKeyRepositoryBatch:
+    async def test_get_key_names(self, session: AsyncSession):
+        session.add_all([
+            Key(key_code=18, pitch_class=9, mode=0, name="Am", camelot="8A"),
+            Key(key_code=0, pitch_class=0, mode=0, name="Cm", camelot="5A"),
+        ])
+        await session.flush()
+
+        repo = KeyRepository(session)
+        result = await repo.get_key_names([18, 0])
+        assert result[18] == "Am"
+        assert result[0] == "Cm"
+
+    async def test_get_key_names_empty(self, session: AsyncSession):
+        repo = KeyRepository(session)
+        result = await repo.get_key_names([])
+        assert result == {}
