@@ -6,6 +6,7 @@ Unit tests (pure GA, no DB) + API integration tests (in-memory SQLite).
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,11 +16,13 @@ from app.models.harmony import Key
 from app.models.runs import FeatureExtractionRun
 from app.models.sets import DjSet
 from app.utils.audio.set_generator import (
+    _ARC_BREAKPOINTS,
     EnergyArcType,
     GAConfig,
     GAResult,
     GeneticSetGenerator,
     TrackData,
+    _interpolate_breakpoints,
     target_energy_curve,
 )
 
@@ -77,6 +80,78 @@ class TestTargetEnergyCurve:
         for arc in EnergyArcType:
             curve = target_energy_curve(30, arc)
             assert len(curve) == 30
+
+    def test_classic_has_breakdown_dip(self) -> None:
+        """Classic arc: peak1 near 40%, breakdown dip ~55%, peak2 at 80%."""
+        curve = target_energy_curve(100, EnergyArcType.CLASSIC)
+        # The first peak region (around index 40) should be higher than
+        # the breakdown region (around index 55)
+        assert curve[40] > curve[55], "Classic should have a breakdown dip"
+        # Main climax (around index 80) should reach near 1.0
+        assert curve[80] >= 0.9, "Classic main peak should reach ≥0.9"
+
+    def test_classic_starts_and_ends_low(self) -> None:
+        """Classic arc: intro and outro should have low energy."""
+        curve = target_energy_curve(100, EnergyArcType.CLASSIC)
+        assert curve[0] < 0.5, "Classic intro should be low energy"
+        assert curve[-1] < 0.5, "Classic outro should be low energy"
+
+    def test_progressive_monotonic_rise_until_peak(self) -> None:
+        """Progressive arc: energy should generally increase until ~80%."""
+        curve = target_energy_curve(100, EnergyArcType.PROGRESSIVE)
+        # Overall trend: first 80% should be rising
+        assert curve[80] > curve[0], "Progressive should rise toward climax"
+        assert curve[80] >= 0.9, "Progressive climax should be high"
+
+    def test_roller_sustained_high(self) -> None:
+        """Roller arc: middle portion should be consistently high."""
+        curve = target_energy_curve(100, EnergyArcType.ROLLER)
+        mid_section = curve[20:80]  # middle 60%
+        assert np.all(mid_section >= 0.7), "Roller mid-section should stay ≥0.7"
+
+    def test_wave_has_multiple_peaks(self) -> None:
+        """Wave arc: should have at least 2 local maxima."""
+        curve = target_energy_curve(100, EnergyArcType.WAVE)
+        # Find local maxima (higher than both neighbours)
+        peaks = 0
+        for i in range(1, len(curve) - 1):
+            if curve[i] > curve[i - 1] and curve[i] > curve[i + 1]:
+                peaks += 1
+        assert peaks >= 2, f"Wave should have ≥2 peaks, found {peaks}"
+
+    def test_breakpoints_start_at_zero_end_at_one(self) -> None:
+        """All arc breakpoints must start at pos=0 and end at pos=1."""
+        for arc_type, bps in _ARC_BREAKPOINTS.items():
+            assert bps[0][0] == 0.0, f"{arc_type}: first breakpoint not at 0.0"
+            assert bps[-1][0] == 1.0, f"{arc_type}: last breakpoint not at 1.0"
+
+    def test_breakpoints_sorted(self) -> None:
+        """All arc breakpoints must be sorted by position."""
+        for arc_type, bps in _ARC_BREAKPOINTS.items():
+            positions = [p for p, _ in bps]
+            assert positions == sorted(positions), f"{arc_type}: breakpoints not sorted"
+
+
+class TestInterpolateBreakpoints:
+    def test_two_points(self) -> None:
+        """Simple linear ramp from 0 to 1."""
+        curve = _interpolate_breakpoints(5, [(0.0, 0.0), (1.0, 1.0)])
+        expected = np.array([0.0, 0.25, 0.5, 0.75, 1.0])
+        np.testing.assert_allclose(curve, expected)
+
+    def test_step_function(self) -> None:
+        """Sharp step at midpoint."""
+        curve = _interpolate_breakpoints(5, [(0.0, 0.0), (0.5, 0.0), (0.5001, 1.0), (1.0, 1.0)])
+        # First half should be ~0, second half should be ~1
+        assert curve[0] < 0.1
+        assert curve[-1] > 0.9
+
+    def test_endpoints_match(self) -> None:
+        """Output endpoints should match breakpoint endpoints."""
+        bps = [(0.0, 0.3), (0.5, 0.8), (1.0, 0.1)]
+        curve = _interpolate_breakpoints(100, bps)
+        assert curve[0] == pytest.approx(0.3, abs=0.01)
+        assert curve[-1] == pytest.approx(0.1, abs=0.01)
 
 
 # ═══════════════════════════════════════════════════════════

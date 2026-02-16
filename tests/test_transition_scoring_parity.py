@@ -18,7 +18,12 @@ from app.models.features import TrackAudioFeaturesComputed
 from app.models.harmony import Key, KeyEdge
 from app.models.runs import FeatureExtractionRun
 from app.services.camelot_lookup import CamelotLookupService
-from app.services.transition_scoring import TrackFeatures, TransitionScoringService
+from app.services.transition_scoring import (
+    HardConstraints,
+    TrackFeatures,
+    TransitionScoringService,
+    effective_bpm_diff,
+)
 from app.services.transition_scoring_unified import (
     UnifiedTransitionScoringService,
     _score_components,
@@ -92,12 +97,12 @@ async def _seed_keys_and_edges(session: AsyncSession) -> None:
         )
     await session.flush()
 
-    from app.utils.audio.camelot import camelot_distance
+    from app.utils.audio.camelot import camelot_distance, camelot_score
 
     for i in range(24):
         for j in range(24):
             dist = camelot_distance(i, j)
-            weight = max(0.0, 1.0 - dist / 6.0)
+            weight = camelot_score(i, j)
             session.add(
                 KeyEdge(
                     from_key_code=i,
@@ -255,6 +260,183 @@ class TestScoreComponentsHelper:
         assert result["energy"] == 1.0
         assert result["groove"] == 1.0
         assert result["total"] > 0.9
+
+
+# ═══════════════════════════════════════════════════════════
+# Hard constraints & filter-then-rank (Phase 1B)
+# ═══════════════════════════════════════════════════════════
+
+
+def _make_tf(**overrides: object) -> TrackFeatures:
+    """Build a TrackFeatures with sensible defaults, overriding as needed."""
+    defaults: dict[str, object] = {
+        "bpm": 130.0,
+        "energy_lufs": -8.0,
+        "key_code": 0,
+        "harmonic_density": 0.7,
+        "centroid_hz": 2000.0,
+        "band_ratios": [0.4, 0.35, 0.25],
+        "onset_rate": 6.0,
+    }
+    defaults.update(overrides)
+    return TrackFeatures(**defaults)  # type: ignore[arg-type]
+
+
+class TestEffectiveBpmDiff:
+    """Verify BPM difference accounting for double/half-time."""
+
+    def test_same_bpm(self) -> None:
+        assert effective_bpm_diff(130.0, 130.0) == 0.0
+
+    def test_small_diff(self) -> None:
+        assert effective_bpm_diff(128.0, 130.0) == 2.0
+
+    def test_half_time(self) -> None:
+        # 140 vs 70 → half-time match
+        assert effective_bpm_diff(140.0, 70.0) == 0.0
+
+    def test_double_time(self) -> None:
+        # 65 vs 130 → 65*2=130, diff=0
+        assert effective_bpm_diff(65.0, 130.0) == 0.0
+
+    def test_near_half_time(self) -> None:
+        # 140 vs 72 → normal diff=68, half diff=|140-144|=4, double diff=|140-36|=104
+        assert effective_bpm_diff(140.0, 72.0) == pytest.approx(4.0)
+
+    def test_symmetry(self) -> None:
+        assert effective_bpm_diff(128.0, 140.0) == effective_bpm_diff(140.0, 128.0)
+
+
+class TestHardConstraints:
+    """Verify the hard-reject filter in TransitionScoringService."""
+
+    def test_identical_tracks_pass(self) -> None:
+        scorer = TransitionScoringService()
+        tf = _make_tf()
+        assert not scorer.check_hard_constraints(tf, tf)
+
+    def test_bpm_within_threshold_passes(self) -> None:
+        scorer = TransitionScoringService()
+        tf_a = _make_tf(bpm=128.0)
+        tf_b = _make_tf(bpm=135.0)  # diff=7, threshold=10
+        assert not scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_bpm_exceeds_threshold_rejects(self) -> None:
+        scorer = TransitionScoringService()
+        tf_a = _make_tf(bpm=128.0)
+        tf_b = _make_tf(bpm=145.0)  # diff=17 > 10
+        assert scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_bpm_half_time_rescues(self) -> None:
+        """140 vs 70 should NOT be rejected (half-time match)."""
+        scorer = TransitionScoringService()
+        tf_a = _make_tf(bpm=140.0)
+        tf_b = _make_tf(bpm=70.0)  # effective diff=0
+        assert not scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_camelot_within_threshold_passes(self) -> None:
+        scorer = TransitionScoringService()
+        # key_code 0=Cm(5A) → key_code 12=F#m(11A): distance=6 ≥ 5 → reject
+        # key_code 0=Cm(5A) → key_code 4=Dm(7A): distance=2 → pass
+        tf_a = _make_tf(key_code=0)
+        tf_b = _make_tf(key_code=4)
+        assert not scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_camelot_exceeds_threshold_rejects(self) -> None:
+        scorer = TransitionScoringService()
+        # 5A → 11A: distance=6 ≥ 5
+        tf_a = _make_tf(key_code=0)
+        tf_b = _make_tf(key_code=12)
+        assert scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_camelot_at_boundary_rejects(self) -> None:
+        """Distance exactly == max_camelot_distance should reject."""
+        scorer = TransitionScoringService()
+        # Cm(5A) → Bm(10A): distance=5 ≥ 5 → reject
+        tf_a = _make_tf(key_code=0)
+        tf_b = _make_tf(key_code=22)  # 10A
+        from app.utils.audio.camelot import camelot_distance
+
+        assert camelot_distance(0, 22) == 5  # confirm distance
+        assert scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_energy_within_threshold_passes(self) -> None:
+        scorer = TransitionScoringService()
+        tf_a = _make_tf(energy_lufs=-8.0)
+        tf_b = _make_tf(energy_lufs=-12.0)  # diff=4, threshold=6
+        assert not scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_energy_exceeds_threshold_rejects(self) -> None:
+        scorer = TransitionScoringService()
+        tf_a = _make_tf(energy_lufs=-6.0)
+        tf_b = _make_tf(energy_lufs=-14.0)  # diff=8 > 6
+        assert scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_score_transition_returns_zero_on_reject(self) -> None:
+        """score_transition must return 0.0 for hard-rejected pairs."""
+        scorer = TransitionScoringService()
+        tf_a = _make_tf(bpm=128.0)
+        tf_b = _make_tf(bpm=160.0)  # diff=32 >> 10
+        assert scorer.score_transition(tf_a, tf_b) == 0.0
+
+    def test_score_transition_nonzero_when_passing(self) -> None:
+        scorer = TransitionScoringService()
+        tf = _make_tf()
+        assert scorer.score_transition(tf, tf) > 0.0
+
+
+class TestHardConstraintsCustomisation:
+    """Verify that constraints can be disabled or customised."""
+
+    def test_disable_bpm_constraint(self) -> None:
+        hc = HardConstraints(max_bpm_diff=None)
+        scorer = TransitionScoringService(hard_constraints=hc)
+        tf_a = _make_tf(bpm=100.0)
+        tf_b = _make_tf(bpm=200.0)  # diff=100 — would normally reject
+        # BPM disabled, but camelot and energy are same → should pass
+        assert not scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_disable_camelot_constraint(self) -> None:
+        hc = HardConstraints(max_camelot_distance=None)
+        scorer = TransitionScoringService(hard_constraints=hc)
+        tf_a = _make_tf(key_code=0)
+        tf_b = _make_tf(key_code=12)  # tritone — would normally reject
+        assert not scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_disable_energy_constraint(self) -> None:
+        hc = HardConstraints(max_energy_delta_lufs=None)
+        scorer = TransitionScoringService(hard_constraints=hc)
+        tf_a = _make_tf(energy_lufs=-5.0)
+        tf_b = _make_tf(energy_lufs=-20.0)  # diff=15 — would normally reject
+        assert not scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_disable_all_constraints(self) -> None:
+        hc = HardConstraints(
+            max_bpm_diff=None,
+            max_camelot_distance=None,
+            max_energy_delta_lufs=None,
+        )
+        scorer = TransitionScoringService(hard_constraints=hc)
+        tf_a = _make_tf(bpm=60.0, key_code=0, energy_lufs=-5.0)
+        tf_b = _make_tf(bpm=180.0, key_code=12, energy_lufs=-20.0)
+        assert not scorer.check_hard_constraints(tf_a, tf_b)
+        assert scorer.score_transition(tf_a, tf_b) > 0.0
+
+    def test_tighten_bpm_threshold(self) -> None:
+        hc = HardConstraints(max_bpm_diff=3.0)
+        scorer = TransitionScoringService(hard_constraints=hc)
+        tf_a = _make_tf(bpm=130.0)
+        tf_b = _make_tf(bpm=134.0)  # diff=4 > 3
+        assert scorer.check_hard_constraints(tf_a, tf_b)
+
+    def test_short_circuits_on_first_violation(self) -> None:
+        """BPM is checked first — if it rejects, camelot/energy don't matter."""
+        scorer = TransitionScoringService()
+        # BPM diff = 50, but camelot and energy are fine
+        tf_a = _make_tf(bpm=100.0, key_code=0, energy_lufs=-8.0)
+        tf_b = _make_tf(bpm=150.0, key_code=0, energy_lufs=-8.0)
+        assert scorer.check_hard_constraints(tf_a, tf_b)
+        assert scorer.score_transition(tf_a, tf_b) == 0.0
 
 
 # ═══════════════════════════════════════════════════════════

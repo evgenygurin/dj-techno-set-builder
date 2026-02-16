@@ -1,11 +1,10 @@
 """Multi-component transition quality scoring for DJ set generation.
 
-Implements research-backed scoring formula combining:
-- BPM matching (Gaussian decay, sigma=8)
-- Harmonic compatibility (Camelot modulated by density)
-- Energy matching (LUFS sigmoid decay)
-- Spectral similarity (centroid + band balance)
-- Groove compatibility (onset rate relative difference)
+Implements a *filter-then-rank* pipeline:
+1. **Hard constraints** — reject transitions that are musically unacceptable
+   (BPM diff >10, Camelot distance ≥5, energy delta >6 LUFS).
+2. **Multi-component scoring** — weighted composite of BPM, harmonic,
+   energy, spectral, and groove sub-scores.
 
 Pure computation — no DB or ORM dependencies.
 
@@ -13,6 +12,7 @@ References:
 - Kim et al. (ISMIR 2020): 86.1% of tempo adjustments under 5%
 - Kell & Tzanetakis (ISMIR 2013): Timbral similarity is most important
 - Zehren et al. (CMJ 2022): Rule-based scoring at 96% quality
+- Cliff (CMJ 2000): BPM tolerance ±6% for seamless beatmatching
 """
 
 from __future__ import annotations
@@ -36,6 +36,25 @@ class TrackFeatures:
     onset_rate: float  # Onsets per second
 
 
+@dataclass(frozen=True, slots=True)
+class HardConstraints:
+    """Thresholds for the hard-reject filter.
+
+    Transitions violating *any* enabled constraint are rejected (score = 0.0)
+    before the multi-component formula runs.  Set a threshold to ``None`` to
+    disable that constraint.
+
+    Defaults are calibrated to professional techno DJ practice:
+    - BPM: ±6% ≈ 8 BPM at 130; 10 BPM gives headroom for half/double-time.
+    - Camelot: distance ≥5 means ≤3/7 shared pitch-classes → audible clash.
+    - Energy: >6 LUFS jump is perceptible even with volume riding.
+    """
+
+    max_bpm_diff: float | None = 10.0
+    max_camelot_distance: int | None = 5  # reject if distance >= this value
+    max_energy_delta_lufs: float | None = 6.0
+
+
 class TransitionScoringService:
     """Computes transition quality scores using multi-component formula."""
 
@@ -51,6 +70,8 @@ class TransitionScoringService:
     def __init__(
         self,
         camelot_lookup: dict[tuple[int, int], float] | None = None,
+        *,
+        hard_constraints: HardConstraints | None = None,
     ) -> None:
         """Initialise with a pre-built Camelot lookup table.
 
@@ -58,11 +79,15 @@ class TransitionScoringService:
             camelot_lookup: ``{(from_key, to_key): score}`` built by
                 ``CamelotLookupService``.  When *None* a fallback based
                 on ``camelot_distance()`` is generated (useful in tests).
+            hard_constraints: Thresholds for the pre-filter gate.
+                ``None`` → use default thresholds.
         """
         if camelot_lookup is not None:
             self.camelot_lookup = camelot_lookup
         else:
             self.camelot_lookup = self._build_fallback_lookup()
+
+        self.hard_constraints = hard_constraints or HardConstraints()
 
     # ------------------------------------------------------------------
 
@@ -178,16 +203,61 @@ class TransitionScoringService:
         max_onset = max(onset_a, onset_b, 1e-6)  # Avoid division by zero
         return 1.0 - abs(onset_a - onset_b) / max_onset
 
+    def check_hard_constraints(self, track_a: TrackFeatures, track_b: TrackFeatures) -> bool:
+        """Return ``True`` if the transition should be **rejected**.
+
+        Checks (in order, short-circuiting):
+        1. BPM difference (accounting for double/half-time)
+        2. Camelot wheel distance
+        3. Energy (LUFS) delta
+
+        Returns:
+            ``True`` → reject (hard constraint violated).
+            ``False`` → proceed to multi-component scoring.
+        """
+        hc = self.hard_constraints
+
+        # 1. BPM constraint (with double/half-time awareness)
+        if hc.max_bpm_diff is not None:
+            bpm_diff = effective_bpm_diff(track_a.bpm, track_b.bpm)
+            if bpm_diff > hc.max_bpm_diff:
+                return True
+
+        # 2. Camelot distance constraint
+        if hc.max_camelot_distance is not None:
+            from app.utils.audio.camelot import camelot_distance
+
+            dist = camelot_distance(track_a.key_code, track_b.key_code)
+            if dist >= hc.max_camelot_distance:
+                return True
+
+        # 3. Energy (LUFS) constraint
+        if hc.max_energy_delta_lufs is not None:
+            energy_diff = abs(track_a.energy_lufs - track_b.energy_lufs)
+            if energy_diff > hc.max_energy_delta_lufs:
+                return True
+
+        return False
+
     def score_transition(self, track_a: TrackFeatures, track_b: TrackFeatures) -> float:
-        """Compute overall transition quality (weighted composite).
+        """Compute overall transition quality (filter-then-rank).
+
+        First applies hard constraints — if any are violated the transition
+        is rejected immediately with score ``0.0``.  Otherwise computes the
+        weighted composite of sub-scores.
 
         Args:
             track_a: Outgoing track features
             track_b: Incoming track features
 
         Returns:
-            Overall transition score [0, 1]
+            Overall transition score ``[0, 1]``. ``0.0`` means hard-rejected.
         """
+        # ── Stage 1: hard-reject gate ──
+        if self.check_hard_constraints(track_a, track_b):
+            return 0.0
+
+        # ── Stage 2: multi-component scoring ──
         bpm_s = self.score_bpm(track_a.bpm, track_b.bpm)
         harm_s = self.score_harmonic(
             track_a.key_code,
@@ -214,18 +284,40 @@ class TransitionScoringService:
 
     @staticmethod
     def _build_fallback_lookup() -> dict[tuple[int, int], float]:
-        """Build a Camelot lookup from ``camelot_distance()`` (no DB needed).
+        """Build a Camelot lookup using pitch-class overlap scoring (no DB).
 
-        Used only in tests or when ``CamelotLookupService`` is unavailable.
+        Uses research-validated scores based on pitch-class set overlap
+        between keys on the Camelot wheel (same key=1.0, adjacent=0.9,
+        relative major/minor=0.85, tritone=0.05).
+
+        Used in tests or when ``CamelotLookupService`` is unavailable.
         """
-        from app.utils.audio.camelot import camelot_distance
+        from app.utils.audio.camelot import build_pitch_class_lookup
 
-        lookup: dict[tuple[int, int], float] = {}
-        for i in range(24):
-            for j in range(24):
-                if i == j:
-                    lookup[(i, j)] = 1.0
-                else:
-                    dist = camelot_distance(i, j)
-                    lookup[(i, j)] = max(0.0, 1.0 - dist / 6.0)
-        return lookup
+        return build_pitch_class_lookup()
+
+
+# ------------------------------------------------------------------
+# Free helpers
+# ------------------------------------------------------------------
+
+
+def effective_bpm_diff(bpm_a: float, bpm_b: float) -> float:
+    """BPM difference accounting for double- and half-time.
+
+    DJs routinely mix 140 BPM tracks over 70 BPM half-time beats.
+    This function returns the smallest absolute difference among
+    the normal, double, and half tempo relationships.
+
+    >>> effective_bpm_diff(128.0, 130.0)
+    2.0
+    >>> effective_bpm_diff(140.0, 70.0)
+    0.0
+    >>> effective_bpm_diff(128.0, 64.0)
+    0.0
+    """
+    return min(
+        abs(bpm_a - bpm_b),
+        abs(bpm_a - bpm_b * 2.0),
+        abs(bpm_a - bpm_b * 0.5),
+    )
