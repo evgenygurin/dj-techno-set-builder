@@ -1,5 +1,6 @@
 """Service for downloading tracks from Yandex Music."""
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -85,40 +86,54 @@ class DownloadService:
         Returns:
             (success: bool, file_size: int)
         """
-        try:
-            # 1. Get Yandex Music track ID
-            ym_id = await self._get_yandex_track_id(track.track_id)
-            if not ym_id:
-                logger.error(f"No Yandex Music ID for track {track.track_id}")
-                return (False, 0)
+        for attempt in range(max_retries):
+            try:
+                # 1. Get Yandex Music track ID
+                ym_id = await self._get_yandex_track_id(track.track_id)
+                if not ym_id:
+                    logger.error(f"No Yandex Music ID for track {track.track_id}")
+                    return (False, 0)
 
-            # 2. Generate filename
-            filename = self._generate_filename(track)
-            dest_path = self.library_path / filename
+                # 2. Generate filename
+                filename = self._generate_filename(track)
+                dest_path = self.library_path / filename
 
-            # 3. Download via YM client
-            size = await self.ym_client.download_track(
-                ym_id, str(dest_path), prefer_bitrate=prefer_bitrate
-            )
+                # 3. Download via YM client
+                size = await self.ym_client.download_track(
+                    ym_id, str(dest_path), prefer_bitrate=prefer_bitrate
+                )
 
-            # 4. Calculate SHA256 hash
-            file_hash = hashlib.sha256(dest_path.read_bytes()).digest()
+                # 4. Calculate SHA256 hash
+                file_hash = hashlib.sha256(dest_path.read_bytes()).digest()
 
-            # 5. Save to DjLibraryItem
-            await self.library_repo.create_from_download(
-                track_id=track.track_id,
-                file_path=str(dest_path),
-                file_size=size,
-                file_hash=file_hash,
-                bitrate_kbps=prefer_bitrate,
-            )
+                # 5. Save to DjLibraryItem
+                await self.library_repo.create_from_download(
+                    track_id=track.track_id,
+                    file_path=str(dest_path),
+                    file_size=size,
+                    file_hash=file_hash,
+                    bitrate_kbps=prefer_bitrate,
+                )
 
-            logger.info(f"Downloaded track {track.track_id} ({size} bytes)")
-            return (True, size)
+                logger.info(f"Downloaded track {track.track_id} ({size} bytes)")
+                return (True, size)
 
-        except Exception as e:
-            logger.error(f"Failed to download track {track.track_id}: {e}")
-            return (False, 0)
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    delay = 2**attempt  # Exponential backoff: 1s, 2s, 4s
+                    logger.warning(
+                        f"Download attempt {attempt + 1} failed for track "
+                        f"{track.track_id}, retrying in {delay}s: {e}"
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(
+                        f"Failed to download track {track.track_id} after "
+                        f"{max_retries} attempts: {e}"
+                    )
+                    return (False, 0)
+
+        return (False, 0)
 
     @staticmethod
     def _sanitize_filename(title: str, max_len: int = 50) -> str:

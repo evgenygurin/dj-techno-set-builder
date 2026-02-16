@@ -1,5 +1,6 @@
 """Tests for DownloadService."""
 
+import asyncio
 import hashlib
 import pytest
 from pathlib import Path
@@ -145,3 +146,81 @@ class TestDownloadService:
         assert item.file_path == str(expected_path)
         assert item.file_size_bytes == 2048
         assert item.bitrate_kbps == 320
+
+    async def test_download_single_track_retries_on_network_error(
+        self, session: AsyncSession, tmp_path: Path
+    ):
+        """_download_single_track retries after network error."""
+        # Create provider
+        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        session.add(provider)
+        await session.flush()
+
+        # Create track
+        track = Track(title="Test", duration_ms=300000)
+        session.add(track)
+        await session.flush()
+
+        # Create provider ID
+        provider_track_id = ProviderTrackId(
+            track_id=track.track_id,
+            provider_id=provider.provider_id,
+            provider_track_id="12345",
+        )
+        session.add(provider_track_id)
+        await session.commit()
+
+        # Mock YM client: fail twice, succeed on third
+        mock_ym = Mock()
+        attempts = []
+
+        async def mock_download(ym_id, dest_path, prefer_bitrate):
+            attempts.append(1)
+            if len(attempts) < 3:
+                raise Exception("Network error")
+            Path(dest_path).write_bytes(b"data")
+            return 1024
+
+        mock_ym.download_track = AsyncMock(side_effect=mock_download)
+
+        # Test
+        svc = DownloadService(session, mock_ym, tmp_path)
+        success, size = await svc._download_single_track(track, prefer_bitrate=320)
+
+        assert success is True
+        assert len(attempts) == 3  # Failed twice, succeeded on 3rd
+
+    async def test_download_single_track_fails_after_max_retries(
+        self, session: AsyncSession, tmp_path: Path
+    ):
+        """_download_single_track returns (False, 0) after max retries."""
+        # Create provider
+        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        session.add(provider)
+        await session.flush()
+
+        # Create track
+        track = Track(title="Test", duration_ms=300000)
+        session.add(track)
+        await session.flush()
+
+        # Create provider ID
+        provider_track_id = ProviderTrackId(
+            track_id=track.track_id,
+            provider_id=provider.provider_id,
+            provider_track_id="12345",
+        )
+        session.add(provider_track_id)
+        await session.commit()
+
+        # Mock YM client: always fail
+        mock_ym = Mock()
+        mock_ym.download_track = AsyncMock(side_effect=Exception("Always fail"))
+
+        # Test
+        svc = DownloadService(session, mock_ym, tmp_path)
+        success, size = await svc._download_single_track(track, prefer_bitrate=320)
+
+        assert success is False
+        assert size == 0
+        assert mock_ym.download_track.call_count == 3  # 3 attempts
