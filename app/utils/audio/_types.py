@@ -73,6 +73,14 @@ class SpectralResult:
 
 
 @dataclass(frozen=True, slots=True)
+class MfccResult:
+    """Mean MFCC coefficients for timbral fingerprinting."""
+
+    coefficients: list[float]  # 13 mean MFCC coefficients (c1-c13, skip c0)
+    n_mfcc: int = 13
+
+
+@dataclass(frozen=True, slots=True)
 class BeatsResult:
     beat_times: NDArray[np.float32]  # seconds, sorted
     downbeat_times: NDArray[np.float32]  # every 4th beat (4/4 assumption)
