@@ -8,10 +8,11 @@ from unittest.mock import AsyncMock, Mock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog import Track
+from app.models.dj import DjLibraryItem
 from app.models.ingestion import ProviderTrackId
 from app.models.providers import Provider
 from app.repositories.dj_library_items import DjLibraryItemRepository
-from app.services.download import DownloadService
+from app.services.download import DownloadResult, DownloadService
 
 
 class TestDownloadService:
@@ -224,3 +225,81 @@ class TestDownloadService:
         assert success is False
         assert size == 0
         assert mock_ym.download_track.call_count == 3  # 3 attempts
+
+    async def test_download_tracks_batch_skips_existing_files(
+        self, session: AsyncSession, tmp_path: Path
+    ):
+        """download_tracks_batch skips tracks with existing file_path."""
+        # Create provider
+        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        session.add(provider)
+        await session.flush()
+
+        # Create tracks
+        track1 = Track(title="Track1", duration_ms=300000)
+        track2 = Track(title="Track2", duration_ms=300000)
+        session.add_all([track1, track2])
+        await session.flush()
+
+        # Track 1 already has file
+        item1 = DjLibraryItem(track_id=track1.track_id, file_path="/existing.mp3")
+        session.add(item1)
+        await session.commit()
+
+        # Mock YM client
+        mock_ym = Mock()
+        mock_ym.download_track = AsyncMock(return_value=1024)
+
+        # Test
+        svc = DownloadService(session, mock_ym, tmp_path)
+        result = await svc.download_tracks_batch([track1.track_id, track2.track_id])
+
+        assert result.downloaded == 0  # Track2 has no YM ID, will fail
+        assert result.skipped == 1  # Track1 skipped
+        assert result.failed == 1  # Track2 failed (no YM ID)
+
+    async def test_download_tracks_batch_partial_success(
+        self, session: AsyncSession, tmp_path: Path
+    ):
+        """download_tracks_batch handles partial failures correctly."""
+        # Create provider
+        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        session.add(provider)
+        await session.flush()
+
+        # Create tracks
+        track1 = Track(title="Success", duration_ms=300000)
+        track2 = Track(title="Fail", duration_ms=300000)
+        session.add_all([track1, track2])
+        await session.flush()
+
+        # Add provider IDs
+        pid1 = ProviderTrackId(
+            track_id=track1.track_id, provider_id=provider.provider_id, provider_track_id="111"
+        )
+        pid2 = ProviderTrackId(
+            track_id=track2.track_id, provider_id=provider.provider_id, provider_track_id="222"
+        )
+        session.add_all([pid1, pid2])
+        await session.commit()
+
+        # Mock YM client: track1 succeeds, track2 fails
+        mock_ym = Mock()
+
+        async def mock_download(ym_id, dest_path, prefer_bitrate):
+            if ym_id == "111":
+                Path(dest_path).write_bytes(b"data")
+                return 1024
+            raise Exception("Download failed")
+
+        mock_ym.download_track = AsyncMock(side_effect=mock_download)
+
+        # Test
+        svc = DownloadService(session, mock_ym, tmp_path)
+        result = await svc.download_tracks_batch([track1.track_id, track2.track_id])
+
+        assert result.downloaded == 1
+        assert result.skipped == 0
+        assert result.failed == 1
+        assert result.failed_track_ids == [track2.track_id]
+        assert result.total_bytes == 1024

@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from sqlalchemy import select
@@ -12,9 +13,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.ingestion import ProviderTrackId
 from app.models.providers import Provider
 from app.repositories.dj_library_items import DjLibraryItemRepository
+from app.repositories.tracks import TrackRepository
 from app.services.yandex_music_client import YandexMusicClient
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DownloadResult:
+    """Statistics from batch download operation."""
+
+    downloaded: int
+    skipped: int
+    failed: int
+    failed_track_ids: list[int]
+    total_bytes: int
 
 
 class DownloadService:
@@ -37,6 +50,7 @@ class DownloadService:
         self.ym_client = ym_client
         self.library_path = library_path
         self.library_repo = DjLibraryItemRepository(session)
+        self.track_repo = TrackRepository(session)
 
     def _generate_filename(self, track) -> str:
         """Generate sanitized filename for track.
@@ -134,6 +148,68 @@ class DownloadService:
                     return (False, 0)
 
         return (False, 0)
+
+    async def download_tracks_batch(
+        self,
+        track_ids: list[int],
+        prefer_bitrate: int = 320,
+    ) -> DownloadResult:
+        """Download multiple tracks with retry and statistics.
+
+        Args:
+            track_ids: List of track IDs to download
+            prefer_bitrate: Preferred bitrate in kbps (default: 320)
+
+        Returns:
+            DownloadResult with download statistics
+        """
+        # Ensure library directory exists
+        self.library_path.mkdir(parents=True, exist_ok=True)
+
+        downloaded = 0
+        skipped = 0
+        failed = 0
+        failed_ids: list[int] = []
+        total_bytes = 0
+
+        for track_id in track_ids:
+            # Check if already downloaded
+            existing = await self.library_repo.get_by_track_id(track_id)
+            if existing and existing.file_path:
+                logger.info(f"Track {track_id} already downloaded, skipping")
+                skipped += 1
+                continue
+
+            # Get track from DB
+            track = await self.track_repo.get_by_id(track_id)
+            if not track:
+                logger.warning(f"Track {track_id} not found in database")
+                failed += 1
+                failed_ids.append(track_id)
+                continue
+
+            # Download with retry
+            success, size = await self._download_single_track(track, prefer_bitrate)
+
+            if success:
+                downloaded += 1
+                total_bytes += size
+            else:
+                failed += 1
+                failed_ids.append(track_id)
+
+        logger.info(
+            f"Download batch complete: {downloaded} downloaded, "
+            f"{skipped} skipped, {failed} failed"
+        )
+
+        return DownloadResult(
+            downloaded=downloaded,
+            skipped=skipped,
+            failed=failed,
+            failed_track_ids=failed_ids,
+            total_bytes=total_bytes,
+        )
 
     @staticmethod
     def _sanitize_filename(title: str, max_len: int = 50) -> str:
