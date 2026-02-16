@@ -1,12 +1,15 @@
 """Tests for DownloadService."""
 
+import hashlib
 import pytest
-from unittest.mock import Mock
+from pathlib import Path
+from unittest.mock import AsyncMock, Mock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog import Track
 from app.models.ingestion import ProviderTrackId
 from app.models.providers import Provider
+from app.repositories.dj_library_items import DjLibraryItemRepository
 from app.services.download import DownloadService
 
 
@@ -89,3 +92,56 @@ class TestDownloadService:
         result = await svc._get_yandex_track_id(999)
 
         assert result is None
+
+    async def test_download_single_track_success_creates_file_and_db_entry(
+        self, session: AsyncSession, tmp_path: Path
+    ):
+        """_download_single_track downloads file and creates DjLibraryItem."""
+        # Create provider
+        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        session.add(provider)
+        await session.flush()
+
+        # Create track
+        track = Track(title="Nova", duration_ms=300000)
+        session.add(track)
+        await session.flush()
+
+        # Create provider ID
+        provider_track_id = ProviderTrackId(
+            track_id=track.track_id,
+            provider_id=provider.provider_id,
+            provider_track_id="12345",
+        )
+        session.add(provider_track_id)
+        await session.commit()
+
+        # Mock YM client
+        mock_ym = Mock()
+        mock_ym.download_track = AsyncMock(return_value=2048)
+
+        # Mock file creation (YM client creates it)
+        def mock_download(ym_id, dest_path, prefer_bitrate):
+            Path(dest_path).write_bytes(b"fake mp3 data")
+            return 2048
+
+        mock_ym.download_track.side_effect = mock_download
+
+        # Test
+        svc = DownloadService(session, mock_ym, tmp_path)
+        success, size = await svc._download_single_track(track, prefer_bitrate=320)
+
+        assert success is True
+        assert size == 2048
+
+        # Verify file exists
+        expected_path = tmp_path / "1_nova.mp3"
+        assert expected_path.exists()
+
+        # Verify DjLibraryItem created
+        repo = DjLibraryItemRepository(session)
+        item = await repo.get_by_track_id(track.track_id)
+        assert item is not None
+        assert item.file_path == str(expected_path)
+        assert item.file_size_bytes == 2048
+        assert item.bitrate_kbps == 320
