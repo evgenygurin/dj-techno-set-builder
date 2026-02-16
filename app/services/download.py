@@ -10,6 +10,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.catalog import Track
 from app.models.ingestion import ProviderTrackId
 from app.models.providers import Provider
 from app.repositories.dj_library_items import DjLibraryItemRepository
@@ -52,7 +53,7 @@ class DownloadService:
         self.library_repo = DjLibraryItemRepository(session)
         self.track_repo = TrackRepository(session)
 
-    def _generate_filename(self, track) -> str:
+    def _generate_filename(self, track: Track) -> str:
         """Generate sanitized filename for track.
 
         Format: {track_id}_{sanitized_title}.mp3
@@ -86,7 +87,7 @@ class DownloadService:
 
     async def _download_single_track(
         self,
-        track,
+        track: Track,
         prefer_bitrate: int,
         max_retries: int = 3,
     ) -> tuple[bool, int]:

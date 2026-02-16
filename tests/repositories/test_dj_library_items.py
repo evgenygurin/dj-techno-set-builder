@@ -1,6 +1,5 @@
 """Tests for DjLibraryItemRepository."""
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog import Track

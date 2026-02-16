@@ -1,7 +1,11 @@
 """Tests for import_playlist MCP tool."""
 
+from fastmcp import FastMCP
 
-async def test_import_playlist_accepts_download_files_parameter(workflow_mcp):
+
+async def test_import_playlist_accepts_download_files_parameter(
+    workflow_mcp: FastMCP,
+) -> None:
     """import_playlist accepts download_files parameter without error."""
     tools = {t.name: t for t in await workflow_mcp.list_tools()}
     tool = tools["import_playlist"]

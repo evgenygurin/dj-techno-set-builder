@@ -1,10 +1,10 @@
+from typing import Any
+
 """Tests for DownloadService."""
 
-import asyncio
-import hashlib
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog import Track
@@ -12,45 +12,45 @@ from app.models.dj import DjLibraryItem
 from app.models.ingestion import ProviderTrackId
 from app.models.providers import Provider
 from app.repositories.dj_library_items import DjLibraryItemRepository
-from app.services.download import DownloadResult, DownloadService
+from app.services.download import DownloadService
 
 
 class TestDownloadService:
-    def test_sanitize_filename_removes_special_chars(self):
+    def test_sanitize_filename_removes_special_chars(self) -> None:
         """_sanitize_filename removes / \\ : * ? " < > |"""
         result = DownloadService._sanitize_filename('Track / Name: Test?')
         assert result == "track_name_test"
 
-    def test_sanitize_filename_replaces_spaces_with_underscores(self):
+    def test_sanitize_filename_replaces_spaces_with_underscores(self) -> None:
         """_sanitize_filename replaces spaces with underscores."""
         result = DownloadService._sanitize_filename('Fire Eyes')
         assert result == "fire_eyes"
 
-    def test_sanitize_filename_truncates_to_max_len(self):
+    def test_sanitize_filename_truncates_to_max_len(self) -> None:
         """_sanitize_filename truncates to max_len (default 50)."""
         long_title = "A" * 100
         result = DownloadService._sanitize_filename(long_title)
         assert len(result) == 50
         assert result == "a" * 50
 
-    def test_sanitize_filename_removes_trailing_underscores(self):
+    def test_sanitize_filename_removes_trailing_underscores(self) -> None:
         """_sanitize_filename removes trailing underscores."""
         result = DownloadService._sanitize_filename('Track   ')
         assert result == "track"
 
-    def test_sanitize_filename_returns_untitled_when_empty(self):
+    def test_sanitize_filename_returns_untitled_when_empty(self) -> None:
         """_sanitize_filename returns 'untitled' for empty input."""
         result = DownloadService._sanitize_filename('////')
         assert result == "untitled"
 
-    def test_generate_filename_combines_track_id_and_title(self):
+    def test_generate_filename_combines_track_id_and_title(self) -> None:
         """_generate_filename creates {track_id}_{sanitized_title}.mp3"""
         svc = DownloadService(Mock(), Mock(), Mock())
         track = Mock(track_id=42, title="Fire Eyes")
         result = svc._generate_filename(track)
         assert result == "42_fire_eyes.mp3"
 
-    def test_generate_filename_sanitizes_title(self):
+    def test_generate_filename_sanitizes_title(self) -> None:
         """_generate_filename sanitizes track title."""
         svc = DownloadService(Mock(), Mock(), Mock())
         track = Mock(track_id=137, title="Track / Name?")
@@ -58,8 +58,8 @@ class TestDownloadService:
         assert result == "137_track_name.mp3"
 
     async def test_get_yandex_track_id_returns_value_when_exists(
-        self, session: AsyncSession, tmp_path
-    ):
+        self, session: AsyncSession, tmp_path: Path
+    ) -> None:
         """_get_yandex_track_id returns YM track_id from provider_track_ids."""
         # Create provider (Yandex)
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
@@ -87,8 +87,8 @@ class TestDownloadService:
         assert result == "12345678"
 
     async def test_get_yandex_track_id_returns_none_when_not_exists(
-        self, session: AsyncSession, tmp_path
-    ):
+        self, session: AsyncSession, tmp_path: Path
+    ) -> None:
         """_get_yandex_track_id returns None when no YM ID exists."""
         svc = DownloadService(session, Mock(), tmp_path)
         result = await svc._get_yandex_track_id(999)
@@ -97,7 +97,7 @@ class TestDownloadService:
 
     async def test_download_single_track_success_creates_file_and_db_entry(
         self, session: AsyncSession, tmp_path: Path
-    ):
+    ) -> None:
         """_download_single_track downloads file and creates DjLibraryItem."""
         # Create provider
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
@@ -123,7 +123,7 @@ class TestDownloadService:
         mock_ym.download_track = AsyncMock(return_value=2048)
 
         # Mock file creation (YM client creates it)
-        def mock_download(ym_id, dest_path, prefer_bitrate):
+        def mock_download(ym_id: Any, dest_path: Any, prefer_bitrate: Any) -> int:
             Path(dest_path).write_bytes(b"fake mp3 data")
             return 2048
 
@@ -150,7 +150,7 @@ class TestDownloadService:
 
     async def test_download_single_track_retries_on_network_error(
         self, session: AsyncSession, tmp_path: Path
-    ):
+    ) -> None:
         """_download_single_track retries after network error."""
         # Create provider
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
@@ -175,7 +175,7 @@ class TestDownloadService:
         mock_ym = Mock()
         attempts = []
 
-        async def mock_download(ym_id, dest_path, prefer_bitrate):
+        async def mock_download(ym_id: Any, dest_path: Any, prefer_bitrate: Any) -> int:
             attempts.append(1)
             if len(attempts) < 3:
                 raise Exception("Network error")
@@ -186,14 +186,14 @@ class TestDownloadService:
 
         # Test
         svc = DownloadService(session, mock_ym, tmp_path)
-        success, size = await svc._download_single_track(track, prefer_bitrate=320)
+        success, _ = await svc._download_single_track(track, prefer_bitrate=320)
 
         assert success is True
         assert len(attempts) == 3  # Failed twice, succeeded on 3rd
 
     async def test_download_single_track_fails_after_max_retries(
         self, session: AsyncSession, tmp_path: Path
-    ):
+    ) -> None:
         """_download_single_track returns (False, 0) after max retries."""
         # Create provider
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
@@ -228,7 +228,7 @@ class TestDownloadService:
 
     async def test_download_tracks_batch_skips_existing_files(
         self, session: AsyncSession, tmp_path: Path
-    ):
+    ) -> None:
         """download_tracks_batch skips tracks with existing file_path."""
         # Create provider
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
@@ -260,7 +260,7 @@ class TestDownloadService:
 
     async def test_download_tracks_batch_partial_success(
         self, session: AsyncSession, tmp_path: Path
-    ):
+    ) -> None:
         """download_tracks_batch handles partial failures correctly."""
         # Create provider
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
@@ -286,7 +286,7 @@ class TestDownloadService:
         # Mock YM client: track1 succeeds, track2 fails
         mock_ym = Mock()
 
-        async def mock_download(ym_id, dest_path, prefer_bitrate):
+        async def mock_download(ym_id: Any, dest_path: Any, prefer_bitrate: Any) -> int:
             if ym_id == "111":
                 Path(dest_path).write_bytes(b"data")
                 return 1024

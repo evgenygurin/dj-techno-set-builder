@@ -7,12 +7,12 @@ from pathlib import Path
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.mcp.dependencies import get_track_service, get_ym_client
+from app.mcp.dependencies import get_session, get_ym_client
 from app.mcp.types import ImportResult
 from app.services.download import DownloadResult, DownloadService
-from app.services.tracks import TrackService
 from app.services.yandex_music_client import YandexMusicClient
 
 
@@ -111,8 +111,8 @@ def register_import_tools(mcp: FastMCP) -> None:
         track_ids: list[int],
         prefer_bitrate: int = 320,
         ctx: Context | None = None,
-        track_svc: TrackService = Depends(get_track_service),
-        ym_client: YandexMusicClient = Depends(get_ym_client),
+        session: AsyncSession = Depends(get_session),  # noqa: B008
+        ym_client: YandexMusicClient = Depends(get_ym_client),  # noqa: B008
     ) -> DownloadResult:
         """Download tracks from Yandex Music to local library.
 
@@ -133,7 +133,7 @@ def register_import_tools(mcp: FastMCP) -> None:
         library_path = Path(settings.dj_library_path)
 
         download_svc = DownloadService(
-            session=track_svc.session,
+            session=session,
             ym_client=ym_client,
             library_path=library_path,
         )
