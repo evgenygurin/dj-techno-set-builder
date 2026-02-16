@@ -1,9 +1,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 import numpy as np
 from numpy.typing import NDArray
+
+
+class TransitionType(StrEnum):
+    """djay Pro Crossfader FX transition types for Neural Mix."""
+
+    DRUM_CUT = "drum_cut"
+    DRUM_SWAP = "drum_swap"
+    HARMONIC_SUSTAIN = "harmonic_sustain"
+    VOCAL_SUSTAIN = "vocal_sustain"
+    NEURAL_ECHO_OUT = "neural_echo_out"
+    NEURAL_FADE = "neural_fade"
+    EQ = "eq"
+    FILTER = "filter"
+    ECHO = "echo"
+    FADE = "fade"
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +47,7 @@ class KeyResult:
     confidence: float  # 0-1
     is_atonal: bool
     chroma: NDArray[np.float32]  # 12-dim mean HPCP vector
+    chroma_entropy: float  # Shannon entropy / log2(12), normalized [0, 1]
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +86,14 @@ class SpectralResult:
     contrast_mean_db: float
     slope_db_per_oct: float = 0.0
     hnr_mean_db: float = 0.0  # harmonics-to-noise ratio in dB
+
+
+@dataclass(frozen=True, slots=True)
+class MfccResult:
+    """Mean MFCC coefficients for timbral fingerprinting."""
+
+    coefficients: list[float]  # 13 mean MFCC coefficients (c1-c13, skip c0)
+    n_mfcc: int = 13
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,3 +167,14 @@ class TrackFeatures:
     band_energy: BandEnergyResult
     spectral: SpectralResult
     beats: BeatsResult | None = None  # Phase 2: optional
+    mfcc: MfccResult | None = None  # Phase 2: optional
+
+
+@dataclass(frozen=True, slots=True)
+class TransitionRecommendation:
+    """Recommended transition type for a track pair."""
+
+    transition_type: TransitionType
+    confidence: float  # [0, 1]
+    reason: str
+    alt_type: TransitionType | None = None

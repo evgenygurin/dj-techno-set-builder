@@ -22,6 +22,12 @@ class SetGenerationRequest(BaseSchema):
     w_transition: float = Field(default=0.50, ge=0.0, le=1.0)
     w_energy_arc: float = Field(default=0.30, ge=0.0, le=1.0)
     w_bpm_smooth: float = Field(default=0.20, ge=0.0, le=1.0)
+    tier1_threshold: float = Field(
+        default=0.15,
+        ge=0.0,
+        le=1.0,
+        description="Two-tier matrix: quick_score cutoff for full scoring (0.0 = always full)",
+    )
 
 
 class SetGenerationResponse(BaseSchema):

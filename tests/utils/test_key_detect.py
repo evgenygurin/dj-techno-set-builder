@@ -51,3 +51,9 @@ class TestDetectKey:
         assert result.key == "A"
         assert result.scale == "major"
         assert result.key_code == 19
+
+    def test_chroma_entropy_returned(self, long_sine_440hz: AudioSignal) -> None:
+        """KeyResult must include normalized chroma entropy [0, 1]."""
+        result = detect_key(long_sine_440hz)
+        assert hasattr(result, "chroma_entropy")
+        assert 0.0 <= result.chroma_entropy <= 1.0

@@ -85,9 +85,19 @@ _SEARCH_KEEP_KEYS: frozenset[str] = frozenset(
 # ── Object cleaners ──────────────────────────────────────────────────────────
 
 
+def _is_playlist_like(obj: Any) -> bool:
+    """Heuristic: dict looks like a YM Playlist (has kind + uid)."""
+    return isinstance(obj, dict) and "kind" in obj and "uid" in obj
+
+
 def _is_track_like(obj: Any) -> bool:
-    """Heuristic: dict looks like a YM Track (has title + durationMs)."""
-    return isinstance(obj, dict) and "durationMs" in obj and "title" in obj
+    """Heuristic: dict looks like a YM Track (has title + durationMs, but NOT a playlist)."""
+    return (
+        isinstance(obj, dict)
+        and "durationMs" in obj
+        and "title" in obj
+        and "kind" not in obj  # Playlists also have title+durationMs
+    )
 
 
 def clean_artist(artist: dict[str, Any]) -> dict[str, Any]:
@@ -98,6 +108,11 @@ def clean_artist(artist: dict[str, Any]) -> dict[str, Any]:
 def clean_album(album: dict[str, Any]) -> dict[str, Any]:
     """Keep only DJ-relevant fields from Album."""
     return {k: v for k, v in album.items() if k in _ALBUM_FIELDS}
+
+
+def clean_playlist(playlist: dict[str, Any]) -> dict[str, Any]:
+    """Keep only DJ-relevant fields from Playlist."""
+    return {k: v for k, v in playlist.items() if k in _PLAYLIST_FIELDS}
 
 
 def clean_track(track: dict[str, Any]) -> dict[str, Any]:
@@ -115,9 +130,17 @@ def clean_track(track: dict[str, Any]) -> dict[str, Any]:
     return cleaned
 
 
-def _clean_track_list(items: list[Any]) -> list[Any]:
-    """Clean all track-like objects in a list."""
-    return [clean_track(it) if _is_track_like(it) else it for it in items]
+def _clean_object_list(items: list[Any]) -> list[Any]:
+    """Clean all track-like or playlist-like objects in a list."""
+    result = []
+    for it in items:
+        if _is_playlist_like(it):
+            result.append(clean_playlist(it))
+        elif _is_track_like(it):
+            result.append(clean_track(it))
+        else:
+            result.append(it)
+    return result
 
 
 # ── Response-level cleaners ──────────────────────────────────────────────────
@@ -130,7 +153,7 @@ def _clean_search_result(result: dict[str, Any]) -> dict[str, Any]:
     # Clean track results
     tracks_block = cleaned.get("tracks")
     if isinstance(tracks_block, dict) and "results" in tracks_block:
-        tracks_block["results"] = _clean_track_list(tracks_block["results"])
+        tracks_block["results"] = _clean_object_list(tracks_block["results"])
 
     # Clean artist results
     artists_block = cleaned.get("artists")
@@ -181,7 +204,7 @@ def clean_response_body(body: dict[str, Any]) -> dict[str, Any]:
 
     # Direct list of tracks (e.g. getTracks)
     if isinstance(result, list):
-        body["result"] = _clean_track_list(result)
+        body["result"] = _clean_object_list(result)
         return body
 
     if not isinstance(result, dict):
@@ -210,24 +233,24 @@ def clean_response_body(body: dict[str, Any]) -> dict[str, Any]:
                         if k not in ("id", "track", "timestamp"):
                             del item[k]
             elif _is_track_like(first):
-                result["tracks"] = _clean_track_list(tracks)
+                result["tracks"] = _clean_object_list(tracks)
 
     # ── Album with tracks (volumes: [[Track]]) ──
     volumes = result.get("volumes")
     if isinstance(volumes, list):
         result["volumes"] = [
-            _clean_track_list(vol) if isinstance(vol, list) else vol for vol in volumes
+            _clean_object_list(vol) if isinstance(vol, list) else vol for vol in volumes
         ]
 
     # ── Similar tracks ──
     similar = result.get("similarTracks")
     if isinstance(similar, list):
-        result["similarTracks"] = _clean_track_list(similar)
+        result["similarTracks"] = _clean_object_list(similar)
 
     # ── Artist brief info: popularTracks ──
     popular = result.get("popularTracks")
     if isinstance(popular, list):
-        result["popularTracks"] = _clean_track_list(popular)
+        result["popularTracks"] = _clean_object_list(popular)
 
     # ── Artist brief info: clean the artist object itself ──
     artist_obj = result.get("artist")

@@ -7,6 +7,9 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.config import settings
 from app.models.base import Base
 
+# Import all models so autogenerate sees them
+import app.models  # noqa: F401
+
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

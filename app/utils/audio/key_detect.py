@@ -95,6 +95,7 @@ def detect_key(
     # Atonal detection
     entropy = _chroma_entropy(mean_chroma)
     is_atonal = entropy > _ATONAL_ENTROPY_THRESHOLD * _MAX_CHROMA_ENTROPY
+    normalized_entropy = float(np.clip(entropy / _MAX_CHROMA_ENTROPY, 0.0, 1.0))
 
     key_code = _key_to_key_code(key, scale)
 
@@ -105,4 +106,5 @@ def detect_key(
         confidence=float(np.clip(strength, 0.0, 1.0)),
         is_atonal=is_atonal,
         chroma=mean_chroma,
+        chroma_entropy=normalized_entropy,
     )

@@ -133,6 +133,13 @@ class TrackAudioFeaturesComputed(Base):
     # chroma vector(12) — pgvector only, String placeholder for SQLite compat
     chroma: Mapped[str | None] = mapped_column(String(500))
     hnr_mean_db: Mapped[float | None] = mapped_column(Float)
+    chroma_entropy: Mapped[float | None] = mapped_column(
+        Float,
+        CheckConstraint("chroma_entropy BETWEEN 0 AND 1", name="ck_taf_chroma_entropy"),
+    )
+
+    # -- MFCC (Phase 2) --
+    mfcc_vector: Mapped[str | None] = mapped_column(String(500))
 
     # -- Rhythm / Groove --
     hp_ratio: Mapped[float | None] = mapped_column(Float)

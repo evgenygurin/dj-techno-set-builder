@@ -30,12 +30,10 @@ class CamelotLookupService(BaseService):
             return self._lookup
 
         if self.session is None:
-            # For testing without DB: return same-key-only
-            self._lookup = {(i, i): 1.0 for i in range(24)}
-            for i in range(24):
-                for j in range(24):
-                    if i != j:
-                        self._lookup[(i, j)] = 0.5  # Default
+            # Use pitch-class overlap scoring (no DB needed)
+            from app.utils.audio.camelot import build_pitch_class_lookup
+
+            self._lookup = build_pitch_class_lookup()
             self._built = True
             return self._lookup
 
@@ -46,11 +44,13 @@ class CamelotLookupService(BaseService):
         for edge in edges:
             self._lookup[(edge.from_key_code, edge.to_key_code)] = edge.weight
 
-        # Ensure all 24x24 pairs exist with fallback
+        # Ensure all 24x24 pairs exist — use pitch-class overlap as fallback
+        from app.utils.audio.camelot import camelot_score
+
         for i in range(24):
             for j in range(24):
                 if (i, j) not in self._lookup:
-                    self._lookup[(i, j)] = 0.5  # Default for missing edges
+                    self._lookup[(i, j)] = camelot_score(i, j)
 
         self._built = True
         return self._lookup

@@ -158,6 +158,7 @@ class TransitionPersistenceService(BaseService):
             confidence=feat.key_confidence,
             is_atonal=feat.is_atonal,
             chroma=chroma,
+            chroma_entropy=feat.chroma_entropy if feat.chroma_entropy is not None else 0.5,
         )
 
     @staticmethod

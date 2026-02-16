@@ -50,6 +50,17 @@ def extract_all_features(
     band_energy_result = _run_stage("band_energy", path_str, compute_band_energies, signal)
     spectral_result = _run_stage("spectral", path_str, extract_spectral_features, signal)
 
+    # Phase 2: MFCC extraction (optional, graceful failure)
+    mfcc_result = None
+    try:
+        from app.utils.audio.mfcc import extract_mfcc
+
+        mfcc_result = _run_stage("mfcc", path_str, extract_mfcc, signal)
+    except ImportError:
+        logger.debug("librosa not installed — skipping MFCC extraction")
+    except AudioAnalysisError:
+        logger.warning("MFCC extraction failed for %s", path, exc_info=True)
+
     logger.info(
         "Extraction complete: BPM=%.1f key=%s%s loudness=%.1f LUFS",
         bpm_result.bpm,  # type: ignore[attr-defined]
@@ -64,4 +75,5 @@ def extract_all_features(
         loudness=loudness_result,  # type: ignore[arg-type]
         band_energy=band_energy_result,  # type: ignore[arg-type]
         spectral=spectral_result,  # type: ignore[arg-type]
+        mfcc=mfcc_result,  # type: ignore[arg-type]
     )

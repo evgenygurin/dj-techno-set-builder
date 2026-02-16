@@ -116,6 +116,11 @@ class TransitionScoreResult(BaseModel):
     energy: float
     spectral: float
     groove: float
+    structure: float = 0.5  # Phase 3: section-aware score
+    recommended_type: str | None = None  # Phase 3: TransitionType value
+    type_confidence: float | None = None
+    reason: str | None = None
+    alt_type: str | None = None
 
 
 class ExportResult(BaseModel):

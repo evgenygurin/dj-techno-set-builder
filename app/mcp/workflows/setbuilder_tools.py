@@ -14,13 +14,13 @@ from app.mcp.dependencies import (
     get_set_generation_service,
     get_set_service,
 )
-from app.mcp.types import SetBuildResult, TransitionScoreResult
+from app.mcp.types import ExportResult, SetBuildResult, TransitionScoreResult
 from app.schemas.set_generation import SetGenerationRequest
 from app.schemas.sets import DjSetCreate, DjSetVersionCreate
 from app.services.features import AudioFeaturesService
 from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
-from app.services.transition_scoring import TrackFeatures, TransitionScoringService
+from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 from app.utils.audio.camelot import key_code_to_camelot
 
 
@@ -112,42 +112,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         if len(items) < 2:
             return []
 
-        # Build scorer
-        from app.services.camelot_lookup import CamelotLookupService
-
-        camelot_svc = CamelotLookupService()
-        await camelot_svc.build_lookup_table()
-
-        scorer = TransitionScoringService()
-        scorer.camelot_lookup = camelot_svc._lookup
-
-        # Build features map
-        track_ids = [item.track_id for item in items]
-        features_map: dict[int, TrackFeatures] = {}
-        for tid in track_ids:
-            try:
-                feat = await features_svc.get_latest(tid)
-            except NotFoundError:
-                continue
-
-            harmonic_density = feat.key_confidence or 0.5
-            low = feat.low_energy or 0.33
-            mid = feat.mid_energy or 0.33
-            high = feat.high_energy or 0.34
-            total = low + mid + high
-            band_ratios = (
-                [low / total, mid / total, high / total] if total > 0 else [0.33, 0.33, 0.34]
-            )
-
-            features_map[tid] = TrackFeatures(
-                bpm=feat.bpm,
-                energy_lufs=feat.lufs_i,
-                key_code=feat.key_code or 0,
-                harmonic_density=harmonic_density,
-                centroid_hz=feat.centroid_mean_hz or 2000.0,
-                band_ratios=band_ratios,
-                onset_rate=feat.onset_rate_mean or 5.0,
-            )
+        # Use unified scoring service (same path as GA and API)
+        unified_svc = UnifiedTransitionScoringService(
+            features_svc.features_repo.session,
+        )
 
         # Score consecutive pairs
         results: list[TransitionScoreResult] = []
@@ -157,10 +125,12 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             from_item = items[i]
             to_item = items[i + 1]
 
-            feat_a = features_map.get(from_item.track_id)
-            feat_b = features_map.get(to_item.track_id)
-
-            if feat_a is None or feat_b is None:
+            try:
+                components = await unified_svc.score_components_by_ids(
+                    from_item.track_id,
+                    to_item.track_id,
+                )
+            except ValueError:
                 results.append(
                     TransitionScoreResult(
                         from_track_id=from_item.track_id,
@@ -177,31 +147,41 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 )
                 continue
 
-            bpm_s = scorer.score_bpm(feat_a.bpm, feat_b.bpm)
-            harm_s = scorer.score_harmonic(
-                feat_a.key_code,
-                feat_b.key_code,
-                feat_a.harmonic_density,
-                feat_b.harmonic_density,
-            )
-            energy_s = scorer.score_energy(
-                feat_a.energy_lufs,
-                feat_b.energy_lufs,
-            )
-            spectral_s = scorer.score_spectral(feat_a, feat_b)
-            groove_s = scorer.score_groove(
-                feat_a.onset_rate,
-                feat_b.onset_rate,
-            )
-            total_s = scorer.score_transition(feat_a, feat_b)
-
-            # Try to get Camelot key for title enrichment
+            # Try to get features for Camelot key + transition recommendation
             from_key: str | None = None
             to_key: str | None = None
-            with contextlib.suppress(ValueError):
-                from_key = key_code_to_camelot(feat_a.key_code)
-            with contextlib.suppress(ValueError):
-                to_key = key_code_to_camelot(feat_b.key_code)
+            rec_type: str | None = None
+            rec_confidence: float | None = None
+            rec_reason: str | None = None
+            rec_alt: str | None = None
+
+            try:
+                feat_a_raw = await features_svc.get_latest(from_item.track_id)
+                feat_b_raw = await features_svc.get_latest(to_item.track_id)
+
+                with contextlib.suppress(ValueError):
+                    from_key = key_code_to_camelot(feat_a_raw.key_code)
+                with contextlib.suppress(ValueError):
+                    to_key = key_code_to_camelot(feat_b_raw.key_code)
+
+                # Phase 3: Transition type recommendation
+                from app.services.transition_type import recommend_transition
+                from app.utils.audio.camelot import camelot_distance
+                from app.utils.audio.feature_conversion import (
+                    orm_features_to_track_features,
+                )
+
+                tf_a = orm_features_to_track_features(feat_a_raw)  # type: ignore[arg-type]
+                tf_b = orm_features_to_track_features(feat_b_raw)  # type: ignore[arg-type]
+                cam_dist = camelot_distance(tf_a.key_code, tf_b.key_code)
+
+                rec = recommend_transition(tf_a, tf_b, camelot_compatible=cam_dist <= 1)
+                rec_type = str(rec.transition_type)
+                rec_confidence = rec.confidence
+                rec_reason = rec.reason
+                rec_alt = str(rec.alt_type) if rec.alt_type else None
+            except (NotFoundError, ValueError):
+                pass
 
             results.append(
                 TransitionScoreResult(
@@ -209,12 +189,17 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                     to_track_id=to_item.track_id,
                     from_title=from_key or "",
                     to_title=to_key or "",
-                    total=round(total_s, 4),
-                    bpm=round(bpm_s, 4),
-                    harmonic=round(harm_s, 4),
-                    energy=round(energy_s, 4),
-                    spectral=round(spectral_s, 4),
-                    groove=round(groove_s, 4),
+                    total=components["total"],
+                    bpm=components["bpm"],
+                    harmonic=components["harmonic"],
+                    energy=components["energy"],
+                    spectral=components["spectral"],
+                    groove=components["groove"],
+                    structure=components.get("structure", 0.5),
+                    recommended_type=rec_type,
+                    type_confidence=rec_confidence,
+                    reason=rec_reason,
+                    alt_type=rec_alt,
                 )
             )
 
@@ -259,6 +244,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         track_summary = ", ".join(f"#{i.sort_index}: track {i.track_id}" for i in items)
 
         # Define score_pair tool for LLM to evaluate transitions
+        unified_svc = UnifiedTransitionScoringService(
+            features_svc.features_repo.session,
+        )
+
         async def _score_pair(
             track_a_id: int,
             track_b_id: int,
@@ -267,50 +256,13 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
 
             Returns BPM, harmonic, energy, spectral, groove and total scores.
             """
-            from app.services.camelot_lookup import CamelotLookupService
-
             try:
-                feat_a_raw = await features_svc.get_latest(track_a_id)
-                feat_b_raw = await features_svc.get_latest(track_b_id)
-            except NotFoundError:
+                return await unified_svc.score_components_by_ids(
+                    track_a_id,
+                    track_b_id,
+                )
+            except (ValueError, NotFoundError):
                 return {"error": 1.0, "total": 0.0}
-
-            camelot_svc = CamelotLookupService()
-            await camelot_svc.build_lookup_table()
-
-            scorer = TransitionScoringService()
-            scorer.camelot_lookup = camelot_svc._lookup
-
-            def _build_tf(feat: object) -> TrackFeatures:
-                harmonic_density = getattr(feat, "key_confidence", None) or 0.5
-                low = getattr(feat, "low_energy", None) or 0.33
-                mid = getattr(feat, "mid_energy", None) or 0.33
-                high = getattr(feat, "high_energy", None) or 0.34
-                total_e = low + mid + high
-                band_ratios = (
-                    [low / total_e, mid / total_e, high / total_e]
-                    if total_e > 0
-                    else [0.33, 0.33, 0.34]
-                )
-                return TrackFeatures(
-                    bpm=getattr(feat, "bpm", 0.0),
-                    energy_lufs=getattr(feat, "lufs_i", 0.0),
-                    key_code=getattr(feat, "key_code", 0) or 0,
-                    harmonic_density=harmonic_density,
-                    centroid_hz=getattr(feat, "centroid_mean_hz", None) or 2000.0,
-                    band_ratios=band_ratios,
-                    onset_rate=getattr(feat, "onset_rate_mean", None) or 5.0,
-                )
-
-            tf_a = _build_tf(feat_a_raw)
-            tf_b = _build_tf(feat_b_raw)
-            total_s = scorer.score_transition(tf_a, tf_b)
-
-            return {
-                "total": round(total_s, 4),
-                "bpm": round(scorer.score_bpm(tf_a.bpm, tf_b.bpm), 4),
-                "energy": round(scorer.score_energy(tf_a.energy_lufs, tf_b.energy_lufs), 4),
-            }
 
         # Try LLM-assisted adjustment with agentic loop
         from app.mcp.types import AdjustmentPlan
@@ -406,4 +358,149 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             total_score=0.0,
             avg_transition_score=0.0,
             energy_curve=[],
+        )
+
+    @mcp.tool(tags={"setbuilder"})
+    async def export_set_m3u(
+        set_id: int,
+        version_id: int,
+        ctx: Context,
+        set_svc: DjSetService = Depends(get_set_service),
+    ) -> ExportResult:
+        """Export a DJ set version as M3U8 playlist for djay Pro import.
+
+        Generates an M3U8 file with track ordering matching the set version.
+
+        Args:
+            set_id: DJ set ID.
+            version_id: Set version to export.
+        """
+        from app.services.set_export import export_m3u
+
+        await set_svc.get(set_id)
+        items_list = await set_svc.list_items(version_id, offset=0, limit=500)
+        items = sorted(items_list.items, key=lambda i: i.sort_index)
+
+        tracks = [
+            {
+                "title": f"Track {item.track_id}",
+                "duration_s": 0,
+                "path": f"track_{item.track_id}.mp3",
+            }
+            for item in items
+        ]
+
+        content = export_m3u(tracks)
+
+        return ExportResult(
+            set_id=set_id,
+            format="m3u8",
+            track_count=len(items),
+            content=content,
+        )
+
+    @mcp.tool(
+        annotations={"readOnlyHint": True},
+        tags={"setbuilder"},
+    )
+    async def export_set_json(
+        set_id: int,
+        version_id: int,
+        ctx: Context,
+        set_svc: DjSetService = Depends(get_set_service),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
+    ) -> ExportResult:
+        """Export a DJ set version as JSON transition guide.
+
+        Includes track order, per-transition scores, recommended transition
+        types, and set quality metrics. A DJ cheat sheet.
+
+        Args:
+            set_id: DJ set ID.
+            version_id: Set version to export.
+        """
+        from typing import Any
+
+        from app.services.set_export import export_json_guide
+        from app.services.transition_type import recommend_transition
+        from app.utils.audio.camelot import camelot_distance
+        from app.utils.audio.feature_conversion import orm_features_to_track_features
+
+        await set_svc.get(set_id)
+        items_list = await set_svc.list_items(version_id, offset=0, limit=500)
+        items = sorted(items_list.items, key=lambda i: i.sort_index)
+
+        unified_svc = UnifiedTransitionScoringService(
+            features_svc.features_repo.session,
+        )
+
+        tracks_data: list[dict[str, Any]] = []
+        for item in items:
+            tracks_data.append(
+                {
+                    "title": f"Track {item.track_id}",
+                    "path": f"track_{item.track_id}.mp3",
+                }
+            )
+
+        transitions_data: list[dict[str, Any]] = []
+        for i in range(len(items) - 1):
+            from_item = items[i]
+            to_item = items[i + 1]
+
+            trans: dict[str, Any] = {
+                "score": 0.0,
+                "bpm_delta": 0.0,
+                "energy_delta": 0.0,
+                "camelot": "",
+                "recommendation": None,
+            }
+
+            try:
+                components = await unified_svc.score_components_by_ids(
+                    from_item.track_id,
+                    to_item.track_id,
+                )
+                trans["score"] = components["total"]
+            except ValueError:
+                pass
+
+            try:
+                feat_a_obj = await features_svc.get_latest(from_item.track_id)
+                feat_b_obj = await features_svc.get_latest(to_item.track_id)
+                tf_a = orm_features_to_track_features(feat_a_obj)  # type: ignore[arg-type]
+                tf_b = orm_features_to_track_features(feat_b_obj)  # type: ignore[arg-type]
+
+                trans["bpm_delta"] = round(abs(tf_a.bpm - tf_b.bpm), 1)
+                trans["energy_delta"] = round(abs(tf_a.energy_lufs - tf_b.energy_lufs), 1)
+
+                cam_dist = camelot_distance(tf_a.key_code, tf_b.key_code)
+                cam_a = key_code_to_camelot(tf_a.key_code)
+                cam_b = key_code_to_camelot(tf_b.key_code)
+                trans["camelot"] = f"{cam_a} -> {cam_b}"
+
+                rec = recommend_transition(tf_a, tf_b, camelot_compatible=cam_dist <= 1)
+                trans["recommendation"] = rec
+            except (NotFoundError, ValueError):
+                pass
+
+            transitions_data.append(trans)
+
+        quality = 0.0
+        if transitions_data:
+            quality = sum(t["score"] for t in transitions_data) / len(transitions_data)
+
+        content = export_json_guide(
+            set_name=f"Set {set_id}",
+            energy_arc="classic",
+            quality_score=round(quality, 3),
+            tracks=tracks_data,
+            transitions=transitions_data,
+        )
+
+        return ExportResult(
+            set_id=set_id,
+            format="json",
+            track_count=len(items),
+            content=content,
         )

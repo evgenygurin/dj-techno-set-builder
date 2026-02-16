@@ -13,6 +13,7 @@ from app.schemas.transitions import (
     TransitionRead,
 )
 from app.services.transition_persistence import TransitionPersistenceService
+from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 from app.services.transitions import TransitionService
 
 router = APIRouter(prefix="/transitions", tags=["transitions"])
@@ -117,4 +118,43 @@ async def compute_transition(
         low_conflict_score=result.low_conflict_score,
         overlap_score=result.overlap_score,
         groove_similarity=result.groove_similarity,
+    )
+
+
+@router.post(
+    "/compute-unified",
+    response_model=TransitionComputeResponse,
+    summary="Compute transition score (unified path)",
+    description=(
+        "Score a transition using the unified TransitionScoringService. "
+        "This uses the same scoring logic as the GA and MCP paths, "
+        "ensuring consistent results across all entry points."
+    ),
+    response_description="Computed transition score using unified scoring",
+    operation_id="compute_transition_unified",
+)
+async def compute_transition_unified(
+    data: TransitionComputeRequest, db: DbSession
+) -> TransitionComputeResponse:
+    unified_svc = UnifiedTransitionScoringService(db)
+    try:
+        feat_a, feat_b = await unified_svc._load_pair(
+            data.from_track_id,
+            data.to_track_id,
+        )
+        components = await unified_svc.score_components_by_features(feat_a, feat_b)
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+
+    bpm_distance = abs(feat_a.bpm - feat_b.bpm)
+    energy_step = feat_b.lufs_i - feat_a.lufs_i
+
+    return TransitionComputeResponse(
+        transition_quality=components["total"],
+        bpm_distance=bpm_distance,
+        key_distance_weighted=components["harmonic"],
+        energy_step=energy_step,
+        low_conflict_score=components["spectral"],
+        overlap_score=components["spectral"],
+        groove_similarity=components["groove"],
     )

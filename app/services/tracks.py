@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import builtins
+
 from app.errors import NotFoundError
 from app.repositories.tracks import TrackRepository
 from app.schemas.tracks import TrackCreate, TrackList, TrackRead, TrackUpdate
@@ -43,3 +47,12 @@ class TrackService(BaseService):
         if not track:
             raise NotFoundError("Track", track_id=track_id)
         await self.repo.delete(track)
+
+    async def get_track_artists(
+        self, track_ids: builtins.list[int],
+    ) -> dict[int, builtins.list[str]]:
+        """Get artist names for given track IDs.
+
+        Returns a dict mapping track_id → list of artist names.
+        """
+        return await self.repo.get_artists_for_tracks(track_ids)
