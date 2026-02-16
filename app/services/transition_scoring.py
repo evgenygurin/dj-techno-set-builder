@@ -72,13 +72,32 @@ class HardConstraints:
 class TransitionScoringService:
     """Computes transition quality scores using multi-component formula."""
 
-    # Weights sum to 1.0 (from research synthesis)
+    # Weights sum to 1.0 — Phase 3 adds structure component
     WEIGHTS: ClassVar[dict[str, float]] = {
-        "bpm": 0.30,  # BPM matching (25% + buffer)
-        "harmonic": 0.25,  # Key compatibility (12% base + density boost)
-        "energy": 0.20,  # Energy/loudness matching (15%)
-        "spectral": 0.15,  # Timbral similarity proxy (20% in research, here simplified)
-        "groove": 0.10,  # Rhythmic texture (8%)
+        "bpm": 0.25,
+        "harmonic": 0.20,
+        "energy": 0.20,
+        "spectral": 0.15,
+        "groove": 0.10,
+        "structure": 0.10,
+    }
+
+    MIX_OUT_QUALITY: ClassVar[dict[str, float]] = {
+        "outro": 1.0,
+        "breakdown": 0.85,
+        "bridge": 0.7,
+        "drop": 0.5,
+        "buildup": 0.3,
+        "intro": 0.1,
+    }
+
+    MIX_IN_QUALITY: ClassVar[dict[str, float]] = {
+        "intro": 1.0,
+        "drop": 0.8,
+        "buildup": 0.7,
+        "breakdown": 0.6,
+        "bridge": 0.4,
+        "outro": 0.1,
     }
 
     def __init__(
@@ -267,6 +286,31 @@ class TransitionScoringService:
 
         return 0.70 * onset_score + 0.30 * kick_score
 
+    def score_structure(
+        self,
+        last_section_a: str | None,
+        first_section_b: str | None,
+    ) -> float:
+        """Score transition based on section type pairing.
+
+        Uses mix-out quality of track A's last section and mix-in quality
+        of track B's first section. Returns 0.5 (neutral) when section
+        data is unavailable.
+
+        Args:
+            last_section_a: Last section type name of outgoing track.
+            first_section_b: First section type name of incoming track.
+
+        Returns:
+            Structure compatibility [0, 1].
+        """
+        if last_section_a is None or first_section_b is None:
+            return 0.5
+
+        out_q = self.MIX_OUT_QUALITY.get(last_section_a, 0.3)
+        in_q = self.MIX_IN_QUALITY.get(first_section_b, 0.3)
+        return (out_q + in_q) / 2.0
+
     def check_hard_constraints(self, track_a: TrackFeatures, track_b: TrackFeatures) -> bool:
         """Return ``True`` if the transition should be **rejected**.
 
@@ -339,6 +383,10 @@ class TransitionScoringService:
             track_a.kick_prominence,
             track_b.kick_prominence,
         )
+        structure_s = self.score_structure(
+            track_a.last_section,
+            track_b.first_section,
+        )
 
         w = self.WEIGHTS
         return (
@@ -347,6 +395,7 @@ class TransitionScoringService:
             + w["energy"] * energy_s
             + w["spectral"] * spectral_s
             + w["groove"] * groove_s
+            + w["structure"] * structure_s
         )
 
     # ------------------------------------------------------------------

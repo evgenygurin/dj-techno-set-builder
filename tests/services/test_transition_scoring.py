@@ -377,3 +377,73 @@ def test_track_features_phase3_fields_have_defaults():
     assert tf.hp_ratio == 0.5
     assert tf.last_section is None
     assert tf.first_section is None
+
+
+# ── Phase 3: score_structure (section-aware scoring) ──
+
+
+def test_score_structure_outro_to_intro():
+    """outro→intro is the ideal transition: score should be 1.0."""
+    service = TransitionScoringService()
+    score = service.score_structure("outro", "intro")
+    assert score == pytest.approx(1.0)
+
+
+def test_score_structure_drop_to_drop():
+    """drop→drop is suboptimal: should score < 0.7."""
+    service = TransitionScoringService()
+    score = service.score_structure("drop", "drop")
+    assert score < 0.7
+
+
+def test_score_structure_breakdown_to_buildup():
+    """breakdown→buildup is a natural flow: should score > 0.7."""
+    service = TransitionScoringService()
+    score = service.score_structure("breakdown", "buildup")
+    assert score > 0.7
+
+
+def test_score_structure_none_returns_neutral():
+    """When section data is missing, return 0.5 (neutral)."""
+    service = TransitionScoringService()
+    assert service.score_structure(None, "intro") == pytest.approx(0.5)
+    assert service.score_structure("outro", None) == pytest.approx(0.5)
+    assert service.score_structure(None, None) == pytest.approx(0.5)
+
+
+def test_score_structure_unknown_section_gets_fallback():
+    """Unknown section names should get fallback score, not crash."""
+    service = TransitionScoringService()
+    score = service.score_structure("unknown_section", "intro")
+    assert 0.0 <= score <= 1.0
+
+
+def test_score_transition_includes_structure_when_available():
+    """Full transition score should use 6 components when sections are present."""
+    service = TransitionScoringService()
+    service.camelot_lookup = {(0, 0): 1.0}
+
+    features_a = TrackFeatures(
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.8,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
+        last_section="outro",
+    )
+    features_b = TrackFeatures(
+        bpm=130,
+        energy_lufs=-13,
+        key_code=0,
+        harmonic_density=0.8,
+        centroid_hz=2100,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.2,
+        first_section="intro",
+    )
+
+    score = service.score_transition(features_a, features_b)
+    assert score > 0.8  # Near-identical tracks + perfect section pairing
+    assert score <= 1.0
