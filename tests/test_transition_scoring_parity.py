@@ -243,7 +243,9 @@ class TestOrmFeatureConversion:
             kick_prominence=0.7,
             hnr_mean_db=12.5,
             slope_db_per_oct=-3.2,
-            mfcc_vector='[1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0, 11.0, -12.0, 13.0]',
+            mfcc_vector=(
+                "[1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0, 11.0, -12.0, 13.0]"
+            ),
         )
         tf = orm_features_to_track_features(feat)
         assert tf.kick_prominence == 0.7

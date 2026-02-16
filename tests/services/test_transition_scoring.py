@@ -53,7 +53,12 @@ def test_score_harmonic_same_key():
     service.camelot_lookup = {(0, 0): 1.0}
     # Full density + high HNR → factor approaches 1.0
     score = service.score_harmonic(
-        cam_a=0, cam_b=0, density_a=1.0, density_b=1.0, hnr_a=20.0, hnr_b=20.0,
+        cam_a=0,
+        cam_b=0,
+        density_a=1.0,
+        density_b=1.0,
+        hnr_a=20.0,
+        hnr_b=20.0,
     )
     assert score == pytest.approx(1.0, abs=0.01)
 
@@ -200,13 +205,23 @@ def test_score_spectral_with_mfcc():
     service = TransitionScoringService()
     mfcc = [1.0, -2.0, 3.0, -4.0, 5.0, -6.0, 7.0, -8.0, 9.0, -10.0, 11.0, -12.0, 13.0]
     features_a = TrackFeatures(
-        bpm=128, energy_lufs=-14, key_code=0, harmonic_density=0.5,
-        centroid_hz=2000, band_ratios=[0.3, 0.5, 0.2], onset_rate=5.0,
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
         mfcc_vector=mfcc,
     )
     features_b = TrackFeatures(
-        bpm=128, energy_lufs=-14, key_code=0, harmonic_density=0.5,
-        centroid_hz=2000, band_ratios=[0.3, 0.5, 0.2], onset_rate=5.0,
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
         mfcc_vector=mfcc,
     )
     score = service.score_spectral(features_a, features_b)
@@ -217,13 +232,23 @@ def test_score_spectral_mfcc_different():
     """Different MFCC vectors should lower spectral score."""
     service = TransitionScoringService()
     features_a = TrackFeatures(
-        bpm=128, energy_lufs=-14, key_code=0, harmonic_density=0.5,
-        centroid_hz=2000, band_ratios=[0.3, 0.5, 0.2], onset_rate=5.0,
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
         mfcc_vector=[10.0] * 13,
     )
     features_b = TrackFeatures(
-        bpm=128, energy_lufs=-14, key_code=0, harmonic_density=0.5,
-        centroid_hz=2000, band_ratios=[0.3, 0.5, 0.2], onset_rate=5.0,
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
         mfcc_vector=[-10.0] * 13,
     )
     score = service.score_spectral(features_a, features_b)
@@ -235,13 +260,23 @@ def test_score_spectral_fallback_without_mfcc():
     """Without MFCC, should use Phase 1 formula (50/50 centroid+balance)."""
     service = TransitionScoringService()
     features_a = TrackFeatures(
-        bpm=128, energy_lufs=-14, key_code=0, harmonic_density=0.5,
-        centroid_hz=2000, band_ratios=[0.3, 0.5, 0.2], onset_rate=5.0,
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
         mfcc_vector=None,
     )
     features_b = TrackFeatures(
-        bpm=128, energy_lufs=-14, key_code=0, harmonic_density=0.5,
-        centroid_hz=2000, band_ratios=[0.3, 0.5, 0.2], onset_rate=5.0,
+        bpm=128,
+        energy_lufs=-14,
+        key_code=0,
+        harmonic_density=0.5,
+        centroid_hz=2000,
+        band_ratios=[0.3, 0.5, 0.2],
+        onset_rate=5.0,
         mfcc_vector=None,
     )
     score = service.score_spectral(features_a, features_b)
@@ -258,14 +293,22 @@ def test_score_harmonic_hnr_modulation():
 
     # High HNR = melodic = Camelot matters more
     score_high_hnr = service.score_harmonic(
-        cam_a=0, cam_b=6, density_a=0.5, density_b=0.5,
-        hnr_a=20.0, hnr_b=20.0,
+        cam_a=0,
+        cam_b=6,
+        density_a=0.5,
+        density_b=0.5,
+        hnr_a=20.0,
+        hnr_b=20.0,
     )
 
     # Low HNR = noisy/percussive = Camelot matters less
     score_low_hnr = service.score_harmonic(
-        cam_a=0, cam_b=6, density_a=0.5, density_b=0.5,
-        hnr_a=2.0, hnr_b=2.0,
+        cam_a=0,
+        cam_b=6,
+        density_a=0.5,
+        density_b=0.5,
+        hnr_a=2.0,
+        hnr_b=2.0,
     )
 
     # With bad Camelot (0.5), high HNR should produce LOWER score
@@ -292,8 +335,10 @@ def test_score_groove_with_kick_prominence():
 
     # Same onset rate but very different kick prominence
     score = service.score_groove(
-        onset_a=5.0, onset_b=5.0,
-        kick_a=0.9, kick_b=0.1,
+        onset_a=5.0,
+        onset_b=5.0,
+        kick_a=0.9,
+        kick_b=0.1,
     )
     # onset_score=1.0, kick_score=1-0.8=0.2 → 0.7*1.0 + 0.3*0.2 = 0.76
     assert 0.70 < score < 0.82
