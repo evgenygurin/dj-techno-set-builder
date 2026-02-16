@@ -568,6 +568,86 @@ class WorkflowOrchestrator:
 
         return set_version_id
 
+    async def stage_8_export(self, set_version_id: int) -> dict[str, object]:
+        """Stage 8: Export set to M3U/JSON formats.
+
+        Args:
+            set_version_id: Set version ID to export
+
+        Returns:
+            Export statistics dict
+        """
+        stage_name = "exports"
+
+        # Check checkpoint
+        if self.checkpoint.exists(stage_name):
+            logger.info("✓ Stage 8: Loading from checkpoint")
+            data = self.checkpoint.load(stage_name)
+            return data if data else {}
+
+        logger.info(f"Stage 8: Exporting set version {set_version_id}...")
+
+        import json
+
+        from app.database import session_factory
+        from app.repositories.sets import DjSetItemRepository
+        from app.repositories.tracks import TrackRepository
+
+        export_paths: dict[str, str] = {}
+
+        async with session_factory() as session:
+            item_repo = DjSetItemRepository(session)
+            track_repo = TrackRepository(session)
+
+            # Get set items
+            items, _ = await item_repo.list_by_version(set_version_id, limit=1000)
+
+            # Collect track data
+            track_paths: list[str] = []
+            track_data: list[dict[str, object]] = []
+
+            for item in items:
+                track = await track_repo.get_by_id(item.track_id)
+                if not track:
+                    continue
+
+                # Generate filename
+                sanitized = self._sanitize_title(track.title)
+                filename = f"{track.track_id}_{sanitized}.mp3"
+                audio_path = self.tracks_dir / filename
+
+                track_paths.append(str(audio_path))
+                track_data.append({
+                    "track_id": track.track_id,
+                    "title": track.title,
+                    "duration_ms": track.duration_ms,
+                    "file_path": str(audio_path),
+                    "sort_index": item.sort_index,
+                })
+
+            # Export to M3U
+            m3u_path = self.set_dir / f"{self.set_name}.m3u"
+            m3u_path.write_text("\n".join(track_paths))
+            export_paths["m3u"] = str(m3u_path)
+
+            # Export to JSON
+            json_path = self.set_dir / f"{self.set_name}.json"
+            json_path.write_text(json.dumps(track_data, indent=2))
+            export_paths["json"] = str(json_path)
+
+            # TODO: Rekordbox XML export (complex format)
+
+        logger.info(f"✓ Stage 8: Exported to {len(export_paths)} formats")
+
+        # Save checkpoint
+        stats: dict[str, object] = {
+            "export_paths": export_paths,
+            "formats": list(export_paths.keys()),
+        }
+        self.checkpoint.save(stage_name, stats)
+
+        return stats
+
     @staticmethod
     def _sanitize_title(title: str, max_len: int = 50) -> str:
         """Sanitize title for use in filename (matches DownloadService).
@@ -641,7 +721,11 @@ class WorkflowOrchestrator:
         set_version_id = await self.stage_7_generate_set(finalist_ids)
         logger.info(f"Generated set version {set_version_id}")
 
-        logger.info("Workflow stages 1-7 complete")
+        # Stage 8: Export
+        export_stats = await self.stage_8_export(set_version_id)
+        logger.info(f"Exported to {len(export_stats['formats'])} formats")  # type: ignore[arg-type]
+
+        logger.info("✅ Workflow complete — all 8 stages done!")
 
 async def async_main() -> None:
     """Async CLI entry point."""
