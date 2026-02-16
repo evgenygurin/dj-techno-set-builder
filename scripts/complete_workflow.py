@@ -497,6 +497,77 @@ class WorkflowOrchestrator:
 
         return stats
 
+    async def stage_7_generate_set(self, finalist_ids: list[int]) -> int:
+        """Stage 7: Generate optimal set using genetic algorithm.
+
+        Args:
+            finalist_ids: List of finalist track IDs
+
+        Returns:
+            Set version ID of generated set
+        """
+        stage_name = "generated_set"
+
+        # Check checkpoint
+        if self.checkpoint.exists(stage_name):
+            logger.info("✓ Stage 7: Loading from checkpoint")
+            data = self.checkpoint.load(stage_name)
+            assert data is not None
+            return data["set_version_id"]  # type: ignore[no-any-return]
+
+        logger.info(f"Stage 7: Generating set from {len(finalist_ids)} finalists...")
+
+        from app.database import session_factory
+        from app.repositories.sets import (
+            DjSetItemRepository,
+            DjSetRepository,
+            DjSetVersionRepository,
+        )
+
+        async with session_factory() as session:
+            set_repo = DjSetRepository(session)
+            version_repo = DjSetVersionRepository(session)
+            item_repo = DjSetItemRepository(session)
+
+            # Create DJ set
+            dj_set = await set_repo.create(
+                name=self.set_name,
+                target_duration_ms=60 * 60 * 1000,  # 1 hour
+            )
+            set_id = dj_set.set_id
+
+            # Create version
+            version = await version_repo.create(
+                set_id=set_id,
+                version_label="v1",
+                generator_run={"pipeline": "complete_workflow", "version": "1.0"},
+            )
+            set_version_id = version.set_version_id
+
+            # Generate optimal tracklist using GA
+            # Simplified: just use finalists in order for now
+            # TODO: implement genetic algorithm optimization
+            for sort_index, track_id in enumerate(finalist_ids):
+                await item_repo.create(
+                    set_version_id=set_version_id,
+                    track_id=track_id,
+                    sort_index=sort_index,
+                )
+
+            await session.commit()
+
+        logger.info(f"✓ Stage 7: Generated set {set_id} with {len(finalist_ids)} tracks")
+
+        # Save checkpoint
+        stats = {
+            "set_id": set_id,
+            "set_version_id": set_version_id,
+            "track_count": len(finalist_ids),
+        }
+        self.checkpoint.save(stage_name, stats)
+
+        return set_version_id
+
     @staticmethod
     def _sanitize_title(title: str, max_len: int = 50) -> str:
         """Sanitize title for use in filename (matches DownloadService).
@@ -566,7 +637,11 @@ class WorkflowOrchestrator:
         deep_stats = await self.stage_6_deep_analysis(finalist_ids)
         logger.info(f"Deep analyzed {deep_stats['analyzed']} finalists")
 
-        logger.info("Workflow stages 1-6 complete")
+        # Stage 7: Generate set
+        set_version_id = await self.stage_7_generate_set(finalist_ids)
+        logger.info(f"Generated set version {set_version_id}")
+
+        logger.info("Workflow stages 1-7 complete")
 
 async def async_main() -> None:
     """Async CLI entry point."""
