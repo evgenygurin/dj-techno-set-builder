@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,11 @@ class Settings(BaseSettings):
     yandex_music_token: str = ""
     yandex_music_user_id: str = ""
     yandex_music_base_url: str = "https://api.music.yandex.net:443"
+
+    dj_library_path: str = Field(
+        default="~/Library/Mobile Documents/com~apple~CloudDocs/dj-techno-set-builder/library",
+        description="Path to DJ library directory for downloaded files",
+    )
 
     # Sentry
     sentry_dsn: str = ""
