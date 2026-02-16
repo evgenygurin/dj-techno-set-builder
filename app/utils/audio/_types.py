@@ -151,3 +151,4 @@ class TrackFeatures:
     band_energy: BandEnergyResult
     spectral: SpectralResult
     beats: BeatsResult | None = None  # Phase 2: optional
+    mfcc: MfccResult | None = None  # Phase 2: optional
