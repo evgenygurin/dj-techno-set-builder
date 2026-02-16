@@ -51,7 +51,8 @@ class WorkflowOrchestrator:
         if self.checkpoint.exists(stage_name):
             logger.info("✓ Stage 1: Loading from checkpoint")
             data = self.checkpoint.load(stage_name)
-            return data["track_ids"]
+            assert data is not None
+            return data["track_ids"]  # type: ignore[no-any-return]
 
         logger.info("Stage 1: Fetching playlist from Yandex Music...")
 
@@ -94,7 +95,7 @@ class WorkflowOrchestrator:
 
         return track_ids
 
-    async def stage_2_import_metadata(self, track_ids: list[int]) -> dict:
+    async def stage_2_import_metadata(self, track_ids: list[int]) -> dict[str, object]:
         """Stage 2: Import track metadata into database.
 
         Args:
@@ -108,16 +109,17 @@ class WorkflowOrchestrator:
         # Check if checkpoint exists
         if self.checkpoint.exists(stage_name):
             logger.info("✓ Stage 2: Loading from checkpoint")
-            return self.checkpoint.load(stage_name)
+            data = self.checkpoint.load(stage_name)
+            return data if data else {}
 
         logger.info(f"Stage 2: Importing metadata for {len(track_ids)} tracks...")
 
         # Import services
         from app.config import settings
         from app.database import session_factory
-        from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
-        from app.repositories.tracks import TrackRepository
         from app.models.ingestion import ProviderTrackId
+        from app.repositories.tracks import TrackRepository
+        from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
 
         imported = 0
         skipped = 0
@@ -179,7 +181,7 @@ class WorkflowOrchestrator:
 
         return stats
 
-    async def stage_3_download_tracks(self, track_ids: list[int]) -> dict:
+    async def stage_3_download_tracks(self, track_ids: list[int]) -> dict[str, object]:
         """Stage 3: Download MP3 files from Yandex Music.
 
         Args:
@@ -193,7 +195,8 @@ class WorkflowOrchestrator:
         # Check if checkpoint exists
         if self.checkpoint.exists(stage_name):
             logger.info("✓ Stage 3: Loading from checkpoint")
-            return self.checkpoint.load(stage_name)
+            data = self.checkpoint.load(stage_name)
+            return data if data else {}
 
         logger.info(f"Stage 3: Downloading {len(track_ids)} tracks...")
 
@@ -235,6 +238,142 @@ class WorkflowOrchestrator:
 
         return stats
 
+    async def stage_4_quick_analysis(self, track_ids: list[int]) -> dict[str, object]:
+        """Stage 4: Quick audio analysis (BPM, key, energy) for all tracks.
+
+        Args:
+            track_ids: List of track IDs to analyze
+
+        Returns:
+            Analysis statistics dict
+        """
+        stage_name = "quick_analysis"
+
+        # Check if checkpoint exists
+        if self.checkpoint.exists(stage_name):
+            logger.info("✓ Stage 4: Loading from checkpoint")
+            data = self.checkpoint.load(stage_name)
+            return data if data else {}
+
+        logger.info(f"Stage 4: Quick analysis for {len(track_ids)} tracks...")
+
+        # Import services and repos
+        from app.database import session_factory
+        from app.repositories.audio_features import AudioFeaturesRepository
+        from app.repositories.runs import FeatureRunRepository
+        from app.repositories.tracks import TrackRepository
+        from app.services.track_analysis import TrackAnalysisService
+
+        analyzed = 0
+        skipped = 0
+        failed_ids = []
+
+        async with session_factory() as session:
+            # Create repositories
+            track_repo = TrackRepository(session)
+            features_repo = AudioFeaturesRepository(session)
+            run_repo = FeatureRunRepository(session)
+
+            # Create FeatureExtractionRun
+            run = await run_repo.create(
+                pipeline_name="complete_workflow",
+                pipeline_version="1.0",
+                parameters={"stage": "quick_analysis", "use_ml": False},
+            )
+            run_id = run.run_id
+            await session.commit()
+
+            # Create analysis service
+            analysis_service = TrackAnalysisService(
+                track_repo=track_repo,
+                features_repo=features_repo,
+            )
+
+            for track_id in track_ids:
+                try:
+                    # Get track from DB
+                    track = await track_repo.get_by_id(track_id)
+                    if not track:
+                        logger.warning(f"Track {track_id} not found in database")
+                        failed_ids.append(track_id)
+                        continue
+
+                    # Check if already analyzed
+                    existing = await features_repo.get_by_track(track_id, run_id)
+                    if existing:
+                        skipped += 1
+                        continue
+
+                    # Generate filename (same pattern as DownloadService)
+                    sanitized = self._sanitize_title(track.title)
+                    filename = f"{track.track_id}_{sanitized}.mp3"
+                    audio_path = self.tracks_dir / filename
+
+                    if not audio_path.exists():
+                        logger.warning(f"Audio file not found: {audio_path}")
+                        failed_ids.append(track_id)
+                        continue
+
+                    # Quick analysis
+                    await analysis_service.analyze_track(
+                        track_id=track_id,
+                        audio_path=audio_path,
+                        run_id=run_id,
+                    )
+                    analyzed += 1
+
+                except Exception as e:
+                    logger.error(f"Failed to analyze track {track_id}: {e}")
+                    failed_ids.append(track_id)
+
+            # Mark run as completed
+            await run_repo.mark_completed(run_id)
+            await session.commit()
+
+        logger.info(f"✓ Stage 4: Analyzed {analyzed}, skipped {skipped}, failed {len(failed_ids)}")
+
+        # Save checkpoint
+        stats = {
+            "analyzed": analyzed,
+            "skipped": skipped,
+            "failed": len(failed_ids),
+            "failed_track_ids": failed_ids,
+            "run_id": run_id,
+        }
+        self.checkpoint.save(stage_name, stats)
+
+        return stats
+
+    @staticmethod
+    def _sanitize_title(title: str, max_len: int = 50) -> str:
+        """Sanitize title for use in filename (matches DownloadService).
+
+        Removes special characters, replaces spaces with underscores,
+        converts to lowercase, truncates to max_len.
+
+        Args:
+            title: Track title to sanitize
+            max_len: Maximum length (default: 50)
+
+        Returns:
+            Sanitized filename-safe string, or "untitled" if empty
+        """
+        import re
+
+        # Remove special characters: / \ : * ? " < > |
+        safe = re.sub(r'[/\\:*?"<>|]', '', title)
+        # Replace spaces with underscores
+        safe = safe.replace(' ', '_')
+        # Replace multiple underscores with single
+        safe = re.sub(r'_+', '_', safe)
+        # Lowercase
+        safe = safe.lower()
+        # Truncate to max_len
+        safe = safe[:max_len]
+        # Remove trailing underscores
+        safe = safe.rstrip('_')
+        return safe or "untitled"
+
     async def run(self) -> None:
         """Run complete workflow from start to finish."""
         logger.info("Starting complete workflow...")
@@ -256,12 +395,17 @@ class WorkflowOrchestrator:
 
         # Stage 3: Download tracks
         download_stats = await self.stage_3_download_tracks(track_ids)
+        total_mb = download_stats['total_bytes'] / 1024 / 1024  # type: ignore[operator]
         logger.info(
             f"Downloaded {download_stats['downloaded']} tracks "
-            f"({download_stats['total_bytes'] / 1024 / 1024:.1f} MB)"
+            f"({total_mb:.1f} MB)"
         )
 
-        logger.info("Workflow stages 1-3 complete")
+        # Stage 4: Quick analysis
+        analysis_stats = await self.stage_4_quick_analysis(track_ids)
+        logger.info(f"Analyzed {analysis_stats['analyzed']} tracks")
+
+        logger.info("Workflow stages 1-4 complete")
 
 async def async_main() -> None:
     """Async CLI entry point."""

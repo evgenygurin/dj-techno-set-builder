@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 
+
 class CheckpointManager:
     """Manages JSON checkpoints for workflow stages."""
 
