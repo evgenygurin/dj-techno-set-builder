@@ -120,9 +120,7 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
             chroma=json.dumps([float(v) for v in features.key.chroma]),
             chroma_entropy=features.key.chroma_entropy,
             # Phase 2: MFCC (optional)
-            mfcc_vector=(
-                json.dumps(features.mfcc.coefficients) if features.mfcc else None
-            ),
+            mfcc_vector=(json.dumps(features.mfcc.coefficients) if features.mfcc else None),
             # Phase 2: beats (optional)
             onset_rate_mean=beats.onset_rate_mean if beats else None,
             onset_rate_max=beats.onset_rate_max if beats else None,

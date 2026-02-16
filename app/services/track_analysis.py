@@ -150,9 +150,7 @@ class TrackAnalysisService(BaseService):
 
             mfcc_result = extract_mfcc(signal)
         except Exception:
-            self.logger.warning(
-                "MFCC extraction failed for track %d", track_id, exc_info=True
-            )
+            self.logger.warning("MFCC extraction failed for track %d", track_id, exc_info=True)
 
         return TrackFeatures(
             bpm=bpm_result,

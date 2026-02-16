@@ -105,3 +105,19 @@ When implementing non-trivial changes, verify all relevant items:
 4. `uv run mypy app/` passes.
 5. `uv run pytest -v` passes (or at least touched subset, then full suite when possible).
 6. If DB shape changed: update Alembic migration and keep `schema_v6.sql`/docs in sync when requested.
+
+## Delegated Execution Guardrail (required)
+
+When an agent is delegated a Linear/dev task, it must execute implementation work with available repo tools and may not stop with a generic "tool unavailable" response.
+
+- Do not block on non-essential messaging APIs/tools (for example `send_message`-like helpers).
+- If a specific helper tool is missing, continue with shell/file/repo tools and complete the coding scope as far as possible.
+- Only mark work complete after concrete artifacts exist:
+  - changed files,
+  - test command(s) run and outcome,
+  - commit/PR reference,
+  - short list of residual risks.
+- If truly blocked, report an explicit blocker:
+  - exact missing capability/tool,
+  - exact command or action that failed,
+  - what was already implemented before blocking.
