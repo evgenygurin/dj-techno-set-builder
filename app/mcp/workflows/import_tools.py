@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastmcp import FastMCP
+from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
+from app.config import settings
+from app.mcp.dependencies import get_track_service, get_ym_client
 from app.mcp.types import ImportResult
+from app.services.download import DownloadResult, DownloadService
+from app.services.tracks import TrackService
+from app.services.yandex_music_client import YandexMusicClient
 
 
 def register_import_tools(mcp: FastMCP) -> None:
@@ -87,3 +95,47 @@ def register_import_tools(mcp: FastMCP) -> None:
             skipped_count=len(track_ids),
             enriched_count=0,
         )
+
+    @mcp.tool(
+        name="download_tracks",
+        description="Download MP3 files for tracks from Yandex Music to iCloud library",
+        tags={"download", "yandex"},
+        annotations={"readonly": False},
+    )
+    async def download_tracks(
+        track_ids: list[int],
+        prefer_bitrate: int = 320,
+        ctx: Context | None = None,
+        track_svc: TrackService = Depends(get_track_service),
+        ym_client: YandexMusicClient = Depends(get_ym_client),
+    ) -> DownloadResult:
+        """Download tracks from Yandex Music to local library.
+
+        Downloads MP3 files and stores them in iCloud library directory.
+        Skips tracks that already have files. Returns download statistics.
+
+        Args:
+            track_ids: List of track IDs to download
+            prefer_bitrate: Preferred bitrate in kbps (default: 320)
+
+        Returns:
+            Download statistics (downloaded, skipped, failed counts)
+
+        Example:
+            >>> await download_tracks([1, 2, 3], prefer_bitrate=320)
+            DownloadResult(downloaded=2, skipped=1, failed=0, ...)
+        """
+        library_path = Path(settings.dj_library_path)
+
+        download_svc = DownloadService(
+            session=track_svc.session,
+            ym_client=ym_client,
+            library_path=library_path,
+        )
+
+        result = await download_svc.download_tracks_batch(
+            track_ids=track_ids,
+            prefer_bitrate=prefer_bitrate,
+        )
+
+        return result
