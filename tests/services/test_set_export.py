@@ -1,4 +1,4 @@
-"""Tests for M3U and JSON set export.
+"""Tests for M3U, JSON, and Rekordbox XML set export.
 
 Covers:
 - Extended M3U8 header, EXTINF, EXTART, EXTGENRE
@@ -6,12 +6,19 @@ Covers:
 - Custom #EXTDJ-* directives: BPM, KEY, ENERGY, CUE, LOOP, SECTION, EQ, NOTE
 - #EXTDJ-TRANSITION between consecutive tracks
 - JSON guide: metadata, transitions, analytics, cue points, loops, sections
+- Rekordbox XML (DJ_PLAYLISTS): structure, tracks, tempos, position marks
 - Edge cases: empty tracks, missing fields, partial data
 """
 
 import json
+import xml.etree.ElementTree as ET
 
-from app.services.set_export import export_json_guide, export_m3u
+from app.services.rekordbox_types import (
+    RekordboxCuePoint,
+    RekordboxTempo,
+    RekordboxTrackData,
+)
+from app.services.set_export import export_json_guide, export_m3u, export_rekordbox_xml
 from app.utils.audio._types import TransitionRecommendation, TransitionType
 
 # ---------------------------------------------------------------------------
@@ -1098,3 +1105,495 @@ class TestJsonGuideComprehensive:
         assert data["analytics"]["bpm_range"] == [138, 140]
         assert data["analytics"]["energy_range"] == [-7.2, -6.0]
         assert data["analytics"]["total_duration_s"] == 800
+
+
+# ---------------------------------------------------------------------------
+# Rekordbox XML: helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_xml(xml_str: str) -> ET.Element:
+    """Parse XML string and return root element."""
+    return ET.fromstring(xml_str)
+
+
+def _make_rb_track(**overrides: object) -> RekordboxTrackData:
+    """Create a minimal RekordboxTrackData with optional overrides."""
+    defaults: dict[str, object] = {
+        "track_id": 1,
+        "name": "Test Track",
+        "artist": "Test Artist",
+        "duration_s": 300,
+        "location": "file://localhost/Music/001.%20Test.mp3",
+    }
+    defaults.update(overrides)
+    return RekordboxTrackData(**defaults)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Rekordbox XML: structure
+# ---------------------------------------------------------------------------
+
+
+class TestRekordboxXMLStructure:
+    """Top-level XML structure tests."""
+
+    def test_empty_collection(self):
+        xml = export_rekordbox_xml([], set_name="Empty Set")
+        root = _parse_xml(xml)
+        assert root.tag == "DJ_PLAYLISTS"
+        assert root.attrib["Version"] == "1.0.0"
+
+    def test_product_element(self):
+        xml = export_rekordbox_xml([], set_name="Test")
+        root = _parse_xml(xml)
+        product = root.find("PRODUCT")
+        assert product is not None
+        assert product.attrib["Name"] == "DJ Techno Set Builder"
+
+    def test_collection_entries_count(self):
+        tracks = [_make_rb_track(track_id=i) for i in range(3)]
+        xml = export_rekordbox_xml(tracks, set_name="Test")
+        root = _parse_xml(xml)
+        coll = root.find("COLLECTION")
+        assert coll is not None
+        assert coll.attrib["Entries"] == "3"
+
+    def test_playlist_node(self):
+        tracks = [_make_rb_track(track_id=1)]
+        xml = export_rekordbox_xml(tracks, set_name="Friday Night")
+        root = _parse_xml(xml)
+        playlists = root.find("PLAYLISTS")
+        assert playlists is not None
+        root_node = playlists.find("NODE")
+        assert root_node is not None
+        assert root_node.attrib["Type"] == "0"
+        assert root_node.attrib["Name"] == "ROOT"
+        inner = root_node.find("NODE")
+        assert inner is not None
+        assert inner.attrib["Name"] == "Friday Night"
+        assert inner.attrib["Type"] == "1"
+        assert inner.attrib["Entries"] == "1"
+        track_refs = inner.findall("TRACK")
+        assert len(track_refs) == 1
+        assert track_refs[0].attrib["Key"] == "1"
+
+
+class TestRekordboxXMLTrackAttributes:
+    """TRACK element attribute mapping."""
+
+    def test_required_attributes(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    track_id=42,
+                    name="Exhale",
+                    artist="Amelie Lens",
+                    duration_s=420,
+                )
+            ],
+            set_name="Test",
+        )
+        root = _parse_xml(xml)
+        track = root.find(".//COLLECTION/TRACK")
+        assert track is not None
+        assert track.attrib["TrackID"] == "42"
+        assert track.attrib["Name"] == "Exhale"
+        assert track.attrib["Artist"] == "Amelie Lens"
+        assert track.attrib["TotalTime"] == "420"
+
+    def test_optional_attributes(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    bpm=136.0,
+                    tonality="Am",
+                    album="Night",
+                    genre="Techno",
+                    label="Lenske",
+                    year=2025,
+                    date_added="2025-12-01",
+                    comments="Peak",
+                    colour="0xFF0000",
+                )
+            ],
+            set_name="Test",
+        )
+        track = _parse_xml(xml).find(".//COLLECTION/TRACK")
+        assert track is not None
+        assert track.attrib["AverageBpm"] == "136.00"
+        assert track.attrib["Tonality"] == "Am"
+        assert track.attrib["Album"] == "Night"
+        assert track.attrib["Genre"] == "Techno"
+        assert track.attrib["Label"] == "Lenske"
+        assert track.attrib["Year"] == "2025"
+        assert track.attrib["DateAdded"] == "2025-12-01"
+        assert track.attrib["Comments"] == "Peak"
+        assert track.attrib["Colour"] == "0xFF0000"
+
+    def test_location_format(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    location="file://localhost/Users/dj/Music/001.%20Exhale.mp3",
+                )
+            ],
+            set_name="Test",
+        )
+        track = _parse_xml(xml).find(".//COLLECTION/TRACK")
+        assert track is not None
+        assert (
+            track.attrib["Location"]
+            == "file://localhost/Users/dj/Music/001.%20Exhale.mp3"
+        )
+
+
+class TestRekordboxXMLTempo:
+    """TEMPO element (beatgrid) tests."""
+
+    def test_single_tempo(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    tempos=[RekordboxTempo(position_s=0.098, bpm=136.0)],
+                )
+            ],
+            set_name="Test",
+        )
+        track = _parse_xml(xml).find(".//COLLECTION/TRACK")
+        assert track is not None
+        tempo = track.find("TEMPO")
+        assert tempo is not None
+        assert tempo.attrib["Inizio"] == "0.098"
+        assert tempo.attrib["Bpm"] == "136.00"
+        assert tempo.attrib["Metro"] == "4/4"
+        assert tempo.attrib["Battito"] == "1"
+
+    def test_variable_tempo(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    tempos=[
+                        RekordboxTempo(position_s=0.098, bpm=128.0),
+                        RekordboxTempo(position_s=120.5, bpm=130.0),
+                    ]
+                )
+            ],
+            set_name="Test",
+        )
+        track = _parse_xml(xml).find(".//COLLECTION/TRACK")
+        assert track is not None
+        tempos = track.findall("TEMPO")
+        assert len(tempos) == 2
+        assert tempos[1].attrib["Bpm"] == "130.00"
+
+    def test_no_tempo_means_no_element(self):
+        xml = export_rekordbox_xml([_make_rb_track()], set_name="Test")
+        track = _parse_xml(xml).find(".//COLLECTION/TRACK")
+        assert track is not None
+        assert track.find("TEMPO") is None
+
+
+class TestRekordboxXMLPositionMarks:
+    """POSITION_MARK element tests for all cue types."""
+
+    def test_hot_cue(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    position_marks=[
+                        RekordboxCuePoint(
+                            position_s=64.098,
+                            cue_type=0,
+                            hotcue_num=0,
+                            name="Drop",
+                            red=255,
+                            green=0,
+                            blue=0,
+                        ),
+                    ]
+                )
+            ],
+            set_name="Test",
+        )
+        track = _parse_xml(xml).find(".//COLLECTION/TRACK")
+        assert track is not None
+        pm = track.find("POSITION_MARK")
+        assert pm is not None
+        assert pm.attrib["Type"] == "0"
+        assert pm.attrib["Num"] == "0"
+        assert pm.attrib["Name"] == "Drop"
+        assert pm.attrib["Start"] == "64.098"
+        assert pm.attrib["Red"] == "255"
+        assert pm.attrib["Green"] == "0"
+        assert pm.attrib["Blue"] == "0"
+
+    def test_memory_cue(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    position_marks=[
+                        RekordboxCuePoint(
+                            position_s=128.0,
+                            cue_type=0,
+                            hotcue_num=-1,
+                            name="Break",
+                        ),
+                    ]
+                )
+            ],
+            set_name="Test",
+        )
+        pm = _parse_xml(xml).find(".//COLLECTION/TRACK/POSITION_MARK")
+        assert pm is not None
+        assert pm.attrib["Num"] == "-1"
+        # Memory cues should NOT have Red/Green/Blue
+        assert "Red" not in pm.attrib
+
+    def test_fade_in(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    position_marks=[
+                        RekordboxCuePoint(
+                            position_s=0.098,
+                            cue_type=1,
+                            hotcue_num=-1,
+                            end_s=32.098,
+                        ),
+                    ]
+                )
+            ],
+            set_name="Test",
+        )
+        pm = _parse_xml(xml).find(".//COLLECTION/TRACK/POSITION_MARK")
+        assert pm is not None
+        assert pm.attrib["Type"] == "1"
+        assert pm.attrib["Start"] == "0.098"
+        assert pm.attrib["End"] == "32.098"
+
+    def test_fade_out(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    position_marks=[
+                        RekordboxCuePoint(
+                            position_s=384.0,
+                            cue_type=2,
+                            hotcue_num=-1,
+                            end_s=420.0,
+                        ),
+                    ]
+                )
+            ],
+            set_name="Test",
+        )
+        pm = _parse_xml(xml).find(".//COLLECTION/TRACK/POSITION_MARK")
+        assert pm is not None
+        assert pm.attrib["Type"] == "2"
+        assert pm.attrib["End"] == "420.000"
+
+    def test_load_point(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    position_marks=[
+                        RekordboxCuePoint(
+                            position_s=0.098,
+                            cue_type=3,
+                            hotcue_num=-1,
+                        ),
+                    ]
+                )
+            ],
+            set_name="Test",
+        )
+        pm = _parse_xml(xml).find(".//COLLECTION/TRACK/POSITION_MARK")
+        assert pm is not None
+        assert pm.attrib["Type"] == "3"
+
+    def test_loop(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    position_marks=[
+                        RekordboxCuePoint(
+                            position_s=192.098,
+                            cue_type=4,
+                            hotcue_num=2,
+                            end_s=200.098,
+                            name="Build Loop",
+                            red=255,
+                            green=128,
+                            blue=0,
+                        ),
+                    ]
+                )
+            ],
+            set_name="Test",
+        )
+        pm = _parse_xml(xml).find(".//COLLECTION/TRACK/POSITION_MARK")
+        assert pm is not None
+        assert pm.attrib["Type"] == "4"
+        assert pm.attrib["Start"] == "192.098"
+        assert pm.attrib["End"] == "200.098"
+        assert pm.attrib["Num"] == "2"
+        assert pm.attrib["Name"] == "Build Loop"
+
+    def test_memory_loop(self):
+        xml = export_rekordbox_xml(
+            [
+                _make_rb_track(
+                    position_marks=[
+                        RekordboxCuePoint(
+                            position_s=96.0,
+                            cue_type=4,
+                            hotcue_num=-1,
+                            end_s=104.0,
+                            name="Breakdown",
+                        ),
+                    ]
+                )
+            ],
+            set_name="Test",
+        )
+        pm = _parse_xml(xml).find(".//COLLECTION/TRACK/POSITION_MARK")
+        assert pm is not None
+        assert pm.attrib["Num"] == "-1"
+        assert "Red" not in pm.attrib
+
+    def test_multiple_marks_ordered(self):
+        marks = [
+            RekordboxCuePoint(position_s=0.0, cue_type=3, hotcue_num=-1),
+            RekordboxCuePoint(
+                position_s=0.0, cue_type=0, hotcue_num=-1, name="Intro"
+            ),
+            RekordboxCuePoint(
+                position_s=64.0,
+                cue_type=0,
+                hotcue_num=0,
+                name="Drop",
+                red=255,
+                green=0,
+                blue=0,
+            ),
+            RekordboxCuePoint(
+                position_s=0.0, cue_type=1, hotcue_num=-1, end_s=32.0
+            ),
+            RekordboxCuePoint(
+                position_s=384.0, cue_type=2, hotcue_num=-1, end_s=420.0
+            ),
+            RekordboxCuePoint(
+                position_s=192.0, cue_type=4, hotcue_num=-1, end_s=200.0
+            ),
+        ]
+        xml = export_rekordbox_xml(
+            [_make_rb_track(position_marks=marks)],
+            set_name="Test",
+        )
+        pms = _parse_xml(xml).findall(".//COLLECTION/TRACK/POSITION_MARK")
+        assert len(pms) == 6
+
+
+class TestRekordboxXMLComprehensive:
+    """Full-featured export test."""
+
+    def test_full_set(self):
+        tracks = [
+            RekordboxTrackData(
+                track_id=1,
+                name="Exhale",
+                artist="Amelie Lens",
+                duration_s=420,
+                location="file://localhost/Music/001.%20Amelie%20Lens%20-%20Exhale.mp3",
+                bpm=136.0,
+                tonality="Am",
+                genre="Techno",
+                label="Lenske",
+                year=2025,
+                date_added="2025-12-01",
+                colour="0xFF0000",
+                tempos=[RekordboxTempo(position_s=0.098, bpm=136.0)],
+                position_marks=[
+                    RekordboxCuePoint(
+                        position_s=0.098, cue_type=3, hotcue_num=-1
+                    ),
+                    RekordboxCuePoint(
+                        position_s=0.098,
+                        cue_type=0,
+                        hotcue_num=-1,
+                        name="Intro",
+                    ),
+                    RekordboxCuePoint(
+                        position_s=64.098,
+                        cue_type=0,
+                        hotcue_num=0,
+                        name="Drop",
+                        red=255,
+                        green=0,
+                        blue=0,
+                    ),
+                    RekordboxCuePoint(
+                        position_s=0.098,
+                        cue_type=1,
+                        hotcue_num=-1,
+                        end_s=32.098,
+                    ),
+                    RekordboxCuePoint(
+                        position_s=384.0,
+                        cue_type=2,
+                        hotcue_num=-1,
+                        end_s=420.0,
+                    ),
+                    RekordboxCuePoint(
+                        position_s=192.0,
+                        cue_type=4,
+                        hotcue_num=-1,
+                        end_s=200.0,
+                        name="Build",
+                    ),
+                ],
+            ),
+            RekordboxTrackData(
+                track_id=2,
+                name="Remembrance",
+                artist="ANNA",
+                duration_s=390,
+                location="file://localhost/Music/002.%20ANNA%20-%20Remembrance.mp3",
+                bpm=138.0,
+                tonality="Cm",
+            ),
+        ]
+        xml = export_rekordbox_xml(tracks, set_name="Friday Night Techno")
+        root = _parse_xml(xml)
+
+        # Structure
+        assert root.tag == "DJ_PLAYLISTS"
+        coll = root.find("COLLECTION")
+        assert coll is not None
+        assert coll.attrib["Entries"] == "2"
+        xml_tracks = coll.findall("TRACK")
+        assert len(xml_tracks) == 2
+
+        # First track has all metadata
+        t1 = xml_tracks[0]
+        assert t1.attrib["AverageBpm"] == "136.00"
+        assert t1.find("TEMPO") is not None
+        assert len(t1.findall("POSITION_MARK")) == 6
+
+        # Second track is minimal
+        t2 = xml_tracks[1]
+        assert t2.attrib["AverageBpm"] == "138.00"
+        assert t2.find("TEMPO") is None
+        assert len(t2.findall("POSITION_MARK")) == 0
+
+        # Playlist references
+        playlist = root.find(".//PLAYLISTS/NODE/NODE")
+        assert playlist is not None
+        assert playlist.attrib["Name"] == "Friday Night Techno"
+        refs = playlist.findall("TRACK")
+        assert [r.attrib["Key"] for r in refs] == ["1", "2"]
+
+    def test_valid_xml_declaration(self):
+        xml = export_rekordbox_xml([], set_name="Test")
+        assert xml.startswith('<?xml version=\'1.0\' encoding=\'UTF-8\'?>')

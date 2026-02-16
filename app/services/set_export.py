@@ -1,4 +1,4 @@
-"""M3U and JSON export for DJ sets.
+"""M3U, JSON, and Rekordbox XML export for DJ sets.
 
 Generates:
 - **Extended M3U8** for djay Pro / VLC / rekordbox import with:
@@ -10,6 +10,9 @@ Generates:
     loops, transitions, sections, and planned EQ
 - **JSON transition guide** as a DJ cheat sheet with full scoring,
   transition recommendations, cue points, and set analytics.
+- **Rekordbox XML** (``DJ_PLAYLISTS``) with full metadata: tracks,
+  beatgrid (TEMPO), cue points, loops, mix points, load point
+  (POSITION_MARK), and playlist tree.
 
 Custom ``#EXTDJ-*`` lines follow the M3U convention: players that do
 not recognise them simply skip them (safe backward compatibility).
@@ -20,8 +23,11 @@ Pure functions -- no DB dependencies.
 from __future__ import annotations
 
 import json
+import xml.etree.ElementTree as ET
+from io import BytesIO
 from typing import Any
 
+from app.services.rekordbox_types import RekordboxTrackData
 from app.utils.audio._types import TransitionRecommendation
 
 # ---------------------------------------------------------------------------
@@ -304,3 +310,115 @@ def export_json_guide(
         guide["analytics"] = analytics
 
     return json.dumps(guide, indent=2, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# Rekordbox XML export
+# ---------------------------------------------------------------------------
+
+
+def export_rekordbox_xml(
+    tracks: list[RekordboxTrackData],
+    *,
+    set_name: str,
+    product_name: str = "DJ Techno Set Builder",
+    product_version: str = "0.1.0",
+) -> str:
+    """Generate Rekordbox XML (DJ_PLAYLISTS) with full DJ metadata.
+
+    Produces an XML file compatible with Rekordbox, djay Pro, Mixxx,
+    and Traktor (via converter).
+
+    Args:
+        tracks: Ordered list of track data.
+        set_name: Playlist / set name.
+        product_name: Name for the PRODUCT element.
+        product_version: Version for the PRODUCT element.
+
+    Returns:
+        UTF-8 XML string with ``<?xml ...?>`` declaration.
+    """
+    root = ET.Element("DJ_PLAYLISTS", Version="1.0.0")
+    ET.SubElement(root, "PRODUCT", Name=product_name, Version=product_version, Company="")
+
+    # --- COLLECTION ---
+    collection = ET.SubElement(root, "COLLECTION", Entries=str(len(tracks)))
+
+    for td in tracks:
+        attrs: dict[str, str] = {
+            "TrackID": str(td.track_id),
+            "Name": td.name,
+            "Artist": td.artist,
+            "Composer": "",
+            "Album": td.album,
+            "Grouping": "",
+            "Genre": td.genre,
+            "Kind": td.kind,
+            "Size": str(td.size),
+            "TotalTime": str(td.duration_s),
+            "DiscNumber": "0",
+            "TrackNumber": "0",
+            "Year": str(td.year) if td.year else "0",
+            "DateAdded": td.date_added,
+            "BitRate": str(td.bitrate),
+            "SampleRate": str(td.sample_rate),
+            "Comments": td.comments,
+            "PlayCount": "0",
+            "Rating": "0",
+            "Location": td.location,
+            "Remixer": "",
+            "Label": td.label,
+            "Mix": "",
+        }
+        if td.bpm is not None:
+            attrs["AverageBpm"] = f"{td.bpm:.2f}"
+        if td.tonality:
+            attrs["Tonality"] = td.tonality
+        if td.colour:
+            attrs["Colour"] = td.colour
+
+        track_el = ET.SubElement(collection, "TRACK", **attrs)
+
+        # TEMPO elements (beatgrid)
+        for tempo in td.tempos:
+            ET.SubElement(
+                track_el,
+                "TEMPO",
+                Inizio=f"{tempo.position_s:.3f}",
+                Bpm=f"{tempo.bpm:.2f}",
+                Metro=tempo.metro,
+                Battito=str(tempo.beat),
+            )
+
+        # POSITION_MARK elements
+        for pm in td.position_marks:
+            pm_attrs: dict[str, str] = {
+                "Name": pm.name,
+                "Type": str(pm.cue_type),
+                "Start": f"{pm.position_s:.3f}",
+                "Num": str(pm.hotcue_num),
+            }
+            if pm.end_s is not None:
+                pm_attrs["End"] = f"{pm.end_s:.3f}"
+            # Color only for hot cues (Num >= 0)
+            if pm.hotcue_num >= 0:
+                pm_attrs["Red"] = str(pm.red)
+                pm_attrs["Green"] = str(pm.green)
+                pm_attrs["Blue"] = str(pm.blue)
+            ET.SubElement(track_el, "POSITION_MARK", **pm_attrs)
+
+    # --- PLAYLISTS ---
+    playlists = ET.SubElement(root, "PLAYLISTS")
+    root_node = ET.SubElement(playlists, "NODE", Type="0", Name="ROOT", Count="1")
+    playlist_node = ET.SubElement(
+        root_node, "NODE", Name=set_name, Type="1", KeyType="0", Entries=str(len(tracks))
+    )
+    for td in tracks:
+        ET.SubElement(playlist_node, "TRACK", Key=str(td.track_id))
+
+    # Serialize with XML declaration
+    tree = ET.ElementTree(root)
+    ET.indent(tree, space="  ")
+    buf = BytesIO()
+    tree.write(buf, encoding="UTF-8", xml_declaration=True)
+    return buf.getvalue().decode("UTF-8")
