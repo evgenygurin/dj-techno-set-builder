@@ -1,5 +1,6 @@
 """Complete workflow orchestrator for professional techno set creation."""
 import argparse
+import asyncio
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -38,7 +39,62 @@ class WorkflowOrchestrator:
         logger.info(f"Initialized workflow for set: {self.set_name}")
         logger.info(f"Output directory: {self.set_dir}")
 
-    def run(self) -> None:
+    async def stage_1_fetch_playlist(self) -> list[int]:
+        """Stage 1: Fetch playlist from Yandex Music.
+
+        Returns:
+            List of track IDs from playlist
+        """
+        stage_name = "playlist"
+
+        # Check if checkpoint exists
+        if self.checkpoint.exists(stage_name):
+            logger.info("✓ Stage 1: Loading from checkpoint")
+            data = self.checkpoint.load(stage_name)
+            return data["track_ids"]
+
+        logger.info("Stage 1: Fetching playlist from Yandex Music...")
+
+        # Import here to avoid circular dependency
+        from app.config import settings
+        from app.services.yandex_music_client import YandexMusicClient
+
+        ym_client = YandexMusicClient(token=settings.yandex_music_token)
+
+        # Get user's playlists
+        playlists = await ym_client.fetch_user_playlists(user_id="250905515")
+
+        # Find target playlist
+        target_playlist = None
+        for playlist in playlists:
+            if playlist.get("title") == self.playlist_name:
+                target_playlist = playlist
+                break
+
+        if not target_playlist:
+            raise ValueError(f"Playlist '{self.playlist_name}' not found")
+
+        # Get playlist tracks
+        tracks = await ym_client.fetch_playlist_tracks(
+            user_id="250905515",
+            kind=str(target_playlist["kind"]),
+        )
+
+        # Extract track IDs
+        track_ids = [int(track["id"]) for track in tracks]
+
+        logger.info(f"✓ Stage 1: Found {len(track_ids)} tracks in playlist")
+
+        # Save checkpoint
+        self.checkpoint.save(stage_name, {
+            "playlist_name": self.playlist_name,
+            "track_ids": track_ids,
+            "track_count": len(track_ids),
+        })
+
+        return track_ids
+
+    async def run(self) -> None:
         """Run complete workflow from start to finish."""
         logger.info("Starting complete workflow...")
 
@@ -48,17 +104,22 @@ class WorkflowOrchestrator:
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info("✓ Directory structure created")
-        logger.info("Workflow skeleton ready (stages not implemented yet)")
 
-def main() -> None:
-    """CLI entry point."""
+        # Stage 1: Fetch playlist
+        track_ids = await self.stage_1_fetch_playlist()
+        logger.info(f"Playlist contains {len(track_ids)} tracks")
+
+        logger.info("Workflow stage 1 complete")
+
+async def async_main() -> None:
+    """Async CLI entry point."""
     parser = argparse.ArgumentParser(
         description="Create professional techno DJ set from Yandex Music playlist"
     )
     parser.add_argument(
         "--playlist",
-        default="Techno develop Recs",
-        help="Yandex Music playlist name (default: Techno develop Recs)",
+        default="Techno develop",
+        help="Yandex Music playlist name (default: Techno develop)",
     )
     parser.add_argument(
         "--base-dir",
@@ -72,7 +133,11 @@ def main() -> None:
         base_dir=Path(args.base_dir),
         playlist_name=args.playlist,
     )
-    orchestrator.run()
+    await orchestrator.run()
+
+def main() -> None:
+    """CLI entry point."""
+    asyncio.run(async_main())
 
 if __name__ == "__main__":
     main()
