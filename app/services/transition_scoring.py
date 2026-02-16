@@ -224,23 +224,39 @@ class TransitionScoringService:
         # Fallback: Phase 1 formula (no MFCC)
         return 0.50 * centroid_score + 0.50 * balance_score
 
-    def score_groove(self, onset_a: float, onset_b: float) -> float:
-        """Onset density relative difference.
+    def score_groove(
+        self,
+        onset_a: float,
+        onset_b: float,
+        kick_a: float = 0.5,
+        kick_b: float = 0.5,
+    ) -> float:
+        """70% onset density + 30% kick prominence similarity.
 
-        Captures rhythmic texture compatibility.
+        Onset density captures rhythmic texture compatibility.
+        Kick prominence captures whether both tracks are driven by heavy kicks
+        (peak-time) or subtle percussion (minimal).
 
         Args:
             onset_a: Onset rate (onsets/sec) of track A
             onset_b: Onset rate of track B
+            kick_a: Kick prominence of A [0, 1]
+            kick_b: Kick prominence of B [0, 1]
 
         Returns:
             Groove compatibility [0, 1]
         """
+        # Onset density component
         if onset_a <= 0 and onset_b <= 0:
-            return 1.0
+            onset_score = 1.0
+        else:
+            max_onset = max(onset_a, onset_b, 1e-6)
+            onset_score = 1.0 - abs(onset_a - onset_b) / max_onset
 
-        max_onset = max(onset_a, onset_b, 1e-6)  # Avoid division by zero
-        return 1.0 - abs(onset_a - onset_b) / max_onset
+        # Kick prominence component
+        kick_score = 1.0 - abs(kick_a - kick_b)
+
+        return 0.70 * onset_score + 0.30 * kick_score
 
     def check_hard_constraints(self, track_a: TrackFeatures, track_b: TrackFeatures) -> bool:
         """Return ``True`` if the transition should be **rejected**.
@@ -308,7 +324,12 @@ class TransitionScoringService:
         )
         energy_s = self.score_energy(track_a.energy_lufs, track_b.energy_lufs)
         spectral_s = self.score_spectral(track_a, track_b)
-        groove_s = self.score_groove(track_a.onset_rate, track_b.onset_rate)
+        groove_s = self.score_groove(
+            track_a.onset_rate,
+            track_b.onset_rate,
+            track_a.kick_prominence,
+            track_b.kick_prominence,
+        )
 
         w = self.WEIGHTS
         return (

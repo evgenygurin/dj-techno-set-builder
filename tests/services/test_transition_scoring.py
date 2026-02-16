@@ -155,9 +155,10 @@ def test_score_groove_identical():
 def test_score_groove_relative_diff():
     """Groove score based on relative onset rate difference"""
     service = TransitionScoringService()
-    # 50% difference: onset_a=4, onset_b=6 → score = 1 - 2/6 = 0.667
+    # onset_score = 1 - 2/6 = 0.667, kick_score = 1.0 (default 0.5 vs 0.5)
+    # total = 0.7*0.667 + 0.3*1.0 ≈ 0.767
     score = service.score_groove(onset_a=4.0, onset_b=6.0)
-    assert 0.6 < score < 0.7
+    assert 0.72 < score < 0.82
 
 
 def test_score_transition_weighted_composite():
@@ -280,3 +281,35 @@ def test_score_harmonic_backward_compatible():
     # hnr defaults to 0.0 → combined=0.6*0.8=0.48 → factor=0.636 → ~0.93
     score = service.score_harmonic(cam_a=0, cam_b=0, density_a=0.8, density_b=0.8)
     assert score > 0.9
+
+
+# ── Phase 2: score_groove with kick prominence ──
+
+
+def test_score_groove_with_kick_prominence():
+    """Kick prominence difference should lower groove score."""
+    service = TransitionScoringService()
+
+    # Same onset rate but very different kick prominence
+    score = service.score_groove(
+        onset_a=5.0, onset_b=5.0,
+        kick_a=0.9, kick_b=0.1,
+    )
+    # onset_score=1.0, kick_score=1-0.8=0.2 → 0.7*1.0 + 0.3*0.2 = 0.76
+    assert 0.70 < score < 0.82
+
+
+def test_score_groove_kick_identical():
+    """Identical kick prominence should maximize groove score."""
+    service = TransitionScoringService()
+    score = service.score_groove(onset_a=5.0, onset_b=5.0, kick_a=0.8, kick_b=0.8)
+    assert score > 0.95
+
+
+def test_score_groove_backward_compatible():
+    """Without kick kwargs, should use default 0.5 → kick_score=1.0."""
+    service = TransitionScoringService()
+    score = service.score_groove(onset_a=5.0, onset_b=5.0)
+    # kick default 0.5 vs 0.5 → kick_score = 1.0
+    # onset_score = 1.0 → total = 0.7*1.0 + 0.3*1.0 = 1.0
+    assert score == pytest.approx(1.0)
