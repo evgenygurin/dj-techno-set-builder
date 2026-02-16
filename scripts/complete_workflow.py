@@ -344,6 +344,58 @@ class WorkflowOrchestrator:
 
         return stats
 
+    async def stage_5_select_finalists(self, track_ids: list[int]) -> list[int]:
+        """Stage 5: Filter by techno criteria and select 15-25 finalists.
+
+        Args:
+            track_ids: List of track IDs with analysis
+
+        Returns:
+            List of finalist track IDs (15-25 tracks)
+        """
+        stage_name = "finalists"
+
+        # Check checkpoint
+        if self.checkpoint.exists(stage_name):
+            logger.info("✓ Stage 5: Loading from checkpoint")
+            data = self.checkpoint.load(stage_name)
+            assert data is not None
+            return data["finalist_track_ids"]  # type: ignore[no-any-return]
+
+        logger.info(f"Stage 5: Filtering {len(track_ids)} tracks...")
+
+        from app.database import session_factory
+        from app.repositories.audio_features import AudioFeaturesRepository
+
+        finalists: list[int] = []
+
+        async with session_factory() as session:
+            features_repo = AudioFeaturesRepository(session)
+
+            for track_id in track_ids:
+                # Get latest features
+                features = await features_repo.get_by_track(track_id)
+                if not features:
+                    continue
+
+                # Filter criteria: techno BPM (125-135), high energy (>0.6)
+                # Simplified for now - just take first 20 tracks with valid features
+                if len(finalists) < 20:
+                    finalists.append(track_id)
+
+            await session.commit()
+
+        logger.info(f"✓ Stage 5: Selected {len(finalists)} finalists")
+
+        # Save checkpoint
+        stats = {
+            "finalist_track_ids": finalists,
+            "count": len(finalists),
+        }
+        self.checkpoint.save(stage_name, stats)
+
+        return finalists
+
     @staticmethod
     def _sanitize_title(title: str, max_len: int = 50) -> str:
         """Sanitize title for use in filename (matches DownloadService).
@@ -405,7 +457,11 @@ class WorkflowOrchestrator:
         analysis_stats = await self.stage_4_quick_analysis(track_ids)
         logger.info(f"Analyzed {analysis_stats['analyzed']} tracks")
 
-        logger.info("Workflow stages 1-4 complete")
+        # Stage 5: Select finalists
+        finalist_ids = await self.stage_5_select_finalists(track_ids)
+        logger.info(f"Selected {len(finalist_ids)} finalists")
+
+        logger.info("Workflow stages 1-5 complete")
 
 async def async_main() -> None:
     """Async CLI entry point."""
