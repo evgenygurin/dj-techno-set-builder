@@ -1,9 +1,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 import numpy as np
 from numpy.typing import NDArray
+
+
+class TransitionType(StrEnum):
+    """djay Pro Crossfader FX transition types for Neural Mix."""
+
+    DRUM_CUT = "drum_cut"
+    DRUM_SWAP = "drum_swap"
+    HARMONIC_SUSTAIN = "harmonic_sustain"
+    VOCAL_SUSTAIN = "vocal_sustain"
+    NEURAL_ECHO_OUT = "neural_echo_out"
+    NEURAL_FADE = "neural_fade"
+    EQ = "eq"
+    FILTER = "filter"
+    ECHO = "echo"
+    FADE = "fade"
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,3 +168,13 @@ class TrackFeatures:
     spectral: SpectralResult
     beats: BeatsResult | None = None  # Phase 2: optional
     mfcc: MfccResult | None = None  # Phase 2: optional
+
+
+@dataclass(frozen=True, slots=True)
+class TransitionRecommendation:
+    """Recommended transition type for a track pair."""
+
+    transition_type: TransitionType
+    confidence: float  # [0, 1]
+    reason: str
+    alt_type: TransitionType | None = None
