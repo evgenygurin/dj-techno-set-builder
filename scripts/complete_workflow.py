@@ -680,52 +680,70 @@ class WorkflowOrchestrator:
 
     async def run(self) -> None:
         """Run complete workflow from start to finish."""
-        logger.info("Starting complete workflow...")
-
-        # Create directory structure
+        # Create directory structure first
         self.set_dir.mkdir(parents=True, exist_ok=True)
         self.tracks_dir.mkdir(parents=True, exist_ok=True)
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info("✓ Directory structure created")
-
-        # Stage 1: Fetch playlist
-        track_ids = await self.stage_1_fetch_playlist()
-        logger.info(f"Playlist contains {len(track_ids)} tracks")
-
-        # Stage 2: Import metadata
-        import_stats = await self.stage_2_import_metadata(track_ids)
-        logger.info(f"Imported {import_stats['imported']} tracks metadata")
-
-        # Stage 3: Download tracks
-        download_stats = await self.stage_3_download_tracks(track_ids)
-        total_mb = download_stats['total_bytes'] / 1024 / 1024  # type: ignore[operator]
-        logger.info(
-            f"Downloaded {download_stats['downloaded']} tracks "
-            f"({total_mb:.1f} MB)"
+        # Add file logging
+        log_file = self.set_dir / "workflow.log"
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
+        logger.addHandler(file_handler)
 
-        # Stage 4: Quick analysis
-        analysis_stats = await self.stage_4_quick_analysis(track_ids)
-        logger.info(f"Analyzed {analysis_stats['analyzed']} tracks")
+        try:
+            logger.info("Starting complete workflow...")
+            logger.info(f"Output directory: {self.set_dir}")
+            logger.info(f"Log file: {log_file}")
 
-        # Stage 5: Select finalists
-        finalist_ids = await self.stage_5_select_finalists(track_ids)
-        logger.info(f"Selected {len(finalist_ids)} finalists")
+            logger.info("✓ Directory structure created")
 
-        # Stage 6: Deep analysis
-        deep_stats = await self.stage_6_deep_analysis(finalist_ids)
-        logger.info(f"Deep analyzed {deep_stats['analyzed']} finalists")
+            # Stage 1: Fetch playlist
+            track_ids = await self.stage_1_fetch_playlist()
+            logger.info(f"Playlist contains {len(track_ids)} tracks")
 
-        # Stage 7: Generate set
-        set_version_id = await self.stage_7_generate_set(finalist_ids)
-        logger.info(f"Generated set version {set_version_id}")
+            # Stage 2: Import metadata
+            import_stats = await self.stage_2_import_metadata(track_ids)
+            logger.info(f"Imported {import_stats['imported']} tracks metadata")
 
-        # Stage 8: Export
-        export_stats = await self.stage_8_export(set_version_id)
-        logger.info(f"Exported to {len(export_stats['formats'])} formats")  # type: ignore[arg-type]
+            # Stage 3: Download tracks
+            download_stats = await self.stage_3_download_tracks(track_ids)
+            total_mb = download_stats['total_bytes'] / 1024 / 1024  # type: ignore[operator]
+            logger.info(
+                f"Downloaded {download_stats['downloaded']} tracks "
+                f"({total_mb:.1f} MB)"
+            )
 
-        logger.info("✅ Workflow complete — all 8 stages done!")
+            # Stage 4: Quick analysis
+            analysis_stats = await self.stage_4_quick_analysis(track_ids)
+            logger.info(f"Analyzed {analysis_stats['analyzed']} tracks")
+
+            # Stage 5: Select finalists
+            finalist_ids = await self.stage_5_select_finalists(track_ids)
+            logger.info(f"Selected {len(finalist_ids)} finalists")
+
+            # Stage 6: Deep analysis
+            deep_stats = await self.stage_6_deep_analysis(finalist_ids)
+            logger.info(f"Deep analyzed {deep_stats['analyzed']} finalists")
+
+            # Stage 7: Generate set
+            set_version_id = await self.stage_7_generate_set(finalist_ids)
+            logger.info(f"Generated set version {set_version_id}")
+
+            # Stage 8: Export
+            export_stats = await self.stage_8_export(set_version_id)
+            logger.info(f"Exported to {len(export_stats['formats'])} formats")  # type: ignore[arg-type]
+
+            logger.info("✅ Workflow complete — all 8 stages done!")
+
+        except Exception as e:
+            logger.error(f"❌ Workflow failed: {e}", exc_info=True)
+            raise
+        finally:
+            logger.removeHandler(file_handler)
+            file_handler.close()
 
 async def async_main() -> None:
     """Async CLI entry point."""
