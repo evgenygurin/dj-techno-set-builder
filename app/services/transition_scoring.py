@@ -2,9 +2,14 @@
 
 Implements a *filter-then-rank* pipeline:
 1. **Hard constraints** — reject transitions that are musically unacceptable
-   (BPM diff >10, Camelot distance ≥5, energy delta >6 LUFS).
+   (BPM diff >10, Camelot distance >=5, energy delta >6 LUFS).
 2. **Multi-component scoring** — weighted composite of BPM, harmonic,
    energy, spectral, and groove sub-scores.
+
+Phase 2 enrichments:
+- Spectral: MFCC cosine similarity (40%) + centroid (30%) + band balance (30%)
+- Harmonic: Camelot modulated by chroma entropy (60%) + HNR (40%)
+- Groove: Onset density (70%) + kick prominence (30%)
 
 Pure computation — no DB or ORM dependencies.
 
