@@ -60,7 +60,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         )
 
         # 2. Generate optimal ordering via GA
-        request = SetGenerationRequest(energy_arc_type=energy_arc)
+        request = SetGenerationRequest(energy_arc_type=energy_arc, playlist_id=playlist_id)
         gen_result = await gen_svc.generate(dj_set.set_id, request)
         await ctx.report_progress(progress=80, total=100)
 
