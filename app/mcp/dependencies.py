@@ -104,6 +104,8 @@ def get_set_generation_service(
         DjSetVersionRepository(session),
         DjSetItemRepository(session),
         AudioFeaturesRepository(session),
+        SectionsRepository(session),
+        DjPlaylistItemRepository(session),
     )
 
 

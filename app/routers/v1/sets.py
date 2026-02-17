@@ -2,6 +2,8 @@ from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
 from app.repositories.audio_features import AudioFeaturesRepository
+from app.repositories.playlists import DjPlaylistItemRepository
+from app.repositories.sections import SectionsRepository
 from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
 from app.routers.v1._openapi import (
     RESPONSES_CREATE,
@@ -125,6 +127,8 @@ def _generation_service(db: DbSession) -> SetGenerationService:
         DjSetVersionRepository(db),
         DjSetItemRepository(db),
         AudioFeaturesRepository(db),
+        SectionsRepository(db),
+        DjPlaylistItemRepository(db),
     )
 
 

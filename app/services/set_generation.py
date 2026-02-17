@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 from app.errors import NotFoundError, ValidationError
 from app.repositories.audio_features import AudioFeaturesRepository
+from app.repositories.playlists import DjPlaylistItemRepository
+from app.repositories.sections import SectionsRepository
 from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
 from app.schemas.set_generation import SetGenerationRequest, SetGenerationResponse
 from app.services.base import BaseService
@@ -66,12 +70,16 @@ class SetGenerationService(BaseService):
         version_repo: DjSetVersionRepository,
         item_repo: DjSetItemRepository,
         features_repo: AudioFeaturesRepository,
+        sections_repo: SectionsRepository | None = None,
+        playlist_repo: DjPlaylistItemRepository | None = None,
     ) -> None:
         super().__init__()
         self.set_repo = set_repo
         self.version_repo = version_repo
         self.item_repo = item_repo
         self.features_repo = features_repo
+        self.sections_repo = sections_repo
+        self.playlist_repo = playlist_repo
 
     async def generate(self, set_id: int, data: SetGenerationRequest) -> SetGenerationResponse:
         """Generate optimal track ordering for a DJ set using genetic algorithm.
@@ -97,6 +105,24 @@ class SetGenerationService(BaseService):
         if not features_list:
             raise ValidationError("No tracks with audio features available for set generation")
 
+        # Filter to playlist tracks if specified
+        if data.playlist_id is not None and self.playlist_repo is not None:
+            items, _ = await self.playlist_repo.list_by_playlist(
+                data.playlist_id, limit=1000
+            )
+            allowed_ids = {item.track_id for item in items}
+            features_list = [f for f in features_list if f.track_id in allowed_ids]
+            if not features_list:
+                raise ValidationError(
+                    f"No tracks with audio features in playlist {data.playlist_id}"
+                )
+
+        # Batch-load sections for structure scoring
+        sections_map: dict[int, list[Any]] = {}
+        if self.sections_repo is not None:
+            track_ids = [f.track_id for f in features_list]
+            sections_map = await self.sections_repo.get_latest_by_track_ids(track_ids)
+
         # Build TrackData list (using energy_mean as proxy for global_energy)
         tracks = [
             TrackData(
@@ -112,6 +138,7 @@ class SetGenerationService(BaseService):
         transition_matrix = await self._build_transition_matrix_scored(
             tracks,
             tier1_threshold=data.tier1_threshold,
+            sections_map=sections_map,
         )
 
         # Configure GA
@@ -207,6 +234,7 @@ class SetGenerationService(BaseService):
         self,
         tracks: list[TrackData],
         tier1_threshold: float = 0.15,
+        sections_map: dict[int, list[Any]] | None = None,
     ) -> np.ndarray:
         """Build transition quality matrix using two-tier scoring.
 
@@ -239,14 +267,16 @@ class SetGenerationService(BaseService):
         features_list = await self.features_repo.list_all()
         features_map = {f.track_id: f for f in features_list}
 
-        # Build feature objects via canonical conversion
+        # Build feature objects via canonical conversion (with section data)
+        smap = sections_map or {}
         track_features: list[TrackFeatures | None] = []
         for track in tracks:
             feat_db = features_map.get(track.track_id)
             if feat_db is None:
                 track_features.append(None)
                 continue
-            track_features.append(orm_features_to_track_features(feat_db))
+            secs = smap.get(track.track_id)
+            track_features.append(orm_features_to_track_features(feat_db, secs))
 
         # Separate tracks with features from those without
         has_features = [f is not None for f in track_features]

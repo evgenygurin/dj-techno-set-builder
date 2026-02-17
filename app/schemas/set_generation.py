@@ -18,6 +18,9 @@ class SetGenerationRequest(BaseSchema):
         description="Energy arc shape: classic, progressive, roller, wave",
     )
     seed: int | None = Field(default=None, description="RNG seed for reproducibility")
+    playlist_id: int | None = Field(
+        default=None, description="Filter tracks to this playlist (None = all tracks)"
+    )
     version_label: str | None = Field(default=None, max_length=100)
     w_transition: float = Field(default=0.50, ge=0.0, le=1.0)
     w_energy_arc: float = Field(default=0.30, ge=0.0, le=1.0)
