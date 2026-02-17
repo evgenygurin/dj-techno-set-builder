@@ -6,16 +6,22 @@ must go through this function to prevent drift between scoring paths.
 
 from __future__ import annotations
 
+import contextlib
 import json as _json
 from typing import TYPE_CHECKING
 
+from app.models.enums import SectionType
 from app.services.transition_scoring import TrackFeatures
 
 if TYPE_CHECKING:
     from app.models.features import TrackAudioFeaturesComputed
+    from app.models.sections import TrackSection
 
 
-def orm_features_to_track_features(feat: TrackAudioFeaturesComputed) -> TrackFeatures:
+def orm_features_to_track_features(
+    feat: TrackAudioFeaturesComputed,
+    sections: list[TrackSection] | None = None,
+) -> TrackFeatures:
     """Convert ``TrackAudioFeaturesComputed`` ORM row to ``TrackFeatures``.
 
     Mapping rules:
@@ -26,6 +32,7 @@ def orm_features_to_track_features(feat: TrackAudioFeaturesComputed) -> TrackFea
     * ``kick_prominence`` ← ``kick_prominence`` (Phase-2, fallback = 0.5)
     * ``hnr_db`` ← ``hnr_mean_db`` (Phase-2, fallback = 0.0)
     * ``spectral_slope`` ← ``slope_db_per_oct`` (Phase-2, fallback = 0.0)
+    * ``first_section`` / ``last_section`` ← sorted ``sections`` list (optional)
     """
     # Harmonic density: prefer chroma_entropy, fallback to key_confidence
     harmonic_density: float
@@ -45,6 +52,16 @@ def orm_features_to_track_features(feat: TrackAudioFeaturesComputed) -> TrackFea
     if feat.mfcc_vector:
         mfcc_vector = _json.loads(feat.mfcc_vector)
 
+    # Section data: derive first/last section type names for structure scoring
+    first_section: str | None = None
+    last_section: str | None = None
+    if sections:
+        sorted_secs = sorted(sections, key=lambda s: s.start_ms)
+        with contextlib.suppress(ValueError):
+            first_section = SectionType(sorted_secs[0].section_type).name.lower()
+        with contextlib.suppress(ValueError):
+            last_section = SectionType(sorted_secs[-1].section_type).name.lower()
+
     return TrackFeatures(
         bpm=feat.bpm,
         energy_lufs=feat.lufs_i,
@@ -58,4 +75,6 @@ def orm_features_to_track_features(feat: TrackAudioFeaturesComputed) -> TrackFea
         hnr_db=feat.hnr_mean_db if feat.hnr_mean_db is not None else 0.0,
         spectral_slope=feat.slope_db_per_oct if feat.slope_db_per_oct is not None else 0.0,
         hp_ratio=feat.hp_ratio if feat.hp_ratio is not None else 0.5,
+        first_section=first_section,
+        last_section=last_section,
     )
