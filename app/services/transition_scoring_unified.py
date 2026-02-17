@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.repositories.audio_features import AudioFeaturesRepository
+from app.repositories.sections import SectionsRepository
 from app.services.camelot_lookup import CamelotLookupService
 from app.services.transition_scoring import TransitionScoringService
 from app.utils.audio.feature_conversion import orm_features_to_track_features
@@ -27,6 +28,7 @@ class UnifiedTransitionScoringService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
         self._features_repo = AudioFeaturesRepository(session)
+        self._sections_repo = SectionsRepository(session)
         self._scorer: TransitionScoringService | None = None
 
     # ------------------------------------------------------------------
@@ -50,9 +52,17 @@ class UnifiedTransitionScoringService:
         return await self.score_by_features(feat_a, feat_b)
 
     async def score_components_by_ids(self, from_id: int, to_id: int) -> dict[str, float]:
-        """Return per-component breakdown ``{total, bpm, harmonic, …}``."""
+        """Return per-component breakdown ``{total, bpm, harmonic, …}``.
+
+        Loads section data for both tracks so that the ``structure``
+        component reflects actual intro/outro pairings instead of the
+        neutral 0.5 fallback.
+        """
         feat_a, feat_b = await self._load_pair(from_id, to_id)
-        return await self.score_components_by_features(feat_a, feat_b)
+        sections = await self._sections_repo.get_latest_by_track_ids([from_id, to_id])
+        tf_a = orm_features_to_track_features(feat_a, sections.get(from_id))
+        tf_b = orm_features_to_track_features(feat_b, sections.get(to_id))
+        return _score_components(await self._get_scorer(), tf_a, tf_b)
 
     # ------------------------------------------------------------------
     # Public API — by ORM feature objects (avoids extra DB round-trip)
