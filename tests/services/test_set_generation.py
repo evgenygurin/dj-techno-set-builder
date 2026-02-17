@@ -105,7 +105,7 @@ async def test_playlist_filter_limits_tracks() -> None:
         track_count=2,
     )
 
-    mock_gen_cls, mock_matrix, mock_lookup = _patch_ga_and_matrix()
+    mock_gen_cls, mock_matrix, _ = _patch_ga_and_matrix()
 
     with (
         patch("app.services.set_generation.GeneticSetGenerator", mock_gen_cls),

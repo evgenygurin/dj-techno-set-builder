@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 
 def _make_feat_mock(track_id: int, key_code: int = 0) -> MagicMock:
     """Create a minimal TrackAudioFeaturesComputed mock."""
