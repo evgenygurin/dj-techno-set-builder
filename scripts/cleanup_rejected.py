@@ -18,6 +18,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import httpx
+
 from app.config import settings
 
 # ── Logging ──────────────────────────────────────────────
@@ -65,6 +67,80 @@ def load_report(path: Path) -> dict:
         raise ValueError("Report has no ym_ids_to_delete")
     logger.info("Report: %s (%d IDs to delete)", path.name, len(ids))
     return data
+
+
+async def phase1_ym_playlist(ym_ids: set[str], *, dry: bool) -> None:
+    """Remove tracks from YM playlist via API."""
+    logger.info("Phase 1: YM playlist (%d tracks to remove)", len(ym_ids))
+    token = settings.yandex_music_token
+    if not token:
+        raise RuntimeError("yandex_music_token not configured in .env")
+
+    async with httpx.AsyncClient(timeout=30.0) as http:
+        headers = {"Authorization": f"OAuth {token}"}
+
+        # 1. Fetch current playlist
+        resp = await http.get(
+            f"{YM_BASE}/users/{YM_USER_ID}/playlists/{YM_PLAYLIST_KIND}",
+            headers=headers,
+        )
+        resp.raise_for_status()
+        playlist = resp.json()["result"]
+        revision = playlist["revision"]
+        tracks = playlist["tracks"]
+        logger.info("Playlist: %d tracks, revision=%d", len(tracks), revision)
+
+        # 2. Build deletion list: (index, track_id, album_id)
+        to_delete = []
+        for i, t in enumerate(tracks):
+            tid = str(t["id"])
+            if tid in ym_ids:
+                albums = t.get("track", {}).get("albums", [])
+                aid = str(albums[0]["id"]) if albums else ""
+                to_delete.append((i, tid, aid))
+
+        logger.info("Found %d / %d tracks in current playlist", len(to_delete), len(ym_ids))
+        if not to_delete:
+            logger.info("Nothing to delete from YM")
+            return
+
+        # 3. Delete from highest index to lowest
+        to_delete.sort(key=lambda x: x[0], reverse=True)
+
+        deleted = 0
+        start = time.monotonic()
+        for idx, tid, aid in to_delete:
+            if dry:
+                logger.debug("[DRY] Would delete idx=%d id=%s", idx, tid)
+                deleted += 1
+                continue
+
+            diff = json.dumps(
+                {"diff": {"op": "delete", "from": idx, "to": idx + 1,
+                           "tracks": [{"id": tid, "albumId": aid}]}}
+            )
+            resp = await http.post(
+                f"{YM_BASE}/users/{YM_USER_ID}/playlists/{YM_PLAYLIST_KIND}/change",
+                headers=headers,
+                data={"diff": diff, "revision": str(revision)},
+            )
+            resp.raise_for_status()
+            result = resp.json().get("result", {})
+            revision = result.get("revision", revision + 1)
+            deleted += 1
+
+            if deleted % 50 == 0:
+                elapsed = time.monotonic() - start
+                logger.info(
+                    "  YM: %d/%d deleted (%.1f/min)",
+                    deleted, len(to_delete), deleted / (elapsed / 60) if elapsed > 0 else 0,
+                )
+            # Rate limit: 0.25s between calls
+            await asyncio.sleep(0.25)
+
+    elapsed = time.monotonic() - start
+    logger.info("Phase 1 done: %d deleted in %.1f min%s",
+                deleted, elapsed / 60, " (dry)" if dry else "")
 
 
 async def main() -> None:
