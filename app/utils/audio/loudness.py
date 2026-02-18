@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy.signal import resample
+from scipy.signal import resample_poly
 
 from app.utils.audio._types import AudioSignal, LoudnessResult
 
@@ -14,8 +14,14 @@ def _mono_to_stereo(samples: np.ndarray) -> np.ndarray:
 
 
 def _true_peak_dbtp(samples: np.ndarray) -> float:
-    """Compute true peak (dBTP) via 4x oversampling per ITU-R BS.1770."""
-    oversampled = resample(samples, len(samples) * _TRUE_PEAK_OVERSAMPLE)
+    """Compute true peak (dBTP) via 4x oversampling per ITU-R BS.1770.
+
+    Uses resample_poly (polyphase FIR) instead of resample (FFT-based)
+    because FFT performance degrades catastrophically when the sample
+    count has large prime factors (e.g. 373s x 44100Hz -> factor 373).
+    resample_poly is O(N) and factor-independent.
+    """
+    oversampled = resample_poly(samples, up=_TRUE_PEAK_OVERSAMPLE, down=1)
     peak_linear = float(np.max(np.abs(oversampled)))
     return float(20.0 * np.log10(peak_linear + 1e-10))
 

@@ -18,20 +18,18 @@ def _make_settings(**overrides: object) -> Settings:
 
 
 async def test_apply_observability_adds_middleware():
-    """apply_observability should add 6 middleware to gateway."""
+    """apply_observability should add 5 middleware to gateway (caching disabled)."""
     from app.mcp.observability import apply_observability
 
     mcp = FastMCP("test")
     before = len(mcp.middleware)
     apply_observability(mcp, _make_settings())
-    # Exactly 6 new middleware added on top of FastMCP defaults
-    assert len(mcp.middleware) - before == 6
+    # 5 middleware (caching disabled): ErrorHandling, Logging, Timing, Retry, Ping
+    assert len(mcp.middleware) - before == 5
 
 
 async def test_apply_observability_correct_order():
-    """Middleware order: ErrorHandling, StructuredLogging, DetailedTiming,
-    ResponseCaching, Retry, Ping."""
-    from fastmcp.server.middleware.caching import ResponseCachingMiddleware
+    """Middleware order: ErrorHandling, StructuredLogging, DetailedTiming, Retry, Ping."""
     from fastmcp.server.middleware.error_handling import (
         ErrorHandlingMiddleware,
         RetryMiddleware,
@@ -50,7 +48,6 @@ async def test_apply_observability_correct_order():
         ErrorHandlingMiddleware,
         StructuredLoggingMiddleware,
         DetailedTimingMiddleware,
-        ResponseCachingMiddleware,
         RetryMiddleware,
         PingMiddleware,
     ]
@@ -91,27 +88,10 @@ async def test_apply_observability_retry_config():
     offset = len(mcp.middleware)
     apply_observability(mcp, _make_settings(mcp_retry_max=5, mcp_retry_backoff=2.0))
 
-    retry_mw = mcp.middleware[offset + 4]
+    retry_mw = mcp.middleware[offset + 3]  # index 3 (caching removed, was 4)
     assert isinstance(retry_mw, RetryMiddleware)
     assert retry_mw.max_retries == 5
     assert retry_mw.base_delay == 2.0
-
-
-async def test_apply_observability_caching_uses_disk_store():
-    """ResponseCachingMiddleware should use DiskStore."""
-    from fastmcp.server.middleware.caching import ResponseCachingMiddleware
-    from key_value.aio.stores.disk import DiskStore
-
-    from app.mcp.observability import apply_observability
-
-    mcp = FastMCP("test")
-    offset = len(mcp.middleware)
-    apply_observability(mcp, _make_settings(mcp_cache_dir="/tmp/test-mcp-cache"))
-
-    cache_mw = mcp.middleware[offset + 3]
-    assert isinstance(cache_mw, ResponseCachingMiddleware)
-    # Verify underlying backend is DiskStore (wrapped in LimitSize -> Statistics)
-    assert isinstance(cache_mw._backend, DiskStore)
 
 
 async def test_apply_observability_no_sentry_callback_without_dsn():
@@ -156,6 +136,6 @@ async def test_apply_observability_ping_interval():
     offset = len(mcp.middleware)
     apply_observability(mcp, _make_settings(mcp_ping_interval=45))
 
-    ping_mw = mcp.middleware[offset + 5]
+    ping_mw = mcp.middleware[offset + 4]  # index 4 (caching removed, was 5)
     assert isinstance(ping_mw, PingMiddleware)
     assert ping_mw.interval_ms == 45_000

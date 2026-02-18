@@ -17,6 +17,7 @@ def _make_features_mock(track_id: int, bpm: float = 128.0) -> MagicMock:
     f.track_id = track_id
     f.bpm = bpm
     f.energy_mean = 0.5
+    f.lufs_i = -9.0
     f.key_code = 0
     return f
 

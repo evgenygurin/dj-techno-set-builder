@@ -7,6 +7,7 @@ No DB dependency — works with feature objects passed in.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from app.utils.audio.mood_classifier import TrackMood, classify_track
 from app.utils.audio.set_templates import SetSlot, TemplateName, get_template
@@ -29,7 +30,7 @@ class SetCurationService:
 
     def classify_features(
         self,
-        features: list[object],
+        features: list[Any],
     ) -> dict[int, TrackMood]:
         """Classify a list of ORM feature objects by mood.
 
@@ -42,14 +43,14 @@ class SetCurationService:
         result: dict[int, TrackMood] = {}
         for feat in features:
             classification = classify_track(
-                bpm=feat.bpm,  # type: ignore[union-attr]
-                lufs_i=feat.lufs_i,  # type: ignore[union-attr]
-                kick_prominence=feat.kick_prominence or 0.5,  # type: ignore[union-attr]
-                spectral_centroid_mean=feat.centroid_mean_hz or 2500.0,  # type: ignore[union-attr]
-                onset_rate=feat.onset_rate_mean or 5.0,  # type: ignore[union-attr]
-                hp_ratio=feat.hp_ratio or 0.5,  # type: ignore[union-attr]
+                bpm=feat.bpm,
+                lufs_i=feat.lufs_i,
+                kick_prominence=feat.kick_prominence or 0.5,
+                spectral_centroid_mean=feat.centroid_mean_hz or 2500.0,
+                onset_rate=feat.onset_rate_mean or 5.0,
+                hp_ratio=feat.hp_ratio or 0.5,
             )
-            result[feat.track_id] = classification.mood  # type: ignore[union-attr]
+            result[feat.track_id] = classification.mood
         return result
 
     def mood_distribution(
@@ -64,7 +65,7 @@ class SetCurationService:
 
     def select_candidates(
         self,
-        features: list[object],
+        features: list[Any],
         template_name: str,
         exclude_ids: set[int] | None = None,
         target_count: int | None = None,
@@ -87,10 +88,7 @@ class SetCurationService:
         classified = self.classify_features(features)
 
         # Build feature lookup
-        feat_map: dict[int, object] = {
-            f.track_id: f
-            for f in features  # type: ignore[union-attr]
-        }
+        feat_map: dict[int, Any] = {f.track_id: f for f in features}
 
         # Use template slots or generate simple slots for full library
         slots = template.slots
@@ -98,7 +96,7 @@ class SetCurationService:
             # FULL_LIBRARY: no slots, return all tracks sorted by mood intensity
             candidates = []
             for feat in features:
-                tid = feat.track_id  # type: ignore[union-attr]
+                tid: int = feat.track_id
                 if tid in excluded:
                     continue
                 mood = classified.get(tid, TrackMood.DRIVING)
@@ -107,9 +105,9 @@ class SetCurationService:
                         track_id=tid,
                         mood=mood,
                         slot_score=0.5,
-                        bpm=feat.bpm,  # type: ignore[union-attr]
-                        lufs_i=feat.lufs_i,  # type: ignore[union-attr]
-                        key_code=feat.key_code or 0,  # type: ignore[union-attr]
+                        bpm=feat.bpm,
+                        lufs_i=feat.lufs_i,
+                        key_code=feat.key_code or 0,
                     )
                 )
             candidates.sort(key=lambda c: c.mood.intensity)
@@ -124,7 +122,7 @@ class SetCurationService:
             best_tid: int | None = None
 
             for feat in features:
-                tid = feat.track_id  # type: ignore[union-attr]
+                tid = feat.track_id
                 if tid in used_ids or tid in excluded:
                     continue
 
@@ -145,9 +143,9 @@ class SetCurationService:
                         track_id=best_tid,
                         mood=mood,
                         slot_score=best_score,
-                        bpm=feat_obj.bpm,  # type: ignore[union-attr]
-                        lufs_i=feat_obj.lufs_i,  # type: ignore[union-attr]
-                        key_code=feat_obj.key_code or 0,  # type: ignore[union-attr]
+                        bpm=feat_obj.bpm,
+                        lufs_i=feat_obj.lufs_i,
+                        key_code=feat_obj.key_code or 0,
                     )
                 )
                 used_ids.add(best_tid)
@@ -156,7 +154,7 @@ class SetCurationService:
 
     def _score_candidate_for_slot(
         self,
-        feat: object,
+        feat: Any,
         slot: SetSlot,
         track_mood: TrackMood,
     ) -> float:
@@ -168,8 +166,8 @@ class SetCurationService:
         - BPM fit (20%): whether BPM falls in slot range
         - Variety (10%): baseline bonus
         """
-        bpm = feat.bpm  # type: ignore[union-attr]
-        lufs = feat.lufs_i  # type: ignore[union-attr]
+        bpm: float = feat.bpm
+        lufs: float = feat.lufs_i
 
         # Mood match
         if track_mood == slot.mood:

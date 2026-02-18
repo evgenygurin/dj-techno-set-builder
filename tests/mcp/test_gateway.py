@@ -33,9 +33,9 @@ async def test_existing_yandex_music_tests_still_pass(ym_mcp: FastMCP):
 async def test_gateway_has_middleware(gateway_mcp: FastMCP):
     """Gateway should have observability middleware."""
     # gateway_mcp is a fixture from tests/mcp/conftest.py
-    # After wiring, gateway should have 7+ middleware
-    # (1 default DereferenceRefsMiddleware + 6 from observability)
-    assert len(gateway_mcp.middleware) >= 7
+    # After wiring, gateway should have 6+ middleware
+    # (1 default DereferenceRefsMiddleware + 5 from observability, caching disabled)
+    assert len(gateway_mcp.middleware) >= 6
 
 
 async def test_gateway_has_lifespan(gateway_mcp: FastMCP):
