@@ -35,9 +35,9 @@ app/mcp/
 
 `create_dj_mcp()` in `app/mcp/gateway.py`:
 - Mounts **Yandex Music** sub-server at namespace `"ym"` (~30 tools from OpenAPI)
-- Mounts **DJ Workflows** sub-server at namespace `"dj"` (13 hand-written tools)
+- Mounts **DJ Workflows** sub-server at namespace `"dj"` (17 hand-written tools)
 - Adds `PromptsAsTools` + `ResourcesAsTools` transforms for tool-only MCP clients
-- Total: ~47 tools (30 YM + 13 DJ + 4 transforms)
+- Total: ~51 tools (30 YM + 17 DJ + 4 transforms)
 
 ## DJ Workflow tools (namespace "dj")
 
@@ -55,6 +55,10 @@ app/mcp/
 | `adjust_set` | setbuilder | No | LLM-assisted set adjustment via `ctx.sample()` |
 | `export_set_m3u` | export | Yes | Export set as Extended M3U8 with VLC opts, DJ metadata (cues, loops, sections, transitions, EQ) |
 | `export_set_json` | export | Yes | Export set as JSON transition guide with full scoring, recommendations, and set analytics |
+| `classify_tracks` | curation | Yes | Classify all tracks by 6 mood categories |
+| `curate_set` | curation | No | Select tracks by template + mood slot matching |
+| `review_set` | curation, setbuilder | Yes | Review set: weak transitions, variety, suggestions |
+| `analyze_library_gaps` | curation | Yes | Compare library vs template needs, find gaps |
 | `activate_heavy_mode` | admin | No | Enable heavy analysis tools |
 
 ## Yandex Music tools (namespace "ym")

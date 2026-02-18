@@ -6,13 +6,14 @@ paths:
   - "app/services/set_generation.py"
   - "app/services/camelot_lookup.py"
   - "app/services/set_export.py"
+  - "app/services/set_curation.py"
 ---
 
 # Audio Analysis & Set Generation
 
 ## Audio utils
 
-`app/utils/audio/` — pure-function layer (no DB/ORM deps), 17 modules:
+`app/utils/audio/` — pure-function layer (no DB/ORM deps), 19 modules:
 
 | Module | Function | Output | Description |
 |--------|----------|--------|-------------|
@@ -31,6 +32,8 @@ paths:
 | `set_generator` | `generate_set()` | `SetResult` | GA for optimal track ordering |
 | `mfcc` | `extract_mfcc()` | `MfccResult` | 13 mean MFCC coefficients (librosa) |
 | `pipeline` | `extract_all_features()` | `AllFeatures` | Orchestrator — runs all analyses |
+| `mood_classifier` | `classify_track()` | `MoodClassification` | Rule-based 6-mood classification (ambient_dub → hard_techno) |
+| `set_templates` | `get_template()` | `SetTemplate` | 8 DJ set templates with slot-based energy arcs |
 
 **Pattern**: Each module exports one pure function returning a frozen `@dataclass(frozen=True, slots=True)`. All types defined in `_types.py`.
 
