@@ -19,8 +19,10 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
+from sqlalchemy import text
 
 from app.config import settings
+from app.database import close_db, init_db, session_factory
 
 # ── Logging ──────────────────────────────────────────────
 LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
@@ -141,6 +143,45 @@ async def phase1_ym_playlist(ym_ids: set[str], *, dry: bool) -> None:
     elapsed = time.monotonic() - start
     logger.info("Phase 1 done: %d deleted in %.1f min%s",
                 deleted, elapsed / 60, " (dry)" if dry else "")
+
+
+async def phase2_local_db(report: dict, *, dry: bool) -> None:
+    """Delete rejected tracks from dj_playlist_items."""
+    logger.info("Phase 2: Local DB cleanup")
+
+    # Collect local track_ids from rejection report
+    track_ids = set()
+    for tier_tracks in report.get("rejected_by_tier", {}).values():
+        for t in tier_tracks:
+            track_ids.add(t["track_id"])
+
+    if not track_ids:
+        logger.info("No track_ids found in report")
+        return
+
+    logger.info("Track IDs to remove from playlist: %d", len(track_ids))
+
+    await init_db()
+    try:
+        async with session_factory() as session:
+            if dry:
+                result = await session.execute(text("""
+                    SELECT COUNT(*) FROM dj_playlist_items
+                    WHERE playlist_id = :pid AND track_id IN (SELECT value FROM json_each(:ids))
+                """), {"pid": LOCAL_PLAYLIST_ID, "ids": json.dumps(list(track_ids))})
+                count = result.scalar()
+                logger.info("[DRY] Would delete %d rows from dj_playlist_items", count)
+            else:
+                result = await session.execute(text("""
+                    DELETE FROM dj_playlist_items
+                    WHERE playlist_id = :pid AND track_id IN (SELECT value FROM json_each(:ids))
+                """), {"pid": LOCAL_PLAYLIST_ID, "ids": json.dumps(list(track_ids))})
+                await session.commit()
+                logger.info("Deleted %d rows from dj_playlist_items", result.rowcount)
+    finally:
+        await close_db()
+
+    logger.info("Phase 2 done")
 
 
 async def main() -> None:
