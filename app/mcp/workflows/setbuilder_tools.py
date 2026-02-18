@@ -13,6 +13,7 @@ from app.mcp.dependencies import (
     get_features_service,
     get_set_generation_service,
     get_set_service,
+    get_track_service,
 )
 from app.mcp.types import ExportResult, SetBuildResult, TransitionScoreResult
 from app.schemas.set_generation import SetGenerationRequest
@@ -20,6 +21,7 @@ from app.schemas.sets import DjSetCreate, DjSetVersionCreate
 from app.services.features import AudioFeaturesService
 from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
+from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 from app.utils.audio.camelot import key_code_to_camelot
 
@@ -88,6 +90,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
         features_svc: AudioFeaturesService = Depends(get_features_service),
+        track_svc: TrackService = Depends(get_track_service),
     ) -> list[TransitionScoreResult]:
         """Score every adjacent transition in a set version.
 
@@ -112,6 +115,15 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         if len(items) < 2:
             return []
 
+        # Build track title lookup
+        title_map: dict[int, str] = {}
+        for item in items:
+            try:
+                track = await track_svc.get(item.track_id)
+                title_map[item.track_id] = track.title
+            except NotFoundError:
+                title_map[item.track_id] = f"Track {item.track_id}"
+
         # Use unified scoring service (same path as GA and API)
         unified_svc = UnifiedTransitionScoringService(
             features_svc.features_repo.session,
@@ -135,8 +147,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                     TransitionScoreResult(
                         from_track_id=from_item.track_id,
                         to_track_id=to_item.track_id,
-                        from_title="",
-                        to_title="",
+                        from_title=title_map.get(
+                            from_item.track_id, f"Track {from_item.track_id}"
+                        ),
+                        to_title=title_map.get(to_item.track_id, f"Track {to_item.track_id}"),
                         total=0.0,
                         bpm=0.0,
                         harmonic=0.0,
@@ -147,9 +161,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 )
                 continue
 
-            # Try to get features for Camelot key + transition recommendation
-            from_key: str | None = None
-            to_key: str | None = None
+            # Try to get features for transition recommendation
             rec_type: str | None = None
             rec_confidence: float | None = None
             rec_reason: str | None = None
@@ -158,11 +170,6 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             try:
                 feat_a_raw = await features_svc.get_latest(from_item.track_id)
                 feat_b_raw = await features_svc.get_latest(to_item.track_id)
-
-                with contextlib.suppress(ValueError):
-                    from_key = key_code_to_camelot(feat_a_raw.key_code)
-                with contextlib.suppress(ValueError):
-                    to_key = key_code_to_camelot(feat_b_raw.key_code)
 
                 # Phase 3: Transition type recommendation
                 from app.services.transition_type import recommend_transition
@@ -187,8 +194,8 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 TransitionScoreResult(
                     from_track_id=from_item.track_id,
                     to_track_id=to_item.track_id,
-                    from_title=from_key or "",
-                    to_title=to_key or "",
+                    from_title=title_map.get(from_item.track_id, f"Track {from_item.track_id}"),
+                    to_title=title_map.get(to_item.track_id, f"Track {to_item.track_id}"),
                     total=components["total"],
                     bpm=components["bpm"],
                     harmonic=components["harmonic"],

@@ -9,10 +9,11 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
 from app.errors import NotFoundError
-from app.mcp.dependencies import get_features_service, get_playlist_service
+from app.mcp.dependencies import get_features_service, get_playlist_service, get_track_service
 from app.mcp.types import SimilarTracksResult, TrackDetails
 from app.services.features import AudioFeaturesService
 from app.services.playlists import DjPlaylistService
+from app.services.tracks import TrackService
 from app.utils.audio.camelot import key_code_to_camelot
 
 
@@ -193,6 +194,7 @@ def register_discovery_tools(mcp: FastMCP) -> None:
     async def search_by_criteria(
         ctx: Context,
         features_svc: AudioFeaturesService = Depends(get_features_service),
+        track_svc: TrackService = Depends(get_track_service),
         bpm_min: float | None = None,
         bpm_max: float | None = None,
         keys: list[str] | None = None,
@@ -238,12 +240,20 @@ def register_discovery_tools(mcp: FastMCP) -> None:
             with contextlib.suppress(ValueError):
                 camelot = key_code_to_camelot(feat.key_code)
 
+            # Fetch track title
+            track_title = f"Track {feat.track_id}"
+            track_duration: int | None = None
+            with contextlib.suppress(Exception):
+                track = await track_svc.get(feat.track_id)
+                track_title = track.title
+                track_duration = track.duration_ms
+
             results.append(
                 TrackDetails(
                     track_id=feat.track_id,
-                    title="",
+                    title=track_title,
                     artists="",
-                    duration_ms=None,
+                    duration_ms=track_duration,
                     bpm=feat.bpm,
                     key=camelot,
                     energy_lufs=feat.lufs_i,
