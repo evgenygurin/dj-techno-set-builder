@@ -107,9 +107,7 @@ class SetGenerationService(BaseService):
 
         # Filter to playlist tracks if specified
         if data.playlist_id is not None and self.playlist_repo is not None:
-            items, _ = await self.playlist_repo.list_by_playlist(
-                data.playlist_id, limit=1000
-            )
+            items, _ = await self.playlist_repo.list_by_playlist(data.playlist_id, limit=1000)
             allowed_ids = {item.track_id for item in items}
             features_list = [f for f in features_list if f.track_id in allowed_ids]
             if not features_list:
@@ -123,13 +121,17 @@ class SetGenerationService(BaseService):
             track_ids = [f.track_id for f in features_list]
             sections_map = await self.sections_repo.get_latest_by_track_ids(track_ids)
 
-        # Build TrackData list (using energy_mean as proxy for global_energy)
+        from app.utils.audio.set_generator import lufs_to_energy
+
+        # Build TrackData list (LUFS-based energy for accurate perceived loudness)
         tracks = [
             TrackData(
                 track_id=f.track_id,
                 bpm=f.bpm,
-                energy=f.energy_mean or 0.5,
+                energy=lufs_to_energy(f.lufs_i),
                 key_code=f.key_code or 0,
+                mood=0,  # populated by curation service when available
+                artist_id=0,  # TODO: wire artist_id from track model
             )
             for f in features_list
         ]
