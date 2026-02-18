@@ -12,11 +12,6 @@ from typing import TYPE_CHECKING
 
 import httpx
 import sentry_sdk
-from fastmcp.server.middleware.caching import (
-    CallToolSettings,
-    ReadResourceSettings,
-    ResponseCachingMiddleware,
-)
 from fastmcp.server.middleware.error_handling import (
     ErrorHandlingMiddleware,
     RetryMiddleware,
@@ -24,7 +19,6 @@ from fastmcp.server.middleware.error_handling import (
 from fastmcp.server.middleware.logging import StructuredLoggingMiddleware
 from fastmcp.server.middleware.ping import PingMiddleware
 from fastmcp.server.middleware.timing import DetailedTimingMiddleware
-from key_value.aio.stores.disk import DiskStore
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -79,19 +73,21 @@ def apply_observability(mcp: FastMCP, settings: Settings) -> None:
     # 3. Detailed timing
     mcp.add_middleware(DetailedTimingMiddleware())
 
-    # 4. Response caching (DiskStore)
-    cache_store = DiskStore(directory=settings.mcp_cache_dir)
-    mcp.add_middleware(
-        ResponseCachingMiddleware(
-            cache_storage=cache_store,
-            call_tool_settings=CallToolSettings(
-                ttl=settings.mcp_cache_ttl_tools,
-            ),
-            read_resource_settings=ReadResourceSettings(
-                ttl=settings.mcp_cache_ttl_resources,
-            ),
-        )
-    )
+    # 4. Response caching — DISABLED: stale DiskStore cache can hide newly
+    #    registered tools (list_tools returns cached snapshot). Re-enable
+    #    once we add cache invalidation on tool registration.
+    # cache_store = DiskStore(directory=settings.mcp_cache_dir)
+    # mcp.add_middleware(
+    #     ResponseCachingMiddleware(
+    #         cache_storage=cache_store,
+    #         call_tool_settings=CallToolSettings(
+    #             ttl=settings.mcp_cache_ttl_tools,
+    #         ),
+    #         read_resource_settings=ReadResourceSettings(
+    #             ttl=settings.mcp_cache_ttl_resources,
+    #         ),
+    #     )
+    # )
 
     # 5. Retry (transient errors only)
     mcp.add_middleware(

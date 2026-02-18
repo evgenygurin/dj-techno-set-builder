@@ -8,6 +8,7 @@ from fastmcp.server.context import Context
 from app.mcp.prompts import register_prompts
 from app.mcp.resources import register_resources
 from app.mcp.workflows.analysis_tools import register_analysis_tools
+from app.mcp.workflows.curation_tools import register_curation_tools
 from app.mcp.workflows.discovery_tools import register_discovery_tools
 from app.mcp.workflows.export_tools import register_export_tools
 from app.mcp.workflows.import_tools import register_import_tools
@@ -36,6 +37,7 @@ def create_workflow_mcp() -> FastMCP:
     register_discovery_tools(mcp)
     register_setbuilder_tools(mcp)
     register_export_tools(mcp)
+    register_curation_tools(mcp)
     register_prompts(mcp)
     register_resources(mcp)
     _register_visibility_tools(mcp)
