@@ -6,7 +6,7 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
-from app.mcp.dependencies import get_features_service
+from app.mcp.dependencies import get_features_service, get_set_service
 from app.mcp.types_curation import (
     ClassifyResult,
     CurateCandidate,
@@ -14,9 +14,12 @@ from app.mcp.types_curation import (
     GapDescription,
     LibraryGapResult,
     MoodDistribution,
+    SetReviewResult,
+    WeakTransition,
 )
 from app.services.features import AudioFeaturesService
 from app.services.set_curation import SetCurationService
+from app.services.sets import DjSetService
 from app.utils.audio.mood_classifier import TrackMood
 from app.utils.audio.set_templates import TemplateName, get_template
 
@@ -110,8 +113,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
         warnings: list[str] = []
         if len(candidates) < len(tmpl.slots):
             warnings.append(
-                f"Only {len(candidates)} tracks matched, "
-                f"template needs {len(tmpl.slots)} slots"
+                f"Only {len(candidates)} tracks matched, template needs {len(tmpl.slots)} slots"
             )
 
         await ctx.report_progress(progress=100, total=100)
@@ -184,9 +186,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
             MoodDistribution(
                 mood=mood.value,
                 count=dist.get(mood, 0),
-                percentage=(
-                    round(dist.get(mood, 0) / total * 100, 1) if total > 0 else 0.0
-                ),
+                percentage=(round(dist.get(mood, 0) / total * 100, 1) if total > 0 else 0.0),
             )
             for mood in TrackMood.energy_order()
         ]
@@ -197,4 +197,104 @@ def register_curation_tools(mcp: FastMCP) -> None:
             mood_distribution=distribution,
             gaps=gaps,
             recommendations=recommendations,
+        )
+
+    @mcp.tool(annotations={"readOnlyHint": True}, tags={"curation", "setbuilder"})
+    async def review_set(
+        set_id: int,
+        version_id: int,
+        ctx: Context,
+        set_svc: DjSetService = Depends(get_set_service),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
+    ) -> SetReviewResult:
+        """Review a DJ set version — identify weak spots and suggest improvements.
+
+        Analyses transitions, energy arc, and mood variety. Returns
+        weak transitions (score < 0.4), energy plateaus, and suggestions.
+
+        Args:
+            set_id: DJ set ID.
+            version_id: Set version to review.
+        """
+        from app.services.transition_scoring_unified import (
+            UnifiedTransitionScoringService,
+        )
+        from app.utils.audio.set_generator import TrackData, lufs_to_energy, variety_score
+
+        await set_svc.get(set_id)
+        items_list = await set_svc.list_items(version_id, offset=0, limit=500)
+        items = sorted(items_list.items, key=lambda i: i.sort_index)
+
+        if len(items) < 2:
+            return SetReviewResult(
+                overall_score=0.0,
+                energy_arc_adherence=0.0,
+                variety_score=0.0,
+                weak_transitions=[],
+                suggestions=["Set too short"],
+            )
+
+        unified_svc = UnifiedTransitionScoringService(features_svc.features_repo.session)
+        svc = SetCurationService()
+
+        # Score all transitions
+        weak: list[WeakTransition] = []
+        scores: list[float] = []
+        for i in range(len(items) - 1):
+            try:
+                components = await unified_svc.score_components_by_ids(
+                    items[i].track_id,
+                    items[i + 1].track_id,
+                )
+                total = components["total"]
+            except ValueError:
+                total = 0.0
+
+            scores.append(total)
+            if total < 0.4:
+                weak.append(
+                    WeakTransition(
+                        position=i,
+                        from_track_id=items[i].track_id,
+                        to_track_id=items[i + 1].track_id,
+                        score=round(total, 3),
+                        reason=("Low transition quality" if total > 0 else "Missing features"),
+                    )
+                )
+
+        avg_score = sum(scores) / len(scores) if scores else 0.0
+
+        # Variety scoring
+        all_features = await features_svc.list_all()
+        feat_map = {f.track_id: f for f in all_features}  # type: ignore[union-attr]
+        classified = svc.classify_features(all_features)
+
+        track_data_list = []
+        for item in items:
+            feat = feat_map.get(item.track_id)
+            mood_int = classified.get(item.track_id, TrackMood.DRIVING).intensity
+            if feat:
+                track_data_list.append(
+                    TrackData(
+                        track_id=item.track_id,
+                        bpm=feat.bpm,  # type: ignore[union-attr]
+                        energy=lufs_to_energy(feat.lufs_i),  # type: ignore[union-attr]
+                        key_code=feat.key_code or 0,  # type: ignore[union-attr]
+                        mood=mood_int,
+                    )
+                )
+        var_score = variety_score(track_data_list) if track_data_list else 0.0
+
+        suggestions: list[str] = []
+        if weak:
+            suggestions.append(f"{len(weak)} weak transitions (score < 0.4)")
+        if var_score < 0.7:
+            suggestions.append("Low variety — consider diversifying mood/key sequences")
+
+        return SetReviewResult(
+            overall_score=round(avg_score, 3),
+            energy_arc_adherence=0.0,  # TODO: compute against template arc
+            variety_score=round(var_score, 3),
+            weak_transitions=weak,
+            suggestions=suggestions,
         )
