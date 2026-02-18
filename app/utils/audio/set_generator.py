@@ -39,9 +39,10 @@ class GAConfig:
     energy_arc_type: EnergyArcType = EnergyArcType.CLASSIC
     seed: int | None = None
     # Fitness weights (should sum to ~1.0)
-    w_transition: float = 0.50
-    w_energy_arc: float = 0.30
-    w_bpm_smooth: float = 0.20
+    w_transition: float = 0.40
+    w_energy_arc: float = 0.25
+    w_bpm_smooth: float = 0.15
+    w_variety: float = 0.20
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,8 +51,10 @@ class TrackData:
 
     track_id: int
     bpm: float
-    energy: float  # 0-1, global energy proxy
+    energy: float  # 0-1, global energy proxy (LUFS-mapped or energy_mean)
     key_code: int
+    mood: int = 0  # TrackMood.intensity (1-6), 0 = unclassified
+    artist_id: int = 0  # for variety scoring
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,6 +173,45 @@ def target_energy_curve(n: int, arc_type: EnergyArcType) -> NDArray[np.float64]:
         return np.full(n, 0.5, dtype=np.float64)
 
     return _interpolate_breakpoints(n, breakpoints)
+
+
+def lufs_to_energy(lufs: float) -> float:
+    """Map LUFS to [0, 1] energy range.
+
+    Techno range: -14 LUFS (ambient) to -6 LUFS (hard).
+    """
+    return max(0.0, min(1.0, (lufs - (-14.0)) / ((-6.0) - (-14.0))))
+
+
+def variety_score(tracks: list[TrackData]) -> float:
+    """Score sequence diversity (1.0 = perfect variety, 0.0 = no variety).
+
+    Penalises:
+    - Same mood for 3+ consecutive tracks (0.3 per occurrence)
+    - Same Camelot key for 3+ consecutive (0.2 per occurrence)
+    - Same artist within 5-track window (0.1 per occurrence)
+    """
+    n = len(tracks)
+    if n < 3:
+        return 1.0
+
+    penalties = 0.0
+    for i in range(2, n):
+        # Same mood triple
+        if tracks[i].mood == tracks[i - 1].mood == tracks[i - 2].mood and tracks[i].mood != 0:
+            penalties += 0.3
+        # Same key triple
+        if tracks[i].key_code == tracks[i - 1].key_code == tracks[i - 2].key_code:
+            penalties += 0.2
+
+    for i in range(1, n):
+        # Same artist in 5-track window
+        if tracks[i].artist_id != 0:
+            window = tracks[max(0, i - 4) : i]
+            if any(t.artist_id == tracks[i].artist_id for t in window):
+                penalties += 0.1
+
+    return max(0.0, 1.0 - penalties / n)
 
 
 # Sets larger than this use lightweight local search instead of full 2-opt
@@ -374,7 +416,13 @@ class GeneticSetGenerator:
         transition = self._mean_transition_quality(chromosome)
         arc = self._energy_arc_score(chromosome)
         bpm = self._bpm_smoothness_score(chromosome)
-        return cfg.w_transition * transition + cfg.w_energy_arc * arc + cfg.w_bpm_smooth * bpm
+        var = self._variety_score(chromosome)
+        return (
+            cfg.w_transition * transition
+            + cfg.w_energy_arc * arc
+            + cfg.w_bpm_smooth * bpm
+            + cfg.w_variety * var
+        )
 
     def _mean_transition_quality(self, chromosome: NDArray[np.int32]) -> float:
         """Average transition quality across consecutive pairs."""
@@ -402,6 +450,11 @@ class GeneticSetGenerator:
         deltas = np.abs(np.diff(bpms))
         mean_delta = float(np.mean(deltas))
         return max(0.0, min(1.0, 1.0 - mean_delta / 20.0))
+
+    def _variety_score(self, chromosome: NDArray[np.int32]) -> float:
+        """Wrapper for variety_score using chromosome track data."""
+        tracks = [self._all_tracks[i] for i in chromosome]
+        return variety_score(tracks)
 
     def _get_transition_scores(self, chromosome: NDArray[np.int32]) -> list[float]:
         """Extract per-pair transition quality for the final result."""

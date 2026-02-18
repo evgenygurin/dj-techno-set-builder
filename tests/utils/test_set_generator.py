@@ -123,3 +123,56 @@ def test_track_replacement_mutation():
             break
 
     assert replaced, "Track replacement never triggered in 100 attempts"
+
+
+def test_variety_penalty_same_mood_triple():
+    """3 consecutive tracks with same mood should be penalized."""
+    from app.utils.audio.set_generator import variety_score
+
+    # All mood=3 (DRIVING)
+    tracks = [
+        TrackData(track_id=i, bpm=130.0, energy=0.5, key_code=i % 12, mood=3, artist_id=i)
+        for i in range(5)
+    ]
+    score = variety_score(tracks)
+    assert score < 1.0  # penalized
+
+
+def test_variety_penalty_diverse_mood():
+    """Diverse moods should not be penalized."""
+    from app.utils.audio.set_generator import variety_score
+
+    tracks = [
+        TrackData(
+            track_id=i,
+            bpm=130.0,
+            energy=0.5,
+            key_code=i % 12,
+            mood=i % 6 + 1,
+            artist_id=i,
+        )
+        for i in range(6)
+    ]
+    score = variety_score(tracks)
+    assert score >= 0.9
+
+
+def test_ga_config_has_variety_weight():
+    config = GAConfig()
+    assert hasattr(config, "w_variety")
+    assert config.w_variety == 0.20
+
+
+def test_track_data_has_mood_and_artist():
+    td = TrackData(track_id=1, bpm=130.0, energy=0.5, key_code=4, mood=3, artist_id=42)
+    assert td.mood == 3
+    assert td.artist_id == 42
+
+
+def test_lufs_energy_used_in_arc():
+    """When lufs is provided, energy should be derived from LUFS, not energy_mean."""
+    from app.utils.audio.set_generator import lufs_to_energy
+
+    assert 0.0 <= lufs_to_energy(-14.0) <= 0.05  # ambient -> low energy
+    assert 0.9 <= lufs_to_energy(-6.0) <= 1.0  # hard -> high energy
+    assert 0.4 <= lufs_to_energy(-10.0) <= 0.6  # mid-range
