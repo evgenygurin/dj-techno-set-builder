@@ -8,6 +8,7 @@ Reads a rejection report JSON and performs 3-phase cleanup:
 
 Dry-run by default — pass --confirm to actually delete.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -118,8 +119,14 @@ async def phase1_ym_playlist(ym_ids: set[str], *, dry: bool) -> None:
                 continue
 
             diff = json.dumps(
-                {"diff": {"op": "delete", "from": idx, "to": idx + 1,
-                           "tracks": [{"id": tid, "albumId": aid}]}}
+                {
+                    "diff": {
+                        "op": "delete",
+                        "from": idx,
+                        "to": idx + 1,
+                        "tracks": [{"id": tid, "albumId": aid}],
+                    }
+                }
             )
             resp = await http.post(
                 f"{YM_BASE}/users/{YM_USER_ID}/playlists/{YM_PLAYLIST_KIND}/change",
@@ -135,14 +142,17 @@ async def phase1_ym_playlist(ym_ids: set[str], *, dry: bool) -> None:
                 elapsed = time.monotonic() - start
                 logger.info(
                     "  YM: %d/%d deleted (%.1f/min)",
-                    deleted, len(to_delete), deleted / (elapsed / 60) if elapsed > 0 else 0,
+                    deleted,
+                    len(to_delete),
+                    deleted / (elapsed / 60) if elapsed > 0 else 0,
                 )
             # Rate limit: 0.25s between calls
             await asyncio.sleep(0.25)
 
     elapsed = time.monotonic() - start
-    logger.info("Phase 1 done: %d deleted in %.1f min%s",
-                deleted, elapsed / 60, " (dry)" if dry else "")
+    logger.info(
+        "Phase 1 done: %d deleted in %.1f min%s", deleted, elapsed / 60, " (dry)" if dry else ""
+    )
 
 
 async def phase2_local_db(report: dict, *, dry: bool) -> None:
@@ -165,17 +175,23 @@ async def phase2_local_db(report: dict, *, dry: bool) -> None:
     try:
         async with session_factory() as session:
             if dry:
-                result = await session.execute(text("""
+                result = await session.execute(
+                    text("""
                     SELECT COUNT(*) FROM dj_playlist_items
                     WHERE playlist_id = :pid AND track_id IN (SELECT value FROM json_each(:ids))
-                """), {"pid": LOCAL_PLAYLIST_ID, "ids": json.dumps(list(track_ids))})
+                """),
+                    {"pid": LOCAL_PLAYLIST_ID, "ids": json.dumps(list(track_ids))},
+                )
                 count = result.scalar()
                 logger.info("[DRY] Would delete %d rows from dj_playlist_items", count)
             else:
-                result = await session.execute(text("""
+                result = await session.execute(
+                    text("""
                     DELETE FROM dj_playlist_items
                     WHERE playlist_id = :pid AND track_id IN (SELECT value FROM json_each(:ids))
-                """), {"pid": LOCAL_PLAYLIST_ID, "ids": json.dumps(list(track_ids))})
+                """),
+                    {"pid": LOCAL_PLAYLIST_ID, "ids": json.dumps(list(track_ids))},
+                )
                 await session.commit()
                 logger.info("Deleted %d rows from dj_playlist_items", result.rowcount)
     finally:
@@ -201,7 +217,8 @@ def phase3_delete_files(report: dict, *, dry: bool) -> None:
             continue
         for path in candidates:
             if dry:
-                logger.debug("[DRY] Would delete %s (%.1f MB)", path.name, path.stat().st_size / 1e6)
+                size_mb = path.stat().st_size / 1e6
+                logger.debug("[DRY] Would delete %s (%.1f MB)", path.name, size_mb)
                 deleted += 1
             else:
                 size_mb = path.stat().st_size / 1e6
@@ -209,9 +226,13 @@ def phase3_delete_files(report: dict, *, dry: bool) -> None:
                 logger.debug("Deleted %s (%.1f MB)", path.name, size_mb)
                 deleted += 1
 
-    logger.info("Phase 3 done: %d files %s, %d no file%s",
-                deleted, "would delete" if dry else "deleted", skipped,
-                " (dry)" if dry else "")
+    logger.info(
+        "Phase 3 done: %d files %s, %d no file%s",
+        deleted,
+        "would delete" if dry else "deleted",
+        skipped,
+        " (dry)" if dry else "",
+    )
 
 
 async def main() -> None:
@@ -234,6 +255,13 @@ async def main() -> None:
 
     # Phase 3: MP3 files
     phase3_delete_files(report, dry=dry)
+
+    print(f"\n{'=' * 50}")
+    print(f"CLEANUP {'DRY RUN' if dry else 'COMPLETE'}")
+    print(f"{'=' * 50}")
+    print(f"  YM IDs to delete:     {len(ym_ids)}")
+    print(f"  Mode:                 {mode}")
+    print(f"{'=' * 50}")
 
     logger.info("Done.")
 
