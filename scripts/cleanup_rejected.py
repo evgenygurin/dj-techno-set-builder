@@ -184,6 +184,36 @@ async def phase2_local_db(report: dict, *, dry: bool) -> None:
     logger.info("Phase 2 done")
 
 
+def phase3_delete_files(report: dict, *, dry: bool) -> None:
+    """Delete mp3 files for rejected tracks."""
+    logger.info("Phase 3: MP3 file cleanup")
+
+    track_ids = set()
+    for tier_tracks in report.get("rejected_by_tier", {}).values():
+        for t in tier_tracks:
+            track_ids.add(t["track_id"])
+
+    deleted = skipped = 0
+    for tid in sorted(track_ids):
+        candidates = list(AUDIO_DIR.glob(f"{tid}_*.mp3"))
+        if not candidates:
+            skipped += 1
+            continue
+        for path in candidates:
+            if dry:
+                logger.debug("[DRY] Would delete %s (%.1f MB)", path.name, path.stat().st_size / 1e6)
+                deleted += 1
+            else:
+                size_mb = path.stat().st_size / 1e6
+                path.unlink()
+                logger.debug("Deleted %s (%.1f MB)", path.name, size_mb)
+                deleted += 1
+
+    logger.info("Phase 3 done: %d files %s, %d no file%s",
+                deleted, "would delete" if dry else "deleted", skipped,
+                " (dry)" if dry else "")
+
+
 async def main() -> None:
     args = parse_args()
     report_path = args.report or find_latest_report()
