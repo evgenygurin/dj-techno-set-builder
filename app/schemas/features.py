@@ -41,10 +41,16 @@ class AudioFeaturesRead(BaseSchema):
     flux_mean: float | None = None
     flux_std: float | None = None
     contrast_mean_db: float | None = None
+    # Spectral (Phase 2)
+    slope_db_per_oct: float | None = None
     # Tonal
     key_code: int
     key_confidence: float
     is_atonal: bool
+    chroma_entropy: float | None = None
+    hnr_mean_db: float | None = None
+    # MFCC (Phase 2)
+    mfcc_vector: str | None = None
     # Rhythm (optional, Phase 2)
     hp_ratio: float | None = None
     onset_rate_mean: float | None = None
