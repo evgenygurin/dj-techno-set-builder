@@ -72,82 +72,137 @@ def load_report(path: Path) -> dict:
     return data
 
 
+async def _fetch_playlist(
+    http: httpx.AsyncClient, headers: dict[str, str]
+) -> tuple[int, list[dict]]:
+    """Fetch current playlist, return (revision, tracks)."""
+    resp = await http.get(
+        f"{YM_BASE}/users/{YM_USER_ID}/playlists/{YM_PLAYLIST_KIND}",
+        headers=headers,
+    )
+    resp.raise_for_status()
+    playlist = resp.json()["result"]
+    return playlist["revision"], playlist["tracks"]
+
+
+def _find_first_match(tracks: list[dict], ym_ids: set[str]) -> tuple[int, str, str] | None:
+    """Find first track in playlist matching ym_ids, return (idx, tid, aid)."""
+    for i, t in enumerate(tracks):
+        tid = str(t["id"])
+        if tid in ym_ids:
+            albums = t.get("track", {}).get("albums", [])
+            aid = str(albums[0]["id"]) if albums else ""
+            return (i, tid, aid)
+    return None
+
+
 async def phase1_ym_playlist(ym_ids: set[str], *, dry: bool) -> None:
-    """Remove tracks from YM playlist via API."""
+    """Remove tracks from YM playlist via API.
+
+    Strategy: always delete the FIRST matching track, then re-fetch.
+    This avoids index-shift bugs and stale-snapshot issues with the YM API.
+    """
     logger.info("Phase 1: YM playlist (%d tracks to remove)", len(ym_ids))
     token = settings.yandex_music_token
     if not token:
         raise RuntimeError("yandex_music_token not configured in .env")
 
+    remaining = set(ym_ids)
+    deleted = 0
+    consecutive_412 = 0
+    start = time.monotonic()
+
     async with httpx.AsyncClient(timeout=30.0) as http:
         headers = {"Authorization": f"OAuth {token}"}
 
-        # 1. Fetch current playlist
-        resp = await http.get(
-            f"{YM_BASE}/users/{YM_USER_ID}/playlists/{YM_PLAYLIST_KIND}",
-            headers=headers,
-        )
-        resp.raise_for_status()
-        playlist = resp.json()["result"]
-        revision = playlist["revision"]
-        tracks = playlist["tracks"]
+        revision, tracks = await _fetch_playlist(http, headers)
         logger.info("Playlist: %d tracks, revision=%d", len(tracks), revision)
 
-        # 2. Build deletion list: (index, track_id, album_id)
-        to_delete = []
-        for i, t in enumerate(tracks):
-            tid = str(t["id"])
-            if tid in ym_ids:
-                albums = t.get("track", {}).get("albums", [])
-                aid = str(albums[0]["id"]) if albums else ""
-                to_delete.append((i, tid, aid))
-
-        logger.info("Found %d / %d tracks in current playlist", len(to_delete), len(ym_ids))
-        if not to_delete:
+        # Count how many we need to delete
+        total = sum(1 for t in tracks if str(t["id"]) in remaining)
+        logger.info("Found %d / %d tracks in current playlist", total, len(ym_ids))
+        if total == 0:
             logger.info("Nothing to delete from YM")
             return
 
-        # 3. Delete from highest index to lowest
-        to_delete.sort(key=lambda x: x[0], reverse=True)
+        while True:
+            match = _find_first_match(tracks, remaining)
+            if not match:
+                break
+            idx, tid, aid = match
 
-        deleted = 0
-        start = time.monotonic()
-        for idx, tid, aid in to_delete:
             if dry:
-                logger.debug("[DRY] Would delete idx=%d id=%s", idx, tid)
+                remaining.discard(tid)
                 deleted += 1
+                # In dry mode, just scan without re-fetching
+                tracks = [t for t in tracks if str(t["id"]) != tid]
                 continue
 
             diff = json.dumps(
-                {
-                    "diff": {
+                [
+                    {
                         "op": "delete",
                         "from": idx,
                         "to": idx + 1,
                         "tracks": [{"id": tid, "albumId": aid}],
                     }
-                }
+                ]
             )
-            resp = await http.post(
-                f"{YM_BASE}/users/{YM_USER_ID}/playlists/{YM_PLAYLIST_KIND}/change",
-                headers=headers,
-                data={"diff": diff, "revision": str(revision)},
-            )
-            resp.raise_for_status()
+
+            # Retry with backoff on 429
+            ok = False
+            for attempt in range(5):
+                resp = await http.post(
+                    f"{YM_BASE}/users/{YM_USER_ID}/playlists/{YM_PLAYLIST_KIND}/change",
+                    headers=headers,
+                    data={"diff": diff, "revision": str(revision)},
+                )
+                if resp.status_code == 429:
+                    wait = 2 ** (attempt + 1)
+                    logger.warning("  429 rate-limited, waiting %ds...", wait)
+                    await asyncio.sleep(wait)
+                    continue
+                if resp.status_code == 412:
+                    consecutive_412 += 1
+                    if consecutive_412 > 5:
+                        raise RuntimeError(f"Persistent 412 after {consecutive_412} attempts")
+                    logger.warning("  412, re-fetching playlist...")
+                    await asyncio.sleep(3)
+                    revision, tracks = await _fetch_playlist(http, headers)
+                    break  # retry with fresh data
+                resp.raise_for_status()
+                ok = True
+                break
+            else:
+                raise RuntimeError(f"5 retries exhausted for track {tid}")
+
+            if not ok:
+                continue  # 412 handled, retry with fresh playlist
+
+            # Success — update state
             result = resp.json().get("result", {})
             revision = result.get("revision", revision + 1)
+            remaining.discard(tid)
             deleted += 1
+            consecutive_412 = 0
 
-            if deleted % 50 == 0:
+            if deleted % 20 == 0:
                 elapsed = time.monotonic() - start
                 logger.info(
                     "  YM: %d/%d deleted (%.1f/min)",
                     deleted,
-                    len(to_delete),
+                    total,
                     deleted / (elapsed / 60) if elapsed > 0 else 0,
                 )
-            # Rate limit: 0.25s between calls
-            await asyncio.sleep(0.25)
+
+            # Re-fetch every 10 deletions to keep indices fresh
+            if deleted % 10 == 0:
+                revision, tracks = await _fetch_playlist(http, headers)
+            else:
+                # Remove from local copy to avoid re-fetch every time
+                tracks = [t for t in tracks if str(t["id"]) != tid]
+
+            await asyncio.sleep(1.0)
 
     elapsed = time.monotonic() - start
     logger.info(
