@@ -14,12 +14,16 @@ from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVer
 from app.schemas.set_generation import SetGenerationRequest, SetGenerationResponse
 from app.services.base import BaseService
 from app.services.transition_scoring import TrackFeatures, TransitionScoringService
+from app.utils.audio.mood_classifier import classify_track
 from app.utils.audio.set_generator import (
     EnergyArcType,
     GAConfig,
+    GAConstraints,
     GeneticSetGenerator,
     TrackData,
+    lufs_to_energy,
 )
+from app.utils.audio.set_templates import SetSlot, TemplateName, get_template
 
 
 def _build_matrix_two_tier(
@@ -121,7 +125,18 @@ class SetGenerationService(BaseService):
             track_ids = [f.track_id for f in features_list]
             sections_map = await self.sections_repo.get_latest_by_track_ids(track_ids)
 
-        from app.utils.audio.set_generator import lufs_to_energy
+        # Classify moods for all tracks
+        mood_map: dict[int, int] = {}
+        for f in features_list:
+            classification = classify_track(
+                bpm=f.bpm,
+                lufs_i=f.lufs_i,
+                kick_prominence=f.kick_prominence or 0.5,
+                spectral_centroid_mean=f.centroid_mean_hz or 2500.0,
+                onset_rate=f.onset_rate_mean or 5.0,
+                hp_ratio=f.hp_ratio or 0.5,
+            )
+            mood_map[f.track_id] = classification.mood.intensity
 
         # Build TrackData list (LUFS-based energy for accurate perceived loudness)
         tracks = [
@@ -130,7 +145,7 @@ class SetGenerationService(BaseService):
                 bpm=f.bpm,
                 energy=lufs_to_energy(f.lufs_i),
                 key_code=f.key_code or 0,
-                mood=0,  # populated by curation service when available
+                mood=mood_map.get(f.track_id, 0),
                 artist_id=0,  # TODO: wire artist_id from track model
             )
             for f in features_list
@@ -143,7 +158,22 @@ class SetGenerationService(BaseService):
             sections_map=sections_map,
         )
 
-        # Configure GA
+        # Load template slots if specified
+        template_slots: list[SetSlot] = []
+        data_track_count: int | None = data.track_count
+        if data.template_name:
+            template = get_template(TemplateName(data.template_name))
+            template_slots = list(template.slots)
+            # Set track_count from template if not explicitly specified
+            if data.track_count is None and template.target_track_count > 0:
+                data_track_count = template.target_track_count
+
+        # Filter out excluded tracks
+        if data.exclude_track_ids:
+            excluded = set(data.exclude_track_ids)
+            tracks = [t for t in tracks if t.track_id not in excluded]
+
+        # Configure GA — rebalance weights when template is active
         config = GAConfig(
             population_size=data.population_size,
             generations=data.generations,
@@ -151,16 +181,32 @@ class SetGenerationService(BaseService):
             crossover_rate=data.crossover_rate,
             tournament_size=data.tournament_size,
             elitism_count=data.elitism_count,
-            track_count=data.track_count,
+            track_count=data_track_count,
             energy_arc_type=EnergyArcType(data.energy_arc_type),
             seed=data.seed,
-            w_transition=data.w_transition,
-            w_energy_arc=data.w_energy_arc,
-            w_bpm_smooth=data.w_bpm_smooth,
+            w_template=0.25 if template_slots else 0.0,
+            w_transition=0.35 if template_slots else data.w_transition,
+            w_energy_arc=0.20 if template_slots else data.w_energy_arc,
+            w_bpm_smooth=0.10 if template_slots else data.w_bpm_smooth,
+            w_variety=0.10 if template_slots else 0.20,
         )
 
+        # Build GA constraints from pinned/excluded
+        constraints: GAConstraints | None = None
+        if data.pinned_track_ids or data.exclude_track_ids:
+            constraints = GAConstraints(
+                pinned_ids=frozenset(data.pinned_track_ids or []),
+                excluded_ids=frozenset(data.exclude_track_ids or []),
+            )
+
         # Run GA
-        gen = GeneticSetGenerator(tracks, transition_matrix, config)
+        gen = GeneticSetGenerator(
+            tracks,
+            transition_matrix,
+            config,
+            template_slots=template_slots,
+            constraints=constraints,
+        )
         result = gen.run()
 
         # Create set version
@@ -178,9 +224,12 @@ class SetGenerationService(BaseService):
                 },
                 "weights": {
                     "transition": config.w_transition,
+                    "template": config.w_template,
                     "energy_arc": config.w_energy_arc,
                     "bpm_smooth": config.w_bpm_smooth,
+                    "variety": config.w_variety,
                 },
+                "template_name": data.template_name,
             },
         )
 

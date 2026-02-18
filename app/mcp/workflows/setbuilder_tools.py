@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
-
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
@@ -17,7 +15,7 @@ from app.mcp.dependencies import (
 )
 from app.mcp.types import ExportResult, SetBuildResult, TransitionScoreResult
 from app.schemas.set_generation import SetGenerationRequest
-from app.schemas.sets import DjSetCreate, DjSetVersionCreate
+from app.schemas.sets import DjSetCreate
 from app.services.features import AudioFeaturesService
 from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
@@ -34,20 +32,25 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         playlist_id: int,
         set_name: str,
         ctx: Context,
+        template: str | None = None,
         energy_arc: str = "classic",
+        exclude_track_ids: list[int] | None = None,
         set_svc: DjSetService = Depends(get_set_service),
         gen_svc: SetGenerationService = Depends(get_set_generation_service),
     ) -> SetBuildResult:
-        """Build a DJ set from a playlist using the genetic algorithm.
+        """Build a DJ set from a playlist using template + genetic algorithm.
 
-        Creates a new DjSet, then uses SetGenerationService to find the
-        optimal track ordering via GA optimisation.
+        If template is provided, GA selects and orders tracks to fit
+        template slots (mood, energy, BPM). Without template, GA orders
+        all playlist tracks optimizing transitions only.
 
         Args:
             playlist_id: Source playlist containing candidate tracks.
             set_name: Name for the new DJ set.
+            template: Template name (classic_60, peak_hour_60, etc.) or None.
             energy_arc: Energy arc shape — classic, progressive,
                         roller, or wave.
+            exclude_track_ids: Track IDs to exclude from selection.
         """
         # 1. Create DJ set
         await ctx.report_progress(progress=0, total=100)
@@ -56,13 +59,19 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         )
 
         await ctx.report_progress(progress=10, total=100)
+        tmpl_info = f", template={template}" if template else ""
         await ctx.info(
             f"Created set '{set_name}' (id={dj_set.set_id}), "
-            f"running GA with energy_arc={energy_arc}..."
+            f"running GA with energy_arc={energy_arc}{tmpl_info}..."
         )
 
         # 2. Generate optimal ordering via GA
-        request = SetGenerationRequest(energy_arc_type=energy_arc, playlist_id=playlist_id)
+        request = SetGenerationRequest(
+            energy_arc_type=energy_arc,
+            playlist_id=playlist_id,
+            template_name=template,
+            exclude_track_ids=exclude_track_ids,
+        )
         gen_result = await gen_svc.generate(dj_set.set_id, request)
         await ctx.report_progress(progress=80, total=100)
 
@@ -73,6 +82,57 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         await ctx.report_progress(progress=100, total=100)
         return SetBuildResult(
             set_id=dj_set.set_id,
+            version_id=gen_result.set_version_id,
+            track_count=len(gen_result.track_ids),
+            total_score=gen_result.score,
+            avg_transition_score=avg_score,
+            energy_curve=[],
+        )
+
+    @mcp.tool(tags={"setbuilder"})
+    async def rebuild_set(
+        set_id: int,
+        ctx: Context,
+        set_svc: DjSetService = Depends(get_set_service),
+        gen_svc: SetGenerationService = Depends(get_set_generation_service),
+    ) -> SetBuildResult:
+        """Rebuild a set respecting pinned tracks and excluding rejected ones.
+
+        Reads pinned flags from the latest version's items. Creates a new
+        version with re-optimized track ordering via GA.
+
+        Args:
+            set_id: DJ set to rebuild.
+        """
+        dj_set = await set_svc.get(set_id)
+
+        # Get latest version
+        versions = await set_svc.list_versions(set_id)
+        if not versions.items:
+            raise NotFoundError("DjSetVersion", set_id=set_id)
+        latest = max(versions.items, key=lambda v: v.set_version_id)
+
+        items_list = await set_svc.list_items(latest.set_version_id, offset=0, limit=500)
+        items = items_list.items
+
+        pinned_ids = [item.track_id for item in items if item.pinned]
+
+        await ctx.info(f"Rebuilding set {set_id} with {len(pinned_ids)} pinned tracks...")
+
+        # Re-run GA with constraints
+        request = SetGenerationRequest(
+            playlist_id=dj_set.source_playlist_id,
+            template_name=dj_set.template_name,
+            pinned_track_ids=pinned_ids if pinned_ids else None,
+        )
+        gen_result = await gen_svc.generate(set_id, request)
+
+        avg_score = 0.0
+        if gen_result.transition_scores:
+            avg_score = sum(gen_result.transition_scores) / len(gen_result.transition_scores)
+
+        return SetBuildResult(
+            set_id=set_id,
             version_id=gen_result.set_version_id,
             track_count=len(gen_result.track_ids),
             total_score=gen_result.score,
@@ -212,160 +272,6 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
 
         await ctx.report_progress(progress=pairs_total, total=pairs_total)
         return results
-
-    @mcp.tool(tags={"setbuilder"})
-    async def adjust_set(
-        set_id: int,
-        version_id: int,
-        instructions: str,
-        ctx: Context,
-        set_svc: DjSetService = Depends(get_set_service),
-        features_svc: AudioFeaturesService = Depends(get_features_service),
-    ) -> SetBuildResult:
-        """Adjust a DJ set version based on natural language instructions.
-
-        Uses ctx.sample_step() in an agentic loop so the LLM can call
-        a score_pair tool to evaluate transitions before suggesting changes.
-        Falls back gracefully when the MCP client does not support sampling.
-
-        Creates a new version that copies the current track ordering and
-        records the LLM suggestion in generator_run metadata.  The caller
-        can then apply specific reorderings via the REST API.
-
-        Args:
-            set_id: DJ set to adjust.
-            version_id: Version to base the adjustment on.
-            instructions: Natural language instructions describing
-                          what to change (e.g. "move the peak earlier",
-                          "swap tracks 3 and 5").
-        """
-        # Validate set + version
-        await set_svc.get(set_id)
-        items_list = await set_svc.list_items(
-            version_id,
-            offset=0,
-            limit=500,
-        )
-        items = sorted(items_list.items, key=lambda i: i.sort_index)
-
-        track_summary = ", ".join(f"#{i.sort_index}: track {i.track_id}" for i in items)
-
-        # Define score_pair tool for LLM to evaluate transitions
-        unified_svc = UnifiedTransitionScoringService(
-            features_svc.features_repo.session,
-        )
-
-        async def _score_pair(
-            track_a_id: int,
-            track_b_id: int,
-        ) -> dict[str, float]:
-            """Score the transition quality between two tracks.
-
-            Returns BPM, harmonic, energy, spectral, groove and total scores.
-            """
-            try:
-                return await unified_svc.score_components_by_ids(
-                    track_a_id,
-                    track_b_id,
-                )
-            except (ValueError, NotFoundError):
-                return {"error": 1.0, "total": 0.0}
-
-        # Try LLM-assisted adjustment with agentic loop
-        from app.mcp.types import AdjustmentPlan
-
-        plan: AdjustmentPlan | None = None
-        suggestion: str | None = None
-        try:
-            prompt = (
-                f"Current set order: [{track_summary}]. "
-                f"User instructions: {instructions}. "
-                "Use the score_pair tool to evaluate transitions, "
-                "then suggest improvements."
-            )
-
-            # Use sample_step for fine-grained control
-            messages: str | list[str] = prompt
-            max_steps = 10
-            for step_num in range(max_steps):
-                step = await ctx.sample_step(
-                    messages=messages,
-                    system_prompt=(
-                        "You are a DJ assistant. Score transitions between "
-                        "tracks and suggest reorderings to improve the set."
-                    ),
-                    tools=[_score_pair],
-                    execute_tools=True,
-                )
-
-                if step.is_tool_use:
-                    await ctx.report_progress(
-                        progress=step_num + 1,
-                        total=max_steps,
-                    )
-                    messages = step.history  # type: ignore[assignment]
-                    continue
-
-                # Final text response
-                suggestion = step.text
-                break
-
-            # Try to parse as AdjustmentPlan
-            if suggestion:
-                try:
-                    plan = AdjustmentPlan.model_validate_json(suggestion)
-                except (ValueError, KeyError):
-                    plan = None
-
-        except (NotImplementedError, AttributeError, TypeError, ValueError):
-            plan = None
-            suggestion = None
-
-        if plan:
-            with contextlib.suppress(Exception):
-                await ctx.info(
-                    f"Adjustment plan: {plan.reasoning[:200]}\n"
-                    f"Swaps: {len(plan.swap_suggestions)}, "
-                    f"Reorders: {len(plan.reorder_suggestions)}"
-                )
-        elif suggestion:
-            with contextlib.suppress(Exception):
-                await ctx.info(f"Suggested changes:\n{suggestion[:500]}")
-
-        # Create a new version with the instructions recorded
-        new_version = await set_svc.create_version(
-            set_id,
-            DjSetVersionCreate(
-                version_label=f"Adjusted: {instructions[:60]}",
-                generator_run={
-                    "algorithm": "manual_adjust",
-                    "instructions": instructions,
-                    "suggestion": suggestion,
-                    "plan": plan.model_dump() if plan else None,
-                },
-            ),
-        )
-
-        # Copy items from original version to new version
-        for item in items:
-            from app.schemas.sets import DjSetItemCreate
-
-            await set_svc.add_item(
-                new_version.set_version_id,
-                DjSetItemCreate(
-                    track_id=item.track_id,
-                    sort_index=item.sort_index,
-                ),
-            )
-
-        return SetBuildResult(
-            set_id=set_id,
-            version_id=new_version.set_version_id,
-            track_count=len(items),
-            total_score=0.0,
-            avg_transition_score=0.0,
-            energy_curve=[],
-        )
 
     @mcp.tool(tags={"setbuilder"})
     async def export_set_m3u(

@@ -37,7 +37,7 @@ async def test_gateway_client_ping(gateway_mcp: FastMCP):
 
 
 async def test_client_lists_all_workflow_tools(workflow_mcp: FastMCP):
-    """Client sees all 12 DJ workflow tools + activate_heavy_mode."""
+    """Client sees DJ workflow tools + activate_heavy_mode."""
     async with Client(workflow_mcp) as client:
         tools = await client.list_tools()
         tool_names = {t.name for t in tools}
@@ -49,10 +49,17 @@ async def test_client_lists_all_workflow_tools(workflow_mcp: FastMCP):
             "find_similar_tracks",
             "search_by_criteria",
             "build_set",
+            "rebuild_set",
             "score_transitions",
-            "adjust_set",
             "export_set_m3u",
             "export_set_json",
+            "classify_tracks",
+            "analyze_library_gaps",
+            "review_set",
+            "sync_set_to_ym",
+            "sync_set_from_ym",
+            "sync_playlist",
+            "download_tracks",
             "activate_heavy_mode",
         }
         missing = expected - tool_names

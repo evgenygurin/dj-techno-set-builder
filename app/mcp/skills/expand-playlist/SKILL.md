@@ -28,8 +28,8 @@ with optimized track ordering.
    Look for average score > 0.7.
 
 5. **Improve if needed** — If average transition score < 0.7,
-   use `dj_adjust_set` with instructions like
-   "improve weak transitions, focus on BPM matching".
+   use `dj_rebuild_set` to regenerate with weak tracks excluded
+   and good tracks pinned.
 
 ## Tips
 

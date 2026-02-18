@@ -29,7 +29,7 @@ and optimize the ordering.
    The genetic algorithm optimizes track ordering for smooth transitions.
 
 5. **Score and iterate** — `dj_score_transitions` → review →
-   `dj_adjust_set` if scores are low.
+   `dj_rebuild_set` if scores are low (pin good tracks, exclude weak).
 
 ## Energy Arcs
 

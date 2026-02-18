@@ -87,11 +87,21 @@ class TrackFeatures:
 ## Set generation
 
 `SetGenerationService` (`app/services/set_generation.py`) — **multi-repo service**:
-- Uses 4 repositories: DjSetRepository, DjSetVersionRepository, DjSetItemRepository, AudioFeaturesRepository
+- Uses 6 repositories: DjSetRepository, DjSetVersionRepository, DjSetItemRepository, AudioFeaturesRepository, SectionsRepository, DjPlaylistItemRepository
 - Calls `GeneticSetGenerator` from `app/utils/audio/set_generator.py`
 - GA with 2-opt local search for track ordering optimization
-- Fitness = sum of transition scores + energy arc adherence
+- Populates `TrackData.mood` via `classify_track()` for template-aware fitness
+- Fitness = weighted sum of: transition scores, energy arc, BPM smoothness, variety, template_slot_fit
 - Energy arcs: `classic`, `progressive`, `roller`, `wave`
+
+**Template-aware fitness** (`template_slot_fit`):
+- Compares each track against its template slot: mood (50%), energy (30%), BPM (20%)
+- When template active, weights rebalance: transition=0.35, template=0.25, arc=0.20, bpm=0.10, variety=0.10
+
+**GAConstraints** (for `rebuild_set`):
+- `pinned_ids: frozenset[int]` — must remain in every chromosome
+- `excluded_ids: frozenset[int]` — banned from mutations
+- Used by `_init_population()` and `_mutate_replace()`
 
 ## TrackAnalysisService
 

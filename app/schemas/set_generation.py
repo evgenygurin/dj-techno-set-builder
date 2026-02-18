@@ -21,6 +21,16 @@ class SetGenerationRequest(BaseSchema):
     playlist_id: int | None = Field(
         default=None, description="Filter tracks to this playlist (None = all tracks)"
     )
+    template_name: str | None = Field(
+        default=None,
+        description="Template for slot-based fitness (e.g. classic_60, peak_hour_60)",
+    )
+    exclude_track_ids: list[int] | None = Field(
+        default=None, description="Track IDs to exclude from selection"
+    )
+    pinned_track_ids: list[int] | None = Field(
+        default=None, description="Track IDs that must be included (for rebuild)"
+    )
     version_label: str | None = Field(default=None, max_length=100)
     w_transition: float = Field(default=0.50, ge=0.0, le=1.0)
     w_energy_arc: float = Field(default=0.30, ge=0.0, le=1.0)

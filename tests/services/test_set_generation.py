@@ -19,6 +19,11 @@ def _make_features_mock(track_id: int, bpm: float = 128.0) -> MagicMock:
     f.energy_mean = 0.5
     f.lufs_i = -9.0
     f.key_code = 0
+    # Fields required by mood classifier
+    f.kick_prominence = 0.5
+    f.centroid_mean_hz = 2500.0
+    f.onset_rate_mean = 5.0
+    f.hp_ratio = 0.5
     return f
 
 

@@ -15,6 +15,8 @@ from enum import StrEnum
 import numpy as np
 from numpy.typing import NDArray
 
+from app.utils.audio.set_templates import SetSlot
+
 
 class EnergyArcType(StrEnum):
     """Predefined energy arc shapes for techno sets."""
@@ -39,10 +41,13 @@ class GAConfig:
     energy_arc_type: EnergyArcType = EnergyArcType.CLASSIC
     seed: int | None = None
     # Fitness weights (should sum to ~1.0)
+    # Without template: 0.40 + 0.25 + 0.15 + 0.20 + 0.00 = 1.0
+    # With template:    0.35 + 0.20 + 0.10 + 0.10 + 0.25 = 1.0
     w_transition: float = 0.40
     w_energy_arc: float = 0.25
     w_bpm_smooth: float = 0.15
     w_variety: float = 0.20
+    w_template: float = 0.0  # 0.0 = no template, 0.25 = recommended with template
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +60,14 @@ class TrackData:
     key_code: int
     mood: int = 0  # TrackMood.intensity (1-6), 0 = unclassified
     artist_id: int = 0  # for variety scoring
+
+
+@dataclass(frozen=True, slots=True)
+class GAConstraints:
+    """Constraints for rebuild — pinned tracks must stay, excluded are banned."""
+
+    pinned_ids: frozenset[int] = frozenset()
+    excluded_ids: frozenset[int] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,6 +227,58 @@ def variety_score(tracks: list[TrackData]) -> float:
     return max(0.0, 1.0 - penalties / n)
 
 
+def template_slot_fit(
+    tracks: list[TrackData],
+    slots: list[SetSlot],
+) -> float:
+    """Score how well tracks match template slots (0.0-1.0).
+
+    For each position i, compares track[i] against slot[i]:
+    - Mood match (50%): exact=1.0, adjacent intensity=0.5, else 0.0
+    - Energy match (30%): 1.0 - |energy - slot_energy_mapped| / 1.0
+    - BPM match (20%): 1.0 if in range, else penalty by distance
+
+    Returns 0.5 (neutral) if no slots provided.
+    """
+    if not slots:
+        return 0.5
+
+    n = min(len(tracks), len(slots))
+    if n == 0:
+        return 0.5
+
+    total = 0.0
+    for i in range(n):
+        track = tracks[i]
+        slot = slots[i]
+
+        # Mood match: compare intensity levels (1-6)
+        track_intensity = track.mood
+        slot_intensity = slot.mood.intensity
+        if track_intensity == slot_intensity:
+            mood_score = 1.0
+        elif abs(track_intensity - slot_intensity) == 1:
+            mood_score = 0.5
+        else:
+            mood_score = 0.0
+
+        # Energy match: slot.energy_target is LUFS (-14..-6), track.energy is 0-1
+        slot_energy = max(0.0, min(1.0, (slot.energy_target + 14.0) / 8.0))
+        energy_score = max(0.0, 1.0 - abs(track.energy - slot_energy))
+
+        # BPM match: in-range = 1.0, else linear penalty up to 10 BPM away
+        bpm_low, bpm_high = slot.bpm_range
+        if bpm_low <= track.bpm <= bpm_high:
+            bpm_score = 1.0
+        else:
+            bpm_dist = min(abs(track.bpm - bpm_low), abs(track.bpm - bpm_high))
+            bpm_score = max(0.0, 1.0 - bpm_dist / 10.0)
+
+        total += 0.5 * mood_score + 0.3 * energy_score + 0.2 * bpm_score
+
+    return total / n
+
+
 # Sets larger than this use lightweight local search instead of full 2-opt
 # in the GA loop. Full 2-opt is O(n³) — 1.2s per pass at n=214, called
 # 19,650 times → 73,000+ seconds. _relocate_worst is O(n) → ~0.1ms.
@@ -235,10 +300,13 @@ class GeneticSetGenerator:
         tracks: list[TrackData],
         transition_matrix: NDArray[np.float64],
         config: GAConfig | None = None,
+        template_slots: list[SetSlot] | None = None,
+        constraints: GAConstraints | None = None,
     ) -> None:
         self.config = config or GAConfig()
         self._rng = random.Random(self.config.seed)
         self._np_rng = np.random.default_rng(self.config.seed)
+        self._constraints = constraints or GAConstraints()
 
         # Determine working set
         n = len(tracks)
@@ -250,6 +318,17 @@ class GeneticSetGenerator:
         self._energies = np.array([t.energy for t in tracks], dtype=np.float64)
         self._bpms = np.array([t.bpm for t in tracks], dtype=np.float64)
         self._target = target_energy_curve(use_n, self.config.energy_arc_type)
+        self._template_slots = template_slots or []
+
+        # Pre-compute pinned track indices for constraint enforcement
+        pinned_track_ids = self._constraints.pinned_ids
+        self._pinned_indices: frozenset[int] = frozenset(
+            i for i, t in enumerate(tracks) if t.track_id in pinned_track_ids
+        )
+        excluded_track_ids = self._constraints.excluded_ids
+        self._excluded_indices: frozenset[int] = frozenset(
+            i for i, t in enumerate(tracks) if t.track_id in excluded_track_ids
+        )
 
     def run(self) -> GAResult:
         """Execute the genetic algorithm. Returns the best solution found.
@@ -373,6 +452,27 @@ class GeneticSetGenerator:
 
         return path
 
+    def _make_valid_subset(self, n_all: int, n_select: int) -> NDArray[np.int32]:
+        """Create a random subset that includes all pinned and excludes all excluded."""
+        # Start with pinned indices (must be included)
+        pinned = list(self._pinned_indices)
+        # Available pool: not excluded and not already pinned
+        available = [
+            i
+            for i in range(n_all)
+            if i not in self._excluded_indices and i not in self._pinned_indices
+        ]
+        self._rng.shuffle(available)
+
+        # Fill remaining slots from available pool
+        need = n_select - len(pinned)
+        if need < 0:
+            need = 0
+        filler = available[:need]
+        subset = np.array(pinned + filler, dtype=np.int32)
+        self._np_rng.shuffle(subset)
+        return subset
+
     def _init_population(
         self, n_all: int, n_select: int, pop_size: int
     ) -> list[NDArray[np.int32]]:
@@ -380,21 +480,27 @@ class GeneticSetGenerator:
 
         For large sets (n > ``_LARGE_SET_THRESHOLD``), NN-seeded individuals get
         ``_relocate_worst`` instead of full ``_two_opt`` to avoid O(n³) cost.
+
+        If constraints are set, every individual includes all pinned track
+        indices and excludes all excluded indices.
         """
         population: list[NDArray[np.int32]] = []
-        indices = np.arange(n_all, dtype=np.int32)
         large = n_select > _LARGE_SET_THRESHOLD
+        has_constraints = bool(self._pinned_indices or self._excluded_indices)
 
         nn_count = pop_size // 2
 
         # NN-seeded individuals
         for _ in range(nn_count):
-            perm = self._np_rng.permutation(indices)
-            subset = perm[:n_select].copy()
+            if has_constraints:
+                subset = self._make_valid_subset(n_all, n_select)
+            else:
+                indices = np.arange(n_all, dtype=np.int32)
+                perm = self._np_rng.permutation(indices)
+                subset = perm[:n_select].copy()
             start_idx = int(self._np_rng.choice(subset))
             path = self._nearest_neighbor_path(start_idx, subset)
             if large:
-                # O(n) relocate x n passes = O(n^2) -- still fast for 214 tracks
                 for _r in range(min(n_select, 50)):
                     self._relocate_worst(path)
             else:
@@ -403,8 +509,13 @@ class GeneticSetGenerator:
 
         # Random individuals
         for _ in range(pop_size - nn_count):
-            perm = self._np_rng.permutation(indices)
-            population.append(perm[:n_select].copy())
+            if has_constraints:
+                subset = self._make_valid_subset(n_all, n_select)
+            else:
+                indices = np.arange(n_all, dtype=np.int32)
+                perm = self._np_rng.permutation(indices)
+                subset = perm[:n_select].copy()
+            population.append(subset)
 
         return population
 
@@ -417,8 +528,15 @@ class GeneticSetGenerator:
         arc = self._energy_arc_score(chromosome)
         bpm = self._bpm_smoothness_score(chromosome)
         var = self._variety_score(chromosome)
+
+        tmpl = 0.5  # neutral if no template
+        if self._template_slots:
+            ordered_tracks = [self._all_tracks[i] for i in chromosome]
+            tmpl = template_slot_fit(ordered_tracks, self._template_slots)
+
         return (
             cfg.w_transition * transition
+            + cfg.w_template * tmpl
             + cfg.w_energy_arc * arc
             + cfg.w_bpm_smooth * bpm
             + cfg.w_variety * var
@@ -529,6 +647,8 @@ class GeneticSetGenerator:
         Only effective when track_count < len(all_tracks).
         5% probability per call.
 
+        Constraints: never replace pinned tracks, never insert excluded tracks.
+
         Args:
             chromosome: Permutation to modify (in-place).
         """
@@ -541,14 +661,18 @@ class GeneticSetGenerator:
         if self._rng.random() > 0.05:
             return  # 5% probability gate
 
-        # Find unused tracks
+        # Find unused tracks (excluding banned tracks)
         used = set(chromosome.tolist())
-        unused = [i for i in range(n_all) if i not in used]
+        unused = [i for i in range(n_all) if i not in used and i not in self._excluded_indices]
         if not unused:
             return
 
-        # Replace a random position with a random unused track
-        pos = self._rng.randrange(n_select)
+        # Replaceable positions: not pinned
+        replaceable = [p for p in range(n_select) if chromosome[p] not in self._pinned_indices]
+        if not replaceable:
+            return
+
+        pos = self._rng.choice(replaceable)
         replacement = self._rng.choice(unused)
         chromosome[pos] = replacement
 

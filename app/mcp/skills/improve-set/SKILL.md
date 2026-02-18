@@ -25,15 +25,16 @@ the track ordering.
    - Harmonic clash (score < 0.4): keys don't mix well
    - Energy jump (score < 0.5): too big a change in loudness
 
-3. **Adjust set** — `dj_adjust_set` with specific instructions:
-   - "swap tracks 3 and 5 to improve BPM flow"
-   - "move the peak track earlier in the set"
-   - "reorder tracks 7-10 for better energy progression"
+3. **Pin good tracks** — Mark tracks with strong transitions as pinned
+   in the set items via REST API.
 
-4. **Re-score** — `dj_score_transitions` on the new version.
+4. **Rebuild set** — `dj_rebuild_set` to regenerate with pinned tracks
+   preserved and weak ones replaced by better candidates.
+
+5. **Re-score** — `dj_score_transitions` on the new version.
    Compare average scores between versions.
 
-5. **Iterate** — Repeat steps 3-4 until satisfied.
+6. **Iterate** — Repeat steps 3-5 until satisfied.
    Usually 2-3 iterations are enough.
 
 ## Score Guide

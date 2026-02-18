@@ -15,6 +15,10 @@ class DjSetCreate(BaseSchema):
     target_energy_arc: dict[str, Any] | None = Field(
         default=None, examples=[{"intro": 0.3, "build": 0.6, "peak": 1.0, "outro": 0.4}]
     )
+    # Unified set builder fields
+    ym_playlist_id: int | None = None
+    template_name: str | None = Field(default=None, max_length=50)
+    source_playlist_id: int | None = None
 
 
 class DjSetUpdate(BaseSchema):
@@ -38,6 +42,9 @@ class DjSetRead(BaseSchema):
     target_energy_arc: dict[str, Any] | None = Field(
         default=None, examples=[{"intro": 0.3, "build": 0.6, "peak": 1.0, "outro": 0.4}]
     )
+    ym_playlist_id: int | None = None
+    template_name: str | None = None
+    source_playlist_id: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -83,6 +90,7 @@ class DjSetItemCreate(BaseSchema):
     transition_id: int | None = None
     mix_in_ms: int | None = Field(default=None, ge=0)
     mix_out_ms: int | None = Field(default=None, ge=0)
+    pinned: bool = False
     planned_eq: dict[str, Any] | None = Field(
         default=None, examples=[{"low": -3.0, "mid": 0.0, "high": 1.5}]
     )
@@ -103,6 +111,7 @@ class DjSetItemRead(BaseSchema):
         default=None, examples=[{"low": -3.0, "mid": 0.0, "high": 1.5}]
     )
     notes: str | None
+    pinned: bool = False
     created_at: datetime
 
 

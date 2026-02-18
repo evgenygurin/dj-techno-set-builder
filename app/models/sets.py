@@ -28,6 +28,12 @@ class DjSet(TimestampMixin, Base):
     target_bpm_min: Mapped[float | None] = mapped_column(Float)
     target_bpm_max: Mapped[float | None] = mapped_column(Float)
     target_energy_arc: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    # Unified set builder fields
+    ym_playlist_id: Mapped[int | None] = mapped_column(default=None)
+    template_name: Mapped[str | None] = mapped_column(String(50), default=None)
+    source_playlist_id: Mapped[int | None] = mapped_column(
+        ForeignKey("dj_playlists.playlist_id", ondelete="SET NULL"), default=None
+    )
 
 
 class DjSetVersion(Base):
@@ -78,6 +84,7 @@ class DjSetItem(Base):
     )
     planned_eq: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     notes: Mapped[str | None]
+    pinned: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 

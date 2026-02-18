@@ -19,7 +19,8 @@ app/mcp/
 │   ├── analysis_tools.py    # get_playlist_status, get_track_details
 │   ├── import_tools.py      # import_playlist, import_tracks (stubs), download_tracks
 │   ├── discovery_tools.py   # find_similar_tracks, search_by_criteria
-│   ├── setbuilder_tools.py  # build_set, score_transitions, adjust_set
+│   ├── setbuilder_tools.py  # build_set, rebuild_set, score_transitions
+│   ├── sync_tools.py        # sync_set_to_ym, sync_set_from_ym, sync_playlist
 │   └── export_tools.py      # export_set_m3u, export_set_json
 ├── prompts/
 │   └── workflows.py         # 3 recipe prompts (expand, build, improve)
@@ -35,9 +36,9 @@ app/mcp/
 
 `create_dj_mcp()` in `app/mcp/gateway.py`:
 - Mounts **Yandex Music** sub-server at namespace `"ym"` (~30 tools from OpenAPI)
-- Mounts **DJ Workflows** sub-server at namespace `"dj"` (17 hand-written tools)
+- Mounts **DJ Workflows** sub-server at namespace `"dj"` (19 hand-written tools)
 - Adds `PromptsAsTools` + `ResourcesAsTools` transforms for tool-only MCP clients
-- Total: ~51 tools (30 YM + 17 DJ + 4 transforms)
+- Total: ~53 tools (30 YM + 19 DJ + 4 transforms)
 
 ## DJ Workflow tools (namespace "dj")
 
@@ -50,13 +51,15 @@ app/mcp/
 | `download_tracks` | download, yandex | No | Download MP3 files from Yandex Music to iCloud library |
 | `find_similar_tracks` | discovery | No | LLM-assisted similar track search via `ctx.sample()` |
 | `search_by_criteria` | discovery | Yes | Filter local tracks by BPM/key/energy ranges |
-| `build_set` | setbuilder | No | Create DJ set + GA optimization |
+| `build_set` | setbuilder | No | Create DJ set + template-aware GA optimization |
+| `rebuild_set` | setbuilder | No | Rebuild set with pinned/excluded constraints |
 | `score_transitions` | setbuilder | Yes | Score all transitions in a set version |
-| `adjust_set` | setbuilder | No | LLM-assisted set adjustment via `ctx.sample()` |
-| `export_set_m3u` | export | Yes | Export set as Extended M3U8 with VLC opts, DJ metadata (cues, loops, sections, transitions, EQ) |
-| `export_set_json` | export | Yes | Export set as JSON transition guide with full scoring, recommendations, and set analytics |
+| `export_set_m3u` | setbuilder | Yes | Export set as Extended M3U8 with VLC opts, DJ metadata |
+| `export_set_json` | setbuilder | Yes | Export set as JSON transition guide with scoring |
+| `sync_set_to_ym` | sync, yandex | No | Push DJ set to YM as playlist (stub) |
+| `sync_set_from_ym` | sync, yandex | No | Read likes/dislikes from YM, update pinned/excluded (stub) |
+| `sync_playlist` | sync, yandex | No | Bidirectional sync between YM and local playlist (stub) |
 | `classify_tracks` | curation | Yes | Classify all tracks by 6 mood categories |
-| `curate_set` | curation | No | Select tracks by template + mood slot matching |
 | `review_set` | curation, setbuilder | Yes | Review set: weak transitions, variety, suggestions |
 | `analyze_library_gaps` | curation | Yes | Compare library vs template needs, find gaps |
 | `activate_heavy_mode` | admin | No | Enable heavy analysis tools |

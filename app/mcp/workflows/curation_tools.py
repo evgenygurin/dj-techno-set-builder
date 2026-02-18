@@ -9,8 +9,6 @@ from fastmcp.server.context import Context
 from app.mcp.dependencies import get_features_service, get_set_service
 from app.mcp.types_curation import (
     ClassifyResult,
-    CurateCandidate,
-    CurateSetResult,
     GapDescription,
     LibraryGapResult,
     MoodDistribution,
@@ -57,83 +55,6 @@ def register_curation_tools(mcp: FastMCP) -> None:
         return ClassifyResult(
             total_classified=total,
             distribution=distribution,
-        )
-
-    @mcp.tool(tags={"curation"})
-    async def curate_set(
-        template: str,
-        ctx: Context,
-        target_count: int | None = None,
-        exclude_track_ids: list[int] | None = None,
-        features_svc: AudioFeaturesService = Depends(get_features_service),
-    ) -> CurateSetResult:
-        """Select tracks for a set template using mood-based slot matching.
-
-        Available templates: warm_up_30, classic_60, peak_hour_60,
-        roller_90, progressive_120, wave_120, closing_60, full_library.
-
-        Args:
-            template: Template name (e.g. "classic_60").
-            target_count: Override template's default track count.
-            exclude_track_ids: Track IDs to exclude from selection.
-        """
-        await ctx.report_progress(progress=0, total=100)
-
-        # Load features
-        all_features = await features_svc.list_all()
-
-        svc = SetCurationService()
-        exclude = set(exclude_track_ids or [])
-
-        await ctx.report_progress(progress=30, total=100)
-
-        candidates = svc.select_candidates(
-            all_features,
-            template_name=template,
-            exclude_ids=exclude,
-            target_count=target_count,
-        )
-
-        await ctx.report_progress(progress=80, total=100)
-
-        classified = svc.classify_features(all_features)
-        dist = svc.mood_distribution(classified)
-        total = sum(dist.values())
-
-        distribution = [
-            MoodDistribution(
-                mood=mood.value,
-                count=count,
-                percentage=round(count / total * 100, 1) if total > 0 else 0.0,
-            )
-            for mood, count in sorted(dist.items(), key=lambda x: x[0].intensity)
-        ]
-
-        tmpl = get_template(TemplateName(template))
-        warnings: list[str] = []
-        if len(candidates) < len(tmpl.slots):
-            warnings.append(
-                f"Only {len(candidates)} tracks matched, template needs {len(tmpl.slots)} slots"
-            )
-
-        await ctx.report_progress(progress=100, total=100)
-
-        return CurateSetResult(
-            template=template,
-            target_count=tmpl.target_track_count,
-            selected_count=len(candidates),
-            candidates=[
-                CurateCandidate(
-                    track_id=c.track_id,
-                    mood=c.mood.value,
-                    slot_score=round(c.slot_score, 3),
-                    bpm=c.bpm,
-                    lufs_i=c.lufs_i,
-                )
-                for c in candidates
-            ],
-            mood_distribution=distribution,
-            warnings=warnings,
         )
 
     @mcp.tool(annotations={"readOnlyHint": True}, tags={"curation"})
@@ -266,7 +187,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
 
         # Variety scoring
         all_features = await features_svc.list_all()
-        feat_map = {f.track_id: f for f in all_features}  # type: ignore[union-attr]
+        feat_map = {f.track_id: f for f in all_features}
         classified = svc.classify_features(all_features)
 
         track_data_list = []
@@ -277,9 +198,9 @@ def register_curation_tools(mcp: FastMCP) -> None:
                 track_data_list.append(
                     TrackData(
                         track_id=item.track_id,
-                        bpm=feat.bpm,  # type: ignore[union-attr]
-                        energy=lufs_to_energy(feat.lufs_i),  # type: ignore[union-attr]
-                        key_code=feat.key_code or 0,  # type: ignore[union-attr]
+                        bpm=feat.bpm,
+                        energy=lufs_to_energy(feat.lufs_i),
+                        key_code=feat.key_code or 0,
                         mood=mood_int,
                     )
                 )

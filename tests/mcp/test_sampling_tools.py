@@ -1,4 +1,4 @@
-"""Tests for sampling with tool use in discovery and setbuilder tools."""
+"""Tests for sampling with tool use in discovery tools."""
 
 from __future__ import annotations
 
@@ -15,14 +15,3 @@ async def test_find_similar_tracks_provides_search_tool(workflow_mcp: FastMCP):
         props = tool.inputSchema.get("properties", {})
         assert "playlist_id" in props
         assert "count" in props
-
-
-async def test_adjust_set_uses_sample_step(workflow_mcp: FastMCP):
-    """adjust_set is registered correctly after adding sample_step loop."""
-    async with Client(workflow_mcp) as client:
-        tools = await client.list_tools()
-        tool = next(t for t in tools if t.name == "adjust_set")
-        assert tool is not None
-        props = tool.inputSchema.get("properties", {})
-        assert "set_id" in props
-        assert "instructions" in props
