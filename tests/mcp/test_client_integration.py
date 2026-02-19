@@ -61,6 +61,8 @@ async def test_client_lists_all_workflow_tools(workflow_mcp: FastMCP):
             "sync_playlist",
             "download_tracks",
             "activate_heavy_mode",
+            "search",
+            "filter_tracks",
         }
         missing = expected - tool_names
         assert not missing, f"Missing tools: {missing}"

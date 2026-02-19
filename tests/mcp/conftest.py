@@ -7,8 +7,12 @@ in fixtures to avoid event loop issues).
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from unittest.mock import patch
+
 import pytest
 from fastmcp import FastMCP
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 
 @pytest.fixture
@@ -33,3 +37,18 @@ def ym_mcp() -> FastMCP:
     from app.mcp.yandex_music import create_yandex_music_mcp
 
     return create_yandex_music_mcp()
+
+
+@pytest.fixture
+async def workflow_mcp_with_db(engine) -> AsyncIterator[FastMCP]:
+    """DJ Workflows MCP server wired to test DB.
+
+    Patches ``app.database.session_factory`` (used by ``get_session``)
+    so every MCP tool call uses the same in-memory SQLite engine.
+    """
+    from app.mcp.workflows import create_workflow_mcp
+
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    with patch("app.mcp.dependencies.session_factory", factory):
+        yield create_workflow_mcp()
