@@ -1,4 +1,7 @@
-"""DJ Workflow MCP server — high-level tools for DJ set building."""
+"""DJ Workflow MCP server — high-level tools for DJ set building.
+
+Phase 2: CRUD tools + compute/persist split + unified export.
+"""
 
 from __future__ import annotations
 
@@ -7,13 +10,26 @@ from fastmcp.server.context import Context
 
 from app.mcp.prompts import register_prompts
 from app.mcp.resources import register_resources
+
+# Legacy tools (kept for backwards compat until Phase 4)
 from app.mcp.workflows.analysis_tools import register_analysis_tools
+
+# Phase 2: CRUD tools
+from app.mcp.workflows.compute_tools import register_compute_tools
 from app.mcp.workflows.curation_tools import register_curation_tools
 from app.mcp.workflows.discovery_tools import register_discovery_tools
 from app.mcp.workflows.export_tools import register_export_tools
+from app.mcp.workflows.features_tools import register_features_tools
 from app.mcp.workflows.import_tools import register_import_tools
+from app.mcp.workflows.playlist_tools import register_playlist_tools
+
+# Phase 1: Search + filter
+from app.mcp.workflows.search_tools import register_search_tools
+from app.mcp.workflows.set_tools import register_set_tools
 from app.mcp.workflows.setbuilder_tools import register_setbuilder_tools
 from app.mcp.workflows.sync_tools import register_sync_tools
+from app.mcp.workflows.track_tools import register_track_tools
+from app.mcp.workflows.unified_export_tools import register_unified_export_tools
 
 
 def _register_visibility_tools(mcp: FastMCP) -> None:
@@ -33,6 +49,19 @@ def _register_visibility_tools(mcp: FastMCP) -> None:
 def create_workflow_mcp() -> FastMCP:
     """Create the DJ Workflows MCP server with all tools registered."""
     mcp = FastMCP("DJ Workflows")
+
+    # === Phase 1: Search ===
+    register_search_tools(mcp)
+
+    # === Phase 2: CRUD + Compute ===
+    register_track_tools(mcp)
+    register_playlist_tools(mcp)
+    register_set_tools(mcp)
+    register_features_tools(mcp)
+    register_compute_tools(mcp)
+    register_unified_export_tools(mcp)
+
+    # === Legacy tools (kept until Phase 4 cleanup) ===
     register_analysis_tools(mcp)
     register_import_tools(mcp)
     register_discovery_tools(mcp)
@@ -40,6 +69,8 @@ def create_workflow_mcp() -> FastMCP:
     register_export_tools(mcp)
     register_curation_tools(mcp)
     register_sync_tools(mcp)
+
+    # === Prompts & Resources ===
     register_prompts(mcp)
     register_resources(mcp)
     _register_visibility_tools(mcp)
