@@ -1,8 +1,9 @@
-from typing import Any
-
 """Tests for DownloadService."""
 
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,12 +19,12 @@ from app.services.download import DownloadService
 class TestDownloadService:
     def test_sanitize_filename_removes_special_chars(self) -> None:
         """_sanitize_filename removes / \\ : * ? " < > |"""
-        result = DownloadService._sanitize_filename('Track / Name: Test?')
+        result = DownloadService._sanitize_filename("Track / Name: Test?")
         assert result == "track_name_test"
 
     def test_sanitize_filename_replaces_spaces_with_underscores(self) -> None:
         """_sanitize_filename replaces spaces with underscores."""
-        result = DownloadService._sanitize_filename('Fire Eyes')
+        result = DownloadService._sanitize_filename("Fire Eyes")
         assert result == "fire_eyes"
 
     def test_sanitize_filename_truncates_to_max_len(self) -> None:
@@ -35,12 +36,12 @@ class TestDownloadService:
 
     def test_sanitize_filename_removes_trailing_underscores(self) -> None:
         """_sanitize_filename removes trailing underscores."""
-        result = DownloadService._sanitize_filename('Track   ')
+        result = DownloadService._sanitize_filename("Track   ")
         assert result == "track"
 
     def test_sanitize_filename_returns_untitled_when_empty(self) -> None:
         """_sanitize_filename returns 'untitled' for empty input."""
-        result = DownloadService._sanitize_filename('////')
+        result = DownloadService._sanitize_filename("////")
         assert result == "untitled"
 
     def test_generate_filename_combines_track_id_and_title(self) -> None:

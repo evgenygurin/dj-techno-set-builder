@@ -133,21 +133,62 @@ def register_features_tools(mcp: FastMCP) -> None:
 
         features_repo = AudioFeaturesRepository(session)
 
-        # Create ORM instance directly from JSON dict
+        # Create ORM instance directly from JSON dict.
+        # All NOT NULL model fields must be provided with defaults.
         await features_repo.create(
             track_id=ref.local_id,
             run_id=features_data.get("run_id", 0),
+            # Tempo
             bpm=features_data.get("bpm", 0.0),
             tempo_confidence=features_data.get("tempo_confidence", 0.0),
             bpm_stability=features_data.get("bpm_stability", 0.0),
             is_variable_tempo=features_data.get("is_variable_tempo", False),
+            # Loudness
             lufs_i=features_data.get("lufs_i", 0.0),
+            lufs_s_mean=features_data.get("lufs_s_mean"),
+            lufs_m_max=features_data.get("lufs_m_max"),
             rms_dbfs=features_data.get("rms_dbfs", 0.0),
+            true_peak_db=features_data.get("true_peak_db"),
+            crest_factor_db=features_data.get("crest_factor_db"),
+            lra_lu=features_data.get("lra_lu"),
+            # Energy (NOT NULL fields need defaults)
             energy_mean=features_data.get("energy_mean", 0.0),
             energy_max=features_data.get("energy_max", 0.0),
+            energy_std=features_data.get("energy_std", 0.0),
+            energy_slope_mean=features_data.get("energy_slope_mean"),
+            # Band energies
+            sub_energy=features_data.get("sub_energy"),
+            low_energy=features_data.get("low_energy"),
+            lowmid_energy=features_data.get("lowmid_energy"),
+            mid_energy=features_data.get("mid_energy"),
+            highmid_energy=features_data.get("highmid_energy"),
+            high_energy=features_data.get("high_energy"),
+            low_high_ratio=features_data.get("low_high_ratio"),
+            sub_lowmid_ratio=features_data.get("sub_lowmid_ratio"),
+            # Spectral
+            centroid_mean_hz=features_data.get("centroid_mean_hz"),
+            rolloff_85_hz=features_data.get("rolloff_85_hz"),
+            rolloff_95_hz=features_data.get("rolloff_95_hz"),
+            flatness_mean=features_data.get("flatness_mean"),
+            flux_mean=features_data.get("flux_mean"),
+            flux_std=features_data.get("flux_std"),
+            slope_db_per_oct=features_data.get("slope_db_per_oct"),
+            contrast_mean_db=features_data.get("contrast_mean_db"),
+            hnr_mean_db=features_data.get("hnr_mean_db"),
+            # Key
             key_code=features_data.get("key_code", 0),
             key_confidence=features_data.get("key_confidence", 0.0),
             is_atonal=features_data.get("is_atonal", False),
+            chroma=features_data.get("chroma"),
+            chroma_entropy=features_data.get("chroma_entropy"),
+            # MFCC
+            mfcc_vector=features_data.get("mfcc_vector"),
+            # Rhythm / Groove
+            hp_ratio=features_data.get("hp_ratio"),
+            onset_rate_mean=features_data.get("onset_rate_mean"),
+            onset_rate_max=features_data.get("onset_rate_max"),
+            pulse_clarity=features_data.get("pulse_clarity"),
+            kick_prominence=features_data.get("kick_prominence"),
         )
 
         return await wrap_action(

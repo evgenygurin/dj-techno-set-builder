@@ -1,15 +1,17 @@
 """Tests for checkpoint system."""
+
 import json
-from pathlib import Path
 
 import pytest
 
 from scripts.checkpoint import CheckpointManager
 
+
 @pytest.fixture
 def checkpoint_dir(tmp_path):
     """Create temporary checkpoint directory."""
     return tmp_path / "checkpoints"
+
 
 def test_save_checkpoint(checkpoint_dir):
     """Test saving checkpoint to JSON file."""
@@ -22,6 +24,7 @@ def test_save_checkpoint(checkpoint_dir):
     saved = json.loads((checkpoint_dir / "stage1.json").read_text())
     assert saved == data
 
+
 def test_load_checkpoint_exists(checkpoint_dir):
     """Test loading existing checkpoint."""
     checkpoint_dir.mkdir(parents=True)
@@ -33,11 +36,13 @@ def test_load_checkpoint_exists(checkpoint_dir):
 
     assert result == test_data
 
+
 def test_load_checkpoint_missing(checkpoint_dir):
     """Test loading non-existent checkpoint returns None."""
     manager = CheckpointManager(checkpoint_dir)
     result = manager.load("nonexistent")
     assert result is None
+
 
 def test_checkpoint_exists(checkpoint_dir):
     """Test checkpoint existence check."""

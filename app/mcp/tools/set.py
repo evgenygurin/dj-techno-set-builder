@@ -96,7 +96,11 @@ def register_set_tools(mcp: FastMCP) -> None:
 
         stats = await repo.get_stats_batch([s.set_id for s in sets])
         summaries = [
-            set_to_summary(s, version_count=stats.get(s.set_id, (0, 0))[0], track_count=stats.get(s.set_id, (0, 0))[1])
+            set_to_summary(
+                s,
+                version_count=stats.get(s.set_id, (0, 0))[0],
+                track_count=stats.get(s.set_id, (0, 0))[1],
+            )
             for s in sets
         ]
         return await wrap_list(summaries, total, offset, clamped, session)

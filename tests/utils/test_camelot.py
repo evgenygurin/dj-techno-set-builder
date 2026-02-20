@@ -40,9 +40,9 @@ class TestCamelotToKeyCode:
     @pytest.mark.parametrize(
         ("camelot", "expected"),
         [
-            ("5A", 0),   # Cm
-            ("8B", 1),   # C
-            ("7A", 4),   # Dm
+            ("5A", 0),  # Cm
+            ("8B", 1),  # C
+            ("7A", 4),  # Dm
             ("1A", 16),  # G#m
             ("8A", 18),  # Am
             ("1B", 23),  # B

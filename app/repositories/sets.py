@@ -15,9 +15,7 @@ class DjSetRepository(BaseRepository[DjSet]):
         filters: list[Any] = [DjSet.name.ilike(f"%{query}%")]
         return await self.list(offset=offset, limit=limit, filters=filters)
 
-    async def get_stats_batch(
-        self, set_ids: list[int]
-    ) -> dict[int, tuple[int, int]]:
+    async def get_stats_batch(self, set_ids: list[int]) -> dict[int, tuple[int, int]]:
         """Return {set_id: (version_count, track_count_in_latest_version)}.
 
         Two queries total regardless of how many sets — avoids N+1 in list_sets.
@@ -53,10 +51,7 @@ class DjSetRepository(BaseRepository[DjSet]):
         item_rows = (await self.session.execute(item_q)).all()
         track_counts = {row.set_id: row.trk_cnt for row in item_rows}
 
-        return {
-            sid: (version_counts.get(sid, 0), track_counts.get(sid, 0))
-            for sid in set_ids
-        }
+        return {sid: (version_counts.get(sid, 0), track_counts.get(sid, 0)) for sid in set_ids}
 
 
 class DjSetVersionRepository(BaseRepository[DjSetVersion]):

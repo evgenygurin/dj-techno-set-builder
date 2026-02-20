@@ -28,8 +28,8 @@ async def test_filter_by_criteria_builds_filters():
         call_kwargs = mock_list.call_args[1]
         assert call_kwargs["offset"] == 0
         assert call_kwargs["limit"] == 50
-        # 5 filters: bpm_min, bpm_max, key_codes IN, energy_min, energy_max
-        assert len(call_kwargs["filters"]) == 5
+        # 6 filters: orphan guard + bpm_min, bpm_max, key_codes IN, energy_min, energy_max
+        assert len(call_kwargs["filters"]) == 6
 
 
 async def test_filter_by_criteria_no_filters():
@@ -43,7 +43,8 @@ async def test_filter_by_criteria_no_filters():
         await repo.filter_by_criteria(offset=0, limit=50)
 
         call_kwargs = mock_list.call_args[1]
-        assert len(call_kwargs["filters"]) == 0
+        # 1 filter: orphan guard (track_id IN existing tracks)
+        assert len(call_kwargs["filters"]) == 1
 
 
 async def test_filter_by_criteria_partial_filters():
@@ -57,4 +58,5 @@ async def test_filter_by_criteria_partial_filters():
         await repo.filter_by_criteria(bpm_min=138.0, offset=0, limit=50)
 
         call_kwargs = mock_list.call_args[1]
-        assert len(call_kwargs["filters"]) == 1
+        # 2 filters: orphan guard + bpm_min
+        assert len(call_kwargs["filters"]) == 2
