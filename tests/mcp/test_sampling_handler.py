@@ -4,12 +4,17 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from app.config import Settings
 
 
-def test_sampling_settings_defaults():
+def test_sampling_settings_defaults(monkeypatch: pytest.MonkeyPatch):
     """Sampling settings have sensible defaults."""
-    s = Settings(database_url="sqlite+aiosqlite:///test.db")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("SAMPLING_MODEL", raising=False)
+    monkeypatch.delenv("SAMPLING_MAX_TOKENS", raising=False)
+    s = Settings(database_url="sqlite+aiosqlite:///test.db", _env_file=None)
     assert s.anthropic_api_key == ""
     assert s.sampling_model == "claude-sonnet-4-5-20250929"
     assert s.sampling_max_tokens == 1024

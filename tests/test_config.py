@@ -1,15 +1,23 @@
 """Tests for Settings defaults and env override."""
 
+import pytest
+
 from app.config import Settings
 
 
-def test_yandex_settings_have_defaults():
+def test_yandex_settings_have_defaults(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("YANDEX_MUSIC_TOKEN", raising=False)
+    monkeypatch.delenv("YANDEX_MUSIC_USER_ID", raising=False)
     s = Settings(database_url="sqlite+aiosqlite:///test.db", _env_file=None)
     assert s.yandex_music_token == ""
     assert s.yandex_music_user_id == ""
 
 
-def test_sentry_defaults():
+def test_sentry_defaults(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("SENTRY_DSN", raising=False)
+    monkeypatch.delenv("SENTRY_TRACES_SAMPLE_RATE", raising=False)
+    monkeypatch.delenv("SENTRY_SEND_PII", raising=False)
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
     s = Settings(
         _env_file=None,
         yandex_music_token="t",
@@ -21,7 +29,9 @@ def test_sentry_defaults():
     assert s.environment == "development"
 
 
-def test_otel_defaults():
+def test_otel_defaults(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("OTEL_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     s = Settings(
         _env_file=None,
         yandex_music_token="t",
@@ -31,7 +41,14 @@ def test_otel_defaults():
     assert s.otel_service_name == "dj-set-builder-mcp"
 
 
-def test_mcp_observability_defaults():
+def test_mcp_observability_defaults(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("MCP_CACHE_DIR", raising=False)
+    monkeypatch.delenv("MCP_CACHE_TTL_TOOLS", raising=False)
+    monkeypatch.delenv("MCP_CACHE_TTL_RESOURCES", raising=False)
+    monkeypatch.delenv("MCP_RETRY_MAX", raising=False)
+    monkeypatch.delenv("MCP_RETRY_BACKOFF", raising=False)
+    monkeypatch.delenv("MCP_PING_INTERVAL", raising=False)
+    monkeypatch.delenv("MCP_LOG_PAYLOADS", raising=False)
     s = Settings(
         _env_file=None,
         yandex_music_token="t",
