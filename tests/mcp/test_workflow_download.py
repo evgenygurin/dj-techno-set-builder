@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastmcp import FastMCP
 
-from app.mcp.tools.download_tools import register_download_tools
+from app.mcp.tools.download import register_download_tools
 
 
 @pytest.fixture
