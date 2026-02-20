@@ -9,11 +9,10 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
 from app.errors import NotFoundError
-from app.mcp.dependencies import get_features_service, get_playlist_service, get_track_service
-from app.mcp.types import SimilarTracksResult, TrackDetails
+from app.mcp.dependencies import get_features_service, get_playlist_service
+from app.mcp.types_v2 import SearchStrategy, SimilarTracksResult
 from app.services.features import AudioFeaturesService
 from app.services.playlists import DjPlaylistService
-from app.services.tracks import TrackService
 from app.utils.audio.camelot import key_code_to_camelot
 
 
@@ -142,8 +141,6 @@ def register_discovery_tools(mcp: FastMCP) -> None:
             return matches
 
         # Sampling requires client support — gracefully degrade
-        from app.mcp.types import SearchStrategy
-
         strategy: SearchStrategy | None = None
         strategy_text: str | None = None
         try:
@@ -186,79 +183,3 @@ def register_discovery_tools(mcp: FastMCP) -> None:
             candidates_selected=0,
             added_count=0,
         )
-
-    @mcp.tool(
-        annotations={"readOnlyHint": True},
-        tags={"discovery"},
-    )
-    async def search_by_criteria(
-        ctx: Context,
-        features_svc: AudioFeaturesService = Depends(get_features_service),
-        track_svc: TrackService = Depends(get_track_service),
-        bpm_min: float | None = None,
-        bpm_max: float | None = None,
-        keys: list[str] | None = None,
-        energy_min: float | None = None,
-        energy_max: float | None = None,
-    ) -> list[TrackDetails]:
-        """Search local tracks by audio feature criteria.
-
-        Filters the analysed tracks in the database by BPM range,
-        Camelot key list, and energy (LUFS) range.
-
-        Args:
-            bpm_min: Minimum BPM (inclusive).
-            bpm_max: Maximum BPM (inclusive).
-            keys: List of Camelot keys to match (e.g. ["8A", "9A"]).
-            energy_min: Minimum integrated LUFS.
-            energy_max: Maximum integrated LUFS.
-        """
-        all_features = await features_svc.list_all()
-
-        results: list[TrackDetails] = []
-        target_keys = set(keys) if keys else None
-
-        for feat in all_features:
-            if bpm_min is not None and feat.bpm < bpm_min:
-                continue
-            if bpm_max is not None and feat.bpm > bpm_max:
-                continue
-            if energy_min is not None and feat.lufs_i < energy_min:
-                continue
-            if energy_max is not None and feat.lufs_i > energy_max:
-                continue
-
-            if target_keys is not None:
-                try:
-                    cam = key_code_to_camelot(feat.key_code)
-                except ValueError:
-                    continue
-                if cam not in target_keys:
-                    continue
-
-            camelot: str | None = None
-            with contextlib.suppress(ValueError):
-                camelot = key_code_to_camelot(feat.key_code)
-
-            # Fetch track title
-            track_title = f"Track {feat.track_id}"
-            track_duration: int | None = None
-            with contextlib.suppress(Exception):
-                track = await track_svc.get(feat.track_id)
-                track_title = track.title
-                track_duration = track.duration_ms
-
-            results.append(
-                TrackDetails(
-                    track_id=feat.track_id,
-                    title=track_title,
-                    artists="",
-                    duration_ms=track_duration,
-                    bpm=feat.bpm,
-                    key=camelot,
-                    energy_lufs=feat.lufs_i,
-                    has_features=True,
-                )
-            )
-
-        return results

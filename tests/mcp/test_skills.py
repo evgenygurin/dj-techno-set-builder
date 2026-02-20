@@ -28,4 +28,4 @@ async def test_skill_readable(gateway_mcp: FastMCP):
         content = await client.read_resource(expand_uris[0])
         text = content[0].text if hasattr(content[0], "text") else str(content[0])
         assert "Expand Playlist" in text
-        assert "dj_get_playlist_status" in text
+        assert "dj_find_similar_tracks" in text

@@ -12,6 +12,8 @@ dependencies = [
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
     "alembic>=1.14",
+    "sentry-sdk[fastapi]>=2.50",
+    "typing-extensions>=4.12",
 ]
 
 [project.optional-dependencies]
@@ -27,7 +29,6 @@ ml = [
     "torch>=2.0",
 ]
 observability = [
-    "sentry-sdk[fastapi]>=2.50",
     "opentelemetry-exporter-otlp>=1.29",
 ]
 sampling = [
@@ -62,12 +63,11 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "app/mcp/dependencies.py" = ["B008"]  # Depends() in defaults is the FastMCP DI pattern
-"app/mcp/workflows/analysis_tools.py" = ["B008"]
 "app/mcp/workflows/curation_tools.py" = ["B008"]
 "app/mcp/workflows/discovery_tools.py" = ["B008"]
 "app/mcp/workflows/setbuilder_tools.py" = ["B008"]
-"app/mcp/workflows/sync_tools.py" = ["B008"]
 "app/mcp/workflows/export_tools.py" = ["B008"]
+"app/mcp/workflows/import_tools.py" = ["B008"]
 "app/mcp/resources/status.py" = ["B008"]  # Depends() in defaults is the FastMCP DI pattern
 
 [tool.ruff.lint.isort]

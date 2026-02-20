@@ -50,10 +50,10 @@ async def test_gateway_preserves_all_dj_tools(gateway_mcp: FastMCP):
     tools = await gateway_mcp.list_tools()
     tool_names = {t.name for t in tools}
 
-    # Spot-check a few core tools still present
-    assert "dj_get_playlist_status" in tool_names
+    # Spot-check a few core tools still present (Phase 4: analysis tools removed)
     assert "dj_build_set" in tool_names
     assert "dj_export_set_m3u" in tool_names
+    assert "dj_score_transitions" in tool_names
 
 
 async def test_gateway_preserves_ym_tools(gateway_mcp: FastMCP):

@@ -10,9 +10,7 @@ and structured output serialization.
 
 from __future__ import annotations
 
-import pytest
 from fastmcp import Client, FastMCP
-from fastmcp.exceptions import ToolError
 
 # ---------------------------------------------------------------------------
 # Connectivity
@@ -42,24 +40,23 @@ async def test_client_lists_all_workflow_tools(workflow_mcp: FastMCP):
         tools = await client.list_tools()
         tool_names = {t.name for t in tools}
         expected = {
-            "get_playlist_status",
-            "get_track_details",
-            "import_playlist",
-            "import_tracks",
+            # Discovery
             "find_similar_tracks",
-            "search_by_criteria",
+            # Set builder
             "build_set",
             "rebuild_set",
             "score_transitions",
+            # Export
             "export_set_m3u",
             "export_set_json",
+            "export_set_rekordbox",
+            # Curation
             "classify_tracks",
             "analyze_library_gaps",
             "review_set",
-            "sync_set_to_ym",
-            "sync_set_from_ym",
-            "sync_playlist",
+            # Download
             "download_tracks",
+            # Admin
             "activate_heavy_mode",
         }
         missing = expected - tool_names
@@ -91,83 +88,5 @@ async def test_gateway_client_sees_namespaced_tools(gateway_mcp: FastMCP):
         tool_names = {t.name for t in tools}
         dj_tools = {n for n in tool_names if n.startswith("dj_")}
         ym_tools = {n for n in tool_names if n.startswith("ym_")}
-        assert len(dj_tools) >= 12, f"Expected >=12 dj_ tools, got {len(dj_tools)}"
+        assert len(dj_tools) >= 8, f"Expected >=8 dj_ tools, got {len(dj_tools)}"
         assert len(ym_tools) > 0, "No ym_ tools found"
-
-
-# ---------------------------------------------------------------------------
-# Import tool invocations (stubs — no DB needed)
-# ---------------------------------------------------------------------------
-
-
-async def test_import_playlist_yandex_stub(workflow_mcp: FastMCP):
-    """import_playlist returns zero-count ImportResult for supported source."""
-    async with Client(workflow_mcp) as client:
-        result = await client.call_tool(
-            "import_playlist",
-            {"source": "yandex", "playlist_id": "123"},
-        )
-        assert not result.is_error
-        # Structured output: ImportResult with all-zero counts
-        assert result.data.imported_count == 0
-        assert result.data.skipped_count == 0
-        assert result.data.enriched_count == 0
-
-
-async def test_import_playlist_unsupported_source_raises(workflow_mcp: FastMCP):
-    """import_playlist raises ToolError for unsupported source."""
-    async with Client(workflow_mcp) as client:
-        with pytest.raises(ToolError, match="Unsupported source 'spotify'"):
-            await client.call_tool(
-                "import_playlist",
-                {"source": "spotify", "playlist_id": "123"},
-            )
-
-
-async def test_import_tracks_stub(workflow_mcp: FastMCP):
-    """import_tracks returns skipped_count matching input length."""
-    async with Client(workflow_mcp) as client:
-        result = await client.call_tool(
-            "import_tracks",
-            {"track_ids": [100, 200, 300]},
-        )
-        assert not result.is_error
-        assert result.data.imported_count == 0
-        assert result.data.skipped_count == 3
-
-
-async def test_import_tracks_empty_raises(workflow_mcp: FastMCP):
-    """import_tracks raises ToolError for empty track list."""
-    async with Client(workflow_mcp) as client:
-        with pytest.raises(ToolError, match="track_ids must not be empty"):
-            await client.call_tool(
-                "import_tracks",
-                {"track_ids": []},
-            )
-
-
-# ---------------------------------------------------------------------------
-# Gateway namespaced tool invocations
-# ---------------------------------------------------------------------------
-
-
-async def test_gateway_import_playlist_via_namespace(gateway_mcp: FastMCP):
-    """Gateway-namespaced dj_import_playlist works end-to-end."""
-    async with Client(gateway_mcp) as client:
-        result = await client.call_tool(
-            "dj_import_playlist",
-            {"source": "yandex", "playlist_id": "456"},
-        )
-        assert not result.is_error
-        assert result.data.imported_count == 0
-
-
-async def test_gateway_import_tracks_via_namespace(gateway_mcp: FastMCP):
-    """Gateway-namespaced dj_import_tracks works end-to-end."""
-    async with Client(gateway_mcp) as client:
-        result = await client.call_tool(
-            "dj_import_tracks",
-            {"track_ids": [1, 2]},
-        )
-        assert not result.is_error
-        assert result.data.skipped_count == 2

@@ -18,7 +18,7 @@ from fastmcp.server.context import Context
 
 from app.errors import NotFoundError
 from app.mcp.dependencies import get_features_service, get_set_service, get_track_service
-from app.mcp.types import ExportResult
+from app.mcp.types_v2 import ExportResult
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService

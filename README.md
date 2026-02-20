@@ -247,17 +247,17 @@ Transforms (`PromptsAsTools`, `ResourcesAsTools`) expose prompts and resources a
 
 | Tool | Description |
 |------|-------------|
-| `dj_get_playlist_status` | Playlist stats: tracks, BPM range, keys, energy, duration |
-| `dj_get_track_details` | Track metadata + audio features (BPM, key, energy) |
-| `dj_import_playlist` | Import from external source (stub — manual steps needed) |
-| `dj_import_tracks` | Import tracks by Yandex Music IDs (stub) |
+| `dj_download_tracks` | Download MP3 files from Yandex Music to iCloud library |
 | `dj_find_similar_tracks` | LLM-assisted similar track search via `ctx.sample()` |
-| `dj_search_by_criteria` | Filter local tracks by BPM/key/energy ranges |
 | `dj_build_set` | Create DJ set + GA optimization |
+| `dj_rebuild_set` | Rebuild set with pinned/excluded constraints |
 | `dj_score_transitions` | Score all transitions in a set version (5-component formula) |
-| `dj_adjust_set` | LLM-assisted set adjustment via `ctx.sample()` |
-| `dj_export_set_m3u` | Export set as M3U playlist with titles and durations |
-| `dj_export_set_json` | Export set as JSON with full audio features and energy curve |
+| `dj_export_set_m3u` | Export set as Extended M3U8 with VLC opts, DJ metadata |
+| `dj_export_set_json` | Export set as JSON transition guide with scoring |
+| `dj_export_set_rekordbox` | Export set as Rekordbox XML (DJ_PLAYLISTS) |
+| `dj_classify_tracks` | Classify all tracks by 6 mood categories |
+| `dj_review_set` | Review set: weak transitions, variety, suggestions |
+| `dj_analyze_library_gaps` | Compare library vs template needs, find gaps |
 | `dj_activate_heavy_mode` | Enable heavy analysis tools (hidden by default) |
 
 ### Workflow Recipes (Prompts)
