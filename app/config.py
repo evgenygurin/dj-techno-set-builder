@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -30,7 +32,8 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     # OpenTelemetry
-    otel_endpoint: str = ""
+    otel_endpoint: str | None = None
+    otel_insecure: bool = True
     otel_service_name: str = "dj-set-builder-mcp"
 
     # MCP Observability

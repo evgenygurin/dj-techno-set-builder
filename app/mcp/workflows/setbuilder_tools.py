@@ -14,6 +14,7 @@ from app.mcp.dependencies import (
     get_track_service,
 )
 from app.mcp.resolve import resolve_local_id
+from app.mcp.session_state import save_build_result
 from app.mcp.types import SetBuildResult, TransitionScoreResult
 from app.schemas.set_generation import SetGenerationRequest
 from app.schemas.sets import DjSetCreate
@@ -27,7 +28,7 @@ from app.services.transition_scoring_unified import UnifiedTransitionScoringServ
 def register_setbuilder_tools(mcp: FastMCP) -> None:
     """Register set builder tools on the MCP server."""
 
-    @mcp.tool(tags={"setbuilder"})
+    @mcp.tool(tags={"setbuilder"}, timeout=300)
     async def build_set(
         playlist_ref: str | int,
         set_name: str,
@@ -81,6 +82,12 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             avg_score = sum(gen_result.transition_scores) / len(gen_result.transition_scores)
 
         await ctx.report_progress(progress=100, total=100)
+
+        # Save to session state for workflow continuity
+        await save_build_result(
+            ctx, set_id=dj_set.set_id, version_id=gen_result.set_version_id, quality=avg_score
+        )
+
         return SetBuildResult(
             set_id=dj_set.set_id,
             version_id=gen_result.set_version_id,
@@ -90,7 +97,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             energy_curve=[],
         )
 
-    @mcp.tool(tags={"setbuilder"})
+    @mcp.tool(tags={"setbuilder"}, timeout=300)
     async def rebuild_set(
         set_ref: str | int,
         ctx: Context,
@@ -133,6 +140,11 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         if gen_result.transition_scores:
             avg_score = sum(gen_result.transition_scores) / len(gen_result.transition_scores)
 
+        # Save to session state for workflow continuity
+        await save_build_result(
+            ctx, set_id=set_id, version_id=gen_result.set_version_id, quality=avg_score
+        )
+
         return SetBuildResult(
             set_id=set_id,
             version_id=gen_result.set_version_id,
@@ -145,6 +157,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         annotations={"readOnlyHint": True},
         tags={"setbuilder"},
+        timeout=120,
     )
     async def score_transitions(
         set_ref: str | int,

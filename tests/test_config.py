@@ -27,7 +27,7 @@ def test_otel_defaults():
         yandex_music_token="t",
         yandex_music_user_id="u",
     )
-    assert s.otel_endpoint == ""
+    assert s.otel_endpoint is None
     assert s.otel_service_name == "dj-set-builder-mcp"
 
 

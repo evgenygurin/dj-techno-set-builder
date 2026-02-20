@@ -121,7 +121,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
             recommendations=recommendations,
         )
 
-    @mcp.tool(annotations={"readOnlyHint": True}, tags={"curation", "setbuilder"})
+    @mcp.tool(annotations={"readOnlyHint": True}, tags={"curation", "setbuilder"}, timeout=120)
     async def review_set(
         set_ref: str | int,
         version_id: int,

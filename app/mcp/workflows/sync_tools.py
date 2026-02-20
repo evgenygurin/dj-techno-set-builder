@@ -15,6 +15,7 @@ from app.mcp.dependencies import (
     get_set_service,
     get_sync_engine,
 )
+from app.mcp.elicitation import confirm_action
 from app.mcp.platforms.protocol import MusicPlatform
 from app.mcp.platforms.registry import PlatformRegistry
 from app.mcp.sync.diff import SyncDirection
@@ -170,7 +171,7 @@ async def _do_sync_set_from_ym(
 def register_sync_tools(mcp: FastMCP) -> None:
     """Register sync tools on the MCP server."""
 
-    @mcp.tool(tags={"sync"})
+    @mcp.tool(tags={"sync"}, timeout=600)
     async def sync_playlist(
         playlist_id: int,
         platform: str = "ym",
@@ -189,6 +190,16 @@ def register_sync_tools(mcp: FastMCP) -> None:
             platform: Platform name ("ym", "spotify", etc.). Default: "ym".
             direction: "local_to_remote", "remote_to_local", or "bidirectional".
         """
+        # Confirm destructive sync directions
+        if direction in ("local_to_remote", "bidirectional") and ctx is not None:
+            confirmed = await confirm_action(
+                ctx,
+                f"Sync playlist {playlist_id} ({direction}) to {platform}? "
+                "This may modify remote playlist.",
+            )
+            if not confirmed:
+                return {"status": "cancelled", "reason": "user declined sync"}
+
         return await _do_sync_playlist(
             playlist_id=playlist_id,
             platform_name=platform,
@@ -261,7 +272,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
             "status": "linked",
         }
 
-    @mcp.tool(tags={"sync", "yandex"})
+    @mcp.tool(tags={"sync", "yandex"}, timeout=600)
     async def sync_set_to_ym(
         set_id: int,
         ctx: Context | None = None,
@@ -279,6 +290,16 @@ def register_sync_tools(mcp: FastMCP) -> None:
         if not registry.is_connected("ym"):
             msg = "YM platform not connected"
             raise ValueError(msg)
+
+        # Confirm push to YM
+        if ctx is not None:
+            confirmed = await confirm_action(
+                ctx,
+                f"Push set {set_id} to Yandex Music? This will create/overwrite a YM playlist.",
+            )
+            if not confirmed:
+                return {"status": "cancelled", "reason": "user declined push"}
+
         platform = registry.get("ym")
         mapper = sync_engine._mapper
         return await _do_sync_set_to_ym(
@@ -288,7 +309,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
             platform=platform,
         )
 
-    @mcp.tool(tags={"sync", "yandex"})
+    @mcp.tool(tags={"sync", "yandex"}, timeout=600)
     async def sync_set_from_ym(
         set_id: int,
         ctx: Context | None = None,

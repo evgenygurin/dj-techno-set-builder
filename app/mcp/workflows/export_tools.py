@@ -16,6 +16,7 @@ from fastmcp.server.context import Context
 from app.errors import NotFoundError
 from app.mcp.dependencies import get_features_service, get_set_service, get_track_service
 from app.mcp.resolve import resolve_local_id
+from app.mcp.session_state import save_export_config
 from app.mcp.types import ExportResult
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
@@ -314,6 +315,11 @@ def register_export_tools(mcp: FastMCP) -> None:
             )
 
         xml_content = export_rekordbox_xml(rb_tracks, set_name=dj_set.name)
+
+        # Save to session state for repeat exports
+        await save_export_config(
+            ctx, set_id=set_id, format="rekordbox_xml", track_count=len(items)
+        )
 
         return ExportResult(
             set_id=set_id,

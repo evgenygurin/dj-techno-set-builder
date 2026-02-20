@@ -18,7 +18,7 @@ from app.mcp.refs import RefType, parse_ref
 def register_compute_tools(mcp: FastMCP) -> None:
     """Register compute-only tools on the MCP server."""
 
-    @mcp.tool(tags={"compute", "analysis"})
+    @mcp.tool(tags={"compute", "analysis"}, timeout=300)
     async def analyze_track(
         track_ref: str | None = None,
         audio_path: str | None = None,
@@ -92,7 +92,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
         except Exception as e:
             return json.dumps({"error": f"Analysis failed: {e}"})
 
-    @mcp.tool(tags={"compute", "setbuilder"})
+    @mcp.tool(tags={"compute", "setbuilder"}, timeout=120)
     async def compute_set_order(
         playlist_id: int,
         template: str | None = None,
