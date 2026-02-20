@@ -51,6 +51,8 @@ _ARTIST_FIELDS: frozenset[str] = frozenset(
     }
 )
 
+_GENRE_FIELDS: frozenset[str] = frozenset({"id", "name", "title", "value", "subGenres"})
+
 _PLAYLIST_FIELDS: frozenset[str] = frozenset(
     {
         "uid",
@@ -100,6 +102,17 @@ def _is_track_like(obj: Any) -> bool:
     )
 
 
+def _is_genre_like(obj: Any) -> bool:
+    """Heuristic: dict looks like a YM Genre (has id + subGenres or value field without durationMs)."""
+    return (
+        isinstance(obj, dict)
+        and "id" in obj
+        and "durationMs" not in obj
+        and "uid" not in obj
+        and ("subGenres" in obj or "value" in obj)
+    )
+
+
 def clean_artist(artist: dict[str, Any]) -> dict[str, Any]:
     """Keep only id and name from Artist."""
     return {k: v for k, v in artist.items() if k in _ARTIST_FIELDS}
@@ -113,6 +126,14 @@ def clean_album(album: dict[str, Any]) -> dict[str, Any]:
 def clean_playlist(playlist: dict[str, Any]) -> dict[str, Any]:
     """Keep only DJ-relevant fields from Playlist."""
     return {k: v for k, v in playlist.items() if k in _PLAYLIST_FIELDS}
+
+
+def clean_genre(genre: dict[str, Any]) -> dict[str, Any]:
+    """Keep only DJ-relevant fields from Genre, clean subGenres recursively."""
+    cleaned = {k: v for k, v in genre.items() if k in _GENRE_FIELDS}
+    if subs := cleaned.get("subGenres"):
+        cleaned["subGenres"] = [clean_genre(s) for s in subs if isinstance(s, dict)]
+    return cleaned
 
 
 def clean_track(track: dict[str, Any]) -> dict[str, Any]:
@@ -131,13 +152,15 @@ def clean_track(track: dict[str, Any]) -> dict[str, Any]:
 
 
 def _clean_object_list(items: list[Any]) -> list[Any]:
-    """Clean all track-like or playlist-like objects in a list."""
+    """Clean all track-like, playlist-like, or genre-like objects in a list."""
     result = []
     for it in items:
         if _is_playlist_like(it):
             result.append(clean_playlist(it))
         elif _is_track_like(it):
             result.append(clean_track(it))
+        elif _is_genre_like(it):
+            result.append(clean_genre(it))
         else:
             result.append(it)
     return result
