@@ -72,24 +72,16 @@ async def _seed_features(session, track_ids: dict[str, int]) -> None:
     """Seed audio features for tracks."""
     await _seed_keys(session)
 
-    run = FeatureExtractionRun(
-        pipeline_name="test", pipeline_version="1.0", status="completed"
-    )
+    run = FeatureExtractionRun(pipeline_name="test", pipeline_version="1.0", status="completed")
     session.add(run)
     await session.flush()
 
     # t1: Gravity — 140 BPM, Em (key_code=8), -8.3 LUFS
-    f1 = _make_features(
-        track_ids["t1"], run.run_id, bpm=140.0, key_code=8, lufs_i=-8.3
-    )
+    f1 = _make_features(track_ids["t1"], run.run_id, bpm=140.0, key_code=8, lufs_i=-8.3)
     # t2: Space Motion — 138 BPM, Am (key_code=18), -6.0 LUFS
-    f2 = _make_features(
-        track_ids["t2"], run.run_id, bpm=138.0, key_code=18, lufs_i=-6.0
-    )
+    f2 = _make_features(track_ids["t2"], run.run_id, bpm=138.0, key_code=18, lufs_i=-6.0)
     # t3: Dark Gravity — 145 BPM, Cm (key_code=0), -10.5 LUFS
-    f3 = _make_features(
-        track_ids["t3"], run.run_id, bpm=145.0, key_code=0, lufs_i=-10.5
-    )
+    f3 = _make_features(track_ids["t3"], run.run_id, bpm=145.0, key_code=0, lufs_i=-10.5)
     session.add_all([f1, f2, f3])
     await session.flush()
 
@@ -129,9 +121,7 @@ async def test_search_scoped_to_tracks(workflow_mcp_with_db, session):
     await session.commit()
 
     async with Client(workflow_mcp_with_db) as client:
-        result = await client.call_tool(
-            "search", {"query": "Gravity", "scope": "tracks"}
-        )
+        result = await client.call_tool("search", {"query": "Gravity", "scope": "tracks"})
         data = _parse_response(result)
         assert "tracks" in data["results"]
         assert "playlists" not in data["results"]
@@ -144,9 +134,7 @@ async def test_search_finds_playlists(workflow_mcp_with_db, session):
     await session.commit()
 
     async with Client(workflow_mcp_with_db) as client:
-        result = await client.call_tool(
-            "search", {"query": "Gravity", "scope": "playlists"}
-        )
+        result = await client.call_tool("search", {"query": "Gravity", "scope": "playlists"})
         data = _parse_response(result)
         assert "playlists" in data["results"]
         assert len(data["results"]["playlists"]) >= 1
@@ -159,9 +147,7 @@ async def test_search_finds_sets(workflow_mcp_with_db, session):
     await session.commit()
 
     async with Client(workflow_mcp_with_db) as client:
-        result = await client.call_tool(
-            "search", {"query": "Gravity", "scope": "sets"}
-        )
+        result = await client.call_tool("search", {"query": "Gravity", "scope": "sets"})
         data = _parse_response(result)
         assert "sets" in data["results"]
         assert len(data["results"]["sets"]) >= 1
@@ -174,9 +160,7 @@ async def test_search_no_results(workflow_mcp_with_db, session):
     await session.commit()
 
     async with Client(workflow_mcp_with_db) as client:
-        result = await client.call_tool(
-            "search", {"query": "zzz_nonexistent_zzz"}
-        )
+        result = await client.call_tool("search", {"query": "zzz_nonexistent_zzz"})
         data = _parse_response(result)
         assert data["stats"]["total_matches"]["tracks"] == 0
 

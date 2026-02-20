@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.mcp.refs import ParsedRef, RefType, parse_ref
+from app.mcp.refs import RefType, parse_ref
 
 
 class TestParseRef:

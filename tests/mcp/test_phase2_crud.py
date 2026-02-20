@@ -6,8 +6,6 @@ and that the response envelope structure is correct.
 
 from __future__ import annotations
 
-import json
-
 from fastmcp import Client
 
 

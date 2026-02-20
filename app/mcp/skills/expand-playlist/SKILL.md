@@ -15,8 +15,8 @@ with optimized track ordering.
 
 ## Workflow
 
-1. **Analyze playlist** — `dj_get_playlist_status` to understand the current
-   audio profile (BPM range, keys, energy levels).
+1. **Analyze playlist** — `dj_get_playlist` to fetch playlist details, then
+   `dj_filter_tracks` to explore the audio profile (BPM range, keys, energy).
 
 2. **Find similar tracks** — `dj_find_similar_tracks` with the playlist ID
    and desired count. The tool uses LLM-assisted search to find matching tracks.

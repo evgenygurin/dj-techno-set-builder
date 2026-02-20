@@ -51,9 +51,7 @@ class TestTrackFinder:
         track.title = "Gravity"
         track.duration_ms = 360000
         mock_track_repo.get_by_id = AsyncMock(return_value=track)
-        mock_track_repo.get_artists_for_tracks = AsyncMock(
-            return_value={42: ["Boris Brejcha"]}
-        )
+        mock_track_repo.get_artists_for_tracks = AsyncMock(return_value={42: ["Boris Brejcha"]})
 
         finder = TrackFinder(mock_track_repo, mock_track_repo)
         ref = parse_ref("local:42")
@@ -84,9 +82,7 @@ class TestTrackFinder:
         track2.title = "Butterfly Effect"
         track2.duration_ms = 300000
 
-        mock_track_repo.search_by_title = AsyncMock(
-            return_value=([track1, track2], 2)
-        )
+        mock_track_repo.search_by_title = AsyncMock(return_value=([track1, track2], 2))
         mock_track_repo.get_artists_for_tracks = AsyncMock(
             return_value={42: ["Boris Brejcha"], 43: ["Boris Brejcha"]}
         )

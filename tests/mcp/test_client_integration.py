@@ -35,30 +35,35 @@ async def test_gateway_client_ping(gateway_mcp: FastMCP):
 
 
 async def test_client_lists_all_workflow_tools(workflow_mcp: FastMCP):
-    """Client sees DJ workflow tools + activate_heavy_mode."""
+    """Client sees DJ workflow tools + admin tools."""
     async with Client(workflow_mcp) as client:
         tools = await client.list_tools()
         tool_names = {t.name for t in tools}
         expected = {
-            # Legacy tools
-            "get_playlist_status",
-            "get_track_details",
+            # Discovery
             "find_similar_tracks",
-            "search_by_criteria",
+            # Set builder
             "build_set",
             "rebuild_set",
             "score_transitions",
-            "export_set_m3u",
-            "export_set_json",
+            # Export (Rekordbox only — m3u/json removed in Phase 4)
             "export_set_rekordbox",
+            # Curation
             "classify_tracks",
             "analyze_library_gaps",
             "review_set",
+            # Sync (Phase 3)
             "sync_set_to_ym",
             "sync_set_from_ym",
             "sync_playlist",
+            "set_source_of_truth",
+            "link_playlist",
+            # Download
             "download_tracks",
+            # Admin / visibility
             "activate_heavy_mode",
+            "activate_ym_raw",
+            "list_platforms",
             # Phase 1: Search
             "search",
             "filter_tracks",

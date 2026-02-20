@@ -82,7 +82,7 @@ class TrackDetail(TrackSummary):
 class PlaylistDetail(PlaylistSummary):
     """Extended playlist info — single entity view."""
 
-    analyzed_count: int = 0  # type: ignore[assignment]
+    analyzed_count: int | None = 0
     bpm_range: tuple[float, float] | None = None
     keys: list[str] = Field(default_factory=list)
     avg_energy: float | None = None

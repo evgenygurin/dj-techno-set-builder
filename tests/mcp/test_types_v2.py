@@ -80,9 +80,7 @@ class TestPlaylistDetail:
 
 class TestSetSummary:
     def test_create(self):
-        s = SetSummary(
-            ref="local:3", name="Friday night", version_count=2, track_count=15
-        )
+        s = SetSummary(ref="local:3", name="Friday night", version_count=2, track_count=15)
         assert s.version_count == 2
 
 

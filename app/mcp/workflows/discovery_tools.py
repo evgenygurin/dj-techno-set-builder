@@ -187,4 +187,3 @@ def register_discovery_tools(mcp: FastMCP) -> None:
             candidates_selected=0,
             added_count=0,
         )
-
