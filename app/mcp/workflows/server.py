@@ -11,9 +11,6 @@ from fastmcp.server.context import Context
 from app.mcp.prompts import register_prompts
 from app.mcp.resources import register_resources
 
-# Legacy tools (kept for backwards compat until Phase 4)
-from app.mcp.workflows.analysis_tools import register_analysis_tools
-
 # Phase 2: CRUD tools
 from app.mcp.workflows.compute_tools import register_compute_tools
 from app.mcp.workflows.curation_tools import register_curation_tools
@@ -98,7 +95,6 @@ def create_workflow_mcp() -> FastMCP:
     register_unified_export_tools(mcp)
 
     # === Legacy tools (kept until Phase 4 cleanup) ===
-    register_analysis_tools(mcp)
     register_import_tools(mcp)
     register_discovery_tools(mcp)
     register_setbuilder_tools(mcp)
