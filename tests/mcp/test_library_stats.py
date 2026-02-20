@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock
 
 from app.mcp.library_stats import get_library_stats
-from app.mcp.types_v2 import LibraryStats
+from app.mcp.types import LibraryStats
 
 
 def _scalar(value: int) -> AsyncMock:

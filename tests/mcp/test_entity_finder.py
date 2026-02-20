@@ -8,7 +8,7 @@ import pytest
 
 from app.mcp.entity_finder import ArtistFinder, PlaylistFinder, SetFinder, TrackFinder
 from app.mcp.refs import parse_ref
-from app.mcp.types_v2 import FindResult
+from app.mcp.types import FindResult
 
 
 @pytest.fixture

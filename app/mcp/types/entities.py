@@ -1,18 +1,22 @@
-"""Response models for MCP tools redesign (Phase 1 + Phase 2).
+"""Entity summaries and details for MCP responses.
 
-Three response levels:
-- Summary (~150 bytes/entity) — for lists, search results
-- Detail (~300 bytes/entity) — for single entity views
-- Full (~2 KB/entity) — for audio namespace, explicit requests
-
-All tools return responses with: results + stats + pagination.
+Level 1 (Summary, ~150 bytes) — for lists, search results.
+Level 2 (Detail, ~300 bytes) — for single entity views.
 """
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, Field
+
+__all__ = [
+    "ArtistSummary",
+    "PlaylistDetail",
+    "PlaylistSummary",
+    "SetDetail",
+    "SetSummary",
+    "TrackDetail",
+    "TrackSummary",
+]
 
 # --- Entity Summaries (Level 1: ~150 bytes each) ---
 
@@ -94,75 +98,3 @@ class SetDetail(SetSummary):
     target_bpm_max: float | None = None
     latest_version_id: int | None = None
     latest_score: float | None = None
-
-
-# --- Response Envelope ---
-
-
-class PaginationInfo(BaseModel):
-    """Cursor-based pagination metadata."""
-
-    limit: int
-    has_more: bool
-    cursor: str | None = None
-
-
-class MatchStats(BaseModel):
-    """Background statistics — total counts, not data."""
-
-    total_matches: dict[str, int] = Field(default_factory=dict)
-    match_profile: dict[str, Any] = Field(default_factory=dict)
-
-
-class LibraryStats(BaseModel):
-    """Library-wide context."""
-
-    total_tracks: int
-    analyzed_tracks: int
-    total_playlists: int
-    total_sets: int
-
-
-class SearchResponse(BaseModel):
-    """Universal search response with categorized results + stats."""
-
-    results: dict[str, list[Any]]
-    stats: MatchStats
-    library: LibraryStats
-    pagination: PaginationInfo
-
-
-class FindResult(BaseModel):
-    """Entity resolution result."""
-
-    exact: bool
-    entities: list[Any]
-    source: str
-
-
-# --- Phase 2: Response Envelopes for CRUD ---
-
-
-class EntityListResponse(BaseModel):
-    """Standard response for list/search operations."""
-
-    results: list[Any]
-    total: int
-    library: LibraryStats
-    pagination: PaginationInfo
-
-
-class EntityDetailResponse(BaseModel):
-    """Standard response for single-entity operations."""
-
-    result: dict[str, Any]
-    library: LibraryStats
-
-
-class ActionResponse(BaseModel):
-    """Standard response for create/update/delete actions."""
-
-    success: bool
-    message: str
-    result: dict[str, Any] | None = None
-    library: LibraryStats

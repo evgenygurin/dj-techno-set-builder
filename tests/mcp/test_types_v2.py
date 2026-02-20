@@ -1,6 +1,6 @@
-"""Tests for types_v2 response models (Phase 1 + Phase 2)."""
+"""Tests for entity + response envelope models (Phase 1 + Phase 2)."""
 
-from app.mcp.types_v2 import (
+from app.mcp.types import (
     ActionResponse,
     ArtistSummary,
     EntityDetailResponse,

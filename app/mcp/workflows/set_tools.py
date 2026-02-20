@@ -21,7 +21,7 @@ from app.mcp.entity_finder import SetFinder
 from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
-from app.mcp.types_v2 import SetDetail
+from app.mcp.types import SetDetail
 from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
 from app.schemas.sets import DjSetCreate, DjSetItemCreate, DjSetUpdate, DjSetVersionCreate
 from app.services.sets import DjSetService

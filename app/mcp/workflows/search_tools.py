@@ -13,7 +13,7 @@ from app.mcp.entity_finder import ArtistFinder, PlaylistFinder, SetFinder, Track
 from app.mcp.library_stats import get_library_stats
 from app.mcp.pagination import encode_cursor, paginate_params
 from app.mcp.refs import parse_ref
-from app.mcp.types_v2 import (
+from app.mcp.types import (
     MatchStats,
     PaginationInfo,
     SearchResponse,

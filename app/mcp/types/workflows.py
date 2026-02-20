@@ -1,53 +1,19 @@
-"""Pydantic models for MCP tool structured output."""
+"""Workflow result types for DJ MCP tools."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel
 
-
-class PlaylistStatus(BaseModel):
-    """Status of a DJ playlist including analysis progress."""
-
-    playlist_id: int
-    name: str
-    total_tracks: int
-    analyzed_tracks: int
-    bpm_range: tuple[float, float] | None = None
-    keys: list[str] = []
-    avg_energy: float | None = None
-    duration_minutes: float = 0.0
-
-
-class TrackDetails(BaseModel):
-    """Full track details with audio features."""
-
-    track_id: int
-    title: str
-    artists: str
-    duration_ms: int | None = None
-    bpm: float | None = None
-    key: str | None = None
-    energy_lufs: float | None = None
-    has_features: bool = False
-
-
-class ImportResult(BaseModel):
-    """Result of a playlist/track import operation."""
-
-    playlist_id: int
-    imported_count: int
-    skipped_count: int
-    enriched_count: int
-
-
-class AnalysisResult(BaseModel):
-    """Result of audio analysis on a playlist."""
-
-    playlist_id: int
-    analyzed_count: int
-    failed_count: int
-    bpm_range: tuple[float, float] | None = None
-    keys: list[str] = []
+__all__ = [
+    "AdjustmentPlan",
+    "ExportResult",
+    "ReorderSuggestion",
+    "SearchStrategy",
+    "SetBuildResult",
+    "SimilarTracksResult",
+    "SwapSuggestion",
+    "TransitionScoreResult",
+]
 
 
 class SimilarTracksResult(BaseModel):

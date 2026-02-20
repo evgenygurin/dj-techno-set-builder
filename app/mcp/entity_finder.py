@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.mcp.refs import ParsedRef, RefType
-from app.mcp.types_v2 import (
+from app.mcp.types import (
     ArtistSummary,
     FindResult,
     PlaylistSummary,

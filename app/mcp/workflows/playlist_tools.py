@@ -21,7 +21,7 @@ from app.mcp.entity_finder import PlaylistFinder
 from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
-from app.mcp.types_v2 import PlaylistDetail
+from app.mcp.types import PlaylistDetail
 from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
 from app.schemas.playlists import DjPlaylistCreate, DjPlaylistUpdate
 from app.services.playlists import DjPlaylistService

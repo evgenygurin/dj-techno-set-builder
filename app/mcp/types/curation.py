@@ -4,6 +4,17 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+__all__ = [
+    "ClassifyResult",
+    "CurateCandidate",
+    "CurateSetResult",
+    "GapDescription",
+    "LibraryGapResult",
+    "MoodDistribution",
+    "SetReviewResult",
+    "WeakTransition",
+]
+
 
 class MoodDistribution(BaseModel):
     """Distribution of tracks across mood categories."""

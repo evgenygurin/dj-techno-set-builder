@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from app.mcp.library_stats import get_library_stats
 from app.mcp.pagination import encode_cursor
-from app.mcp.types_v2 import (
+from app.mcp.types import (
     ActionResponse,
     EntityDetailResponse,
     EntityListResponse,

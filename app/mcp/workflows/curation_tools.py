@@ -7,7 +7,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
 from app.mcp.dependencies import get_features_service, get_set_service
-from app.mcp.types_curation import (
+from app.mcp.types import (
     ClassifyResult,
     GapDescription,
     LibraryGapResult,

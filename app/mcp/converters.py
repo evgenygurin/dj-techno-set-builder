@@ -9,7 +9,7 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING
 
-from app.mcp.types_v2 import (
+from app.mcp.types import (
     ArtistSummary,
     PlaylistSummary,
     SetSummary,

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
-from app.mcp.types_v2 import LibraryStats
+from app.mcp.types import LibraryStats
 from app.models.catalog import Track
 from app.models.dj import DjPlaylist
 from app.models.features import TrackAudioFeaturesComputed
