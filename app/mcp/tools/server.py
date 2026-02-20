@@ -12,21 +12,21 @@ from app.mcp.prompts import register_prompts
 from app.mcp.resources import register_resources
 
 # Phase 2: CRUD tools
-from app.mcp.tools.compute_tools import register_compute_tools
-from app.mcp.tools.curation_tools import register_curation_tools
-from app.mcp.tools.discovery_tools import register_discovery_tools
-from app.mcp.tools.download_tools import register_download_tools
-from app.mcp.tools.export_tools import register_export_tools
-from app.mcp.tools.features_tools import register_features_tools
-from app.mcp.tools.playlist_tools import register_playlist_tools
+from app.mcp.tools.compute import register_compute_tools
+from app.mcp.tools.curation import register_curation_tools
+from app.mcp.tools.discovery import register_discovery_tools
+from app.mcp.tools.download import register_download_tools
+from app.mcp.tools.export import register_export_tools
+from app.mcp.tools.features import register_features_tools
+from app.mcp.tools.playlist import register_playlist_tools
 
 # Phase 1: Search + filter
-from app.mcp.tools.search_tools import register_search_tools
-from app.mcp.tools.set_tools import register_set_tools
-from app.mcp.tools.setbuilder_tools import register_setbuilder_tools
-from app.mcp.tools.sync_tools import register_sync_tools
-from app.mcp.tools.track_tools import register_track_tools
-from app.mcp.tools.unified_export_tools import register_unified_export_tools
+from app.mcp.tools.search import register_search_tools
+from app.mcp.tools.set import register_set_tools
+from app.mcp.tools.setbuilder import register_setbuilder_tools
+from app.mcp.tools.sync import register_sync_tools
+from app.mcp.tools.track import register_track_tools
+from app.mcp.tools.unified_export import register_unified_export_tools
 
 
 def _register_visibility_tools(mcp: FastMCP) -> None:
