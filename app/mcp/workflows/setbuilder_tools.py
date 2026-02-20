@@ -13,8 +13,7 @@ from app.mcp.dependencies import (
     get_set_service,
     get_track_service,
 )
-from app.mcp.schemas import SetBuildResult, TransitionScoreResult
-from app.mcp.session_state import save_build_result
+from app.mcp.types import ExportResult, SetBuildResult, TransitionScoreResult
 from app.schemas.set_generation import SetGenerationRequest
 from app.schemas.sets import DjSetCreate
 from app.services.features import AudioFeaturesService
@@ -22,12 +21,13 @@ from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.utils.audio.camelot import key_code_to_camelot
 
 
 def register_setbuilder_tools(mcp: FastMCP) -> None:
     """Register set builder tools on the MCP server."""
 
-    @mcp.tool(tags={"setbuilder"}, timeout=120.0, version="1.0.0")
+    @mcp.tool(tags={"setbuilder"})
     async def build_set(
         playlist_id: int,
         set_name: str,
@@ -80,7 +80,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             avg_score = sum(gen_result.transition_scores) / len(gen_result.transition_scores)
 
         await ctx.report_progress(progress=100, total=100)
-        result = SetBuildResult(
+        return SetBuildResult(
             set_id=dj_set.set_id,
             version_id=gen_result.set_version_id,
             track_count=len(gen_result.track_ids),
@@ -88,15 +88,8 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             avg_transition_score=avg_score,
             energy_curve=[],
         )
-        await save_build_result(
-            ctx,
-            set_id=result.set_id,
-            version_id=result.version_id,
-            track_count=result.track_count,
-        )
-        return result
 
-    @mcp.tool(tags={"setbuilder"}, timeout=120.0, version="1.0.0")
+    @mcp.tool(tags={"setbuilder"})
     async def rebuild_set(
         set_id: int,
         ctx: Context,
@@ -138,7 +131,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         if gen_result.transition_scores:
             avg_score = sum(gen_result.transition_scores) / len(gen_result.transition_scores)
 
-        result = SetBuildResult(
+        return SetBuildResult(
             set_id=set_id,
             version_id=gen_result.set_version_id,
             track_count=len(gen_result.track_ids),
@@ -146,19 +139,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             avg_transition_score=avg_score,
             energy_curve=[],
         )
-        await save_build_result(
-            ctx,
-            set_id=result.set_id,
-            version_id=result.version_id,
-            track_count=result.track_count,
-        )
-        return result
 
     @mcp.tool(
         annotations={"readOnlyHint": True},
         tags={"setbuilder"},
-        timeout=120.0,
-        version="1.0.0",
     )
     async def score_transitions(
         set_id: int,
@@ -289,6 +273,159 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         await ctx.report_progress(progress=pairs_total, total=pairs_total)
         return results
 
-    # NOTE: export_set_m3u, export_set_json, export_set_rekordbox
-    # are registered in export_tools.py (richer versions with artists,
-    # features, cue points, beatgrid, sections, transitions).
+    @mcp.tool(tags={"setbuilder"})
+    async def export_set_m3u(
+        set_id: int,
+        version_id: int,
+        ctx: Context,
+        set_svc: DjSetService = Depends(get_set_service),
+    ) -> ExportResult:
+        """Export a DJ set version as Extended M3U8 playlist.
+
+        Generates an M3U8 file with track ordering, ``#PLAYLIST:`` header,
+        mix in/out points, planned EQ, and notes from set items.
+
+        Args:
+            set_id: DJ set ID.
+            version_id: Set version to export.
+        """
+        from app.services.set_export import export_m3u
+
+        dj_set = await set_svc.get(set_id)
+        items_list = await set_svc.list_items(version_id, offset=0, limit=500)
+        items = sorted(items_list.items, key=lambda i: i.sort_index)
+
+        tracks: list[dict[str, object]] = []
+        for item in items:
+            entry: dict[str, object] = {
+                "title": f"Track {item.track_id}",
+                "duration_s": 0,
+                "path": f"track_{item.track_id}.mp3",
+            }
+            if item.mix_in_ms is not None:
+                entry["mix_in_s"] = item.mix_in_ms / 1000.0
+            if item.mix_out_ms is not None:
+                entry["mix_out_s"] = item.mix_out_ms / 1000.0
+            if item.planned_eq:
+                entry["planned_eq"] = item.planned_eq
+            if item.notes:
+                entry["notes"] = item.notes
+            tracks.append(entry)
+
+        content = export_m3u(
+            tracks,
+            set_name=dj_set.name,
+        )
+
+        return ExportResult(
+            set_id=set_id,
+            format="m3u8",
+            track_count=len(items),
+            content=content,
+        )
+
+    @mcp.tool(
+        annotations={"readOnlyHint": True},
+        tags={"setbuilder"},
+    )
+    async def export_set_json(
+        set_id: int,
+        version_id: int,
+        ctx: Context,
+        set_svc: DjSetService = Depends(get_set_service),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
+    ) -> ExportResult:
+        """Export a DJ set version as JSON transition guide.
+
+        Includes track order, per-transition scores, recommended transition
+        types, and set quality metrics. A DJ cheat sheet.
+
+        Args:
+            set_id: DJ set ID.
+            version_id: Set version to export.
+        """
+        from typing import Any
+
+        from app.services.set_export import export_json_guide
+        from app.services.transition_type import recommend_transition
+        from app.utils.audio.camelot import camelot_distance
+        from app.utils.audio.feature_conversion import orm_features_to_track_features
+
+        await set_svc.get(set_id)
+        items_list = await set_svc.list_items(version_id, offset=0, limit=500)
+        items = sorted(items_list.items, key=lambda i: i.sort_index)
+
+        unified_svc = UnifiedTransitionScoringService(
+            features_svc.features_repo.session,
+        )
+
+        tracks_data: list[dict[str, Any]] = []
+        for item in items:
+            tracks_data.append(
+                {
+                    "title": f"Track {item.track_id}",
+                    "path": f"track_{item.track_id}.mp3",
+                }
+            )
+
+        transitions_data: list[dict[str, Any]] = []
+        for i in range(len(items) - 1):
+            from_item = items[i]
+            to_item = items[i + 1]
+
+            trans: dict[str, Any] = {
+                "score": 0.0,
+                "bpm_delta": 0.0,
+                "energy_delta": 0.0,
+                "camelot": "",
+                "recommendation": None,
+            }
+
+            try:
+                components = await unified_svc.score_components_by_ids(
+                    from_item.track_id,
+                    to_item.track_id,
+                )
+                trans["score"] = components["total"]
+            except ValueError:
+                pass
+
+            try:
+                feat_a_obj = await features_svc.get_latest(from_item.track_id)
+                feat_b_obj = await features_svc.get_latest(to_item.track_id)
+                tf_a = orm_features_to_track_features(feat_a_obj)  # type: ignore[arg-type]
+                tf_b = orm_features_to_track_features(feat_b_obj)  # type: ignore[arg-type]
+
+                trans["bpm_delta"] = round(abs(tf_a.bpm - tf_b.bpm), 1)
+                trans["energy_delta"] = round(abs(tf_a.energy_lufs - tf_b.energy_lufs), 1)
+
+                cam_dist = camelot_distance(tf_a.key_code, tf_b.key_code)
+                cam_a = key_code_to_camelot(tf_a.key_code)
+                cam_b = key_code_to_camelot(tf_b.key_code)
+                trans["camelot"] = f"{cam_a} -> {cam_b}"
+
+                rec = recommend_transition(tf_a, tf_b, camelot_compatible=cam_dist <= 1)
+                trans["recommendation"] = rec
+            except (NotFoundError, ValueError):
+                pass
+
+            transitions_data.append(trans)
+
+        quality = 0.0
+        if transitions_data:
+            quality = sum(t["score"] for t in transitions_data) / len(transitions_data)
+
+        content = export_json_guide(
+            set_name=f"Set {set_id}",
+            energy_arc="classic",
+            quality_score=round(quality, 3),
+            tracks=tracks_data,
+            transitions=transitions_data,
+        )
+
+        return ExportResult(
+            set_id=set_id,
+            format="json",
+            track_count=len(items),
+            content=content,
+        )

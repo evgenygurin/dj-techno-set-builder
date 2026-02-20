@@ -22,7 +22,7 @@ from app.services.tracks import TrackService
 def register_sync_tools(mcp: FastMCP) -> None:
     """Register sync tools on the MCP server."""
 
-    @mcp.tool(tags={"sync", "yandex"}, timeout=600.0, version="0.1.0")
+    @mcp.tool(tags={"sync", "yandex"})
     async def sync_set_to_ym(
         set_id: int,
         ctx: Context,
@@ -92,7 +92,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
             "status": "stub",
         }
 
-    @mcp.tool(tags={"sync", "yandex"}, timeout=600.0, version="0.1.0")
+    @mcp.tool(tags={"sync", "yandex"})
     async def sync_set_from_ym(
         set_id: int,
         ctx: Context,
@@ -122,19 +122,6 @@ def register_sync_tools(mcp: FastMCP) -> None:
 
         await ctx.report_progress(progress=0, total=100)
 
-        from app.mcp.elicitation import confirm_action
-
-        confirmed = await confirm_action(
-            ctx,
-            message=(
-                f"Sync will apply feedback from YM playlist "
-                f"{dj_set.ym_playlist_id} to set '{dj_set.name}'. Proceed?"
-            ),
-            action_description=f"sync feedback for set {set_id}",
-        )
-        if not confirmed:
-            return {"set_id": set_id, "status": "cancelled"}
-
         await ctx.info(
             f"Reading feedback from YM playlist {dj_set.ym_playlist_id} "
             f"for set '{dj_set.name}'. "
@@ -157,7 +144,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
             "status": "stub",
         }
 
-    @mcp.tool(tags={"sync", "yandex"}, timeout=600.0, version="0.1.0")
+    @mcp.tool(tags={"sync", "yandex"})
     async def sync_playlist(
         playlist_id: int,
         ctx: Context,

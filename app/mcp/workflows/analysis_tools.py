@@ -10,7 +10,7 @@ from fastmcp.server.context import Context
 
 from app.errors import NotFoundError
 from app.mcp.dependencies import get_features_service, get_playlist_service, get_track_service
-from app.mcp.schemas import PlaylistStatus, TrackDetails
+from app.mcp.types import PlaylistStatus, TrackDetails
 from app.services.features import AudioFeaturesService
 from app.services.playlists import DjPlaylistService
 from app.services.tracks import TrackService
@@ -23,8 +23,6 @@ def register_analysis_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         annotations={"readOnlyHint": True},
         tags={"analysis", "status"},
-        timeout=30.0,
-        version="1.0.0",
     )
     async def get_playlist_status(
         playlist_id: int,
@@ -93,8 +91,6 @@ def register_analysis_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         annotations={"readOnlyHint": True},
         tags={"analysis", "details"},
-        timeout=30.0,
-        version="1.0.0",
     )
     async def get_track_details(
         track_id: int,

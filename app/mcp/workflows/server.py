@@ -19,7 +19,7 @@ from app.mcp.workflows.sync_tools import register_sync_tools
 def _register_visibility_tools(mcp: FastMCP) -> None:
     """Register admin/visibility-control tools on the MCP server."""
 
-    @mcp.tool(tags={"admin"}, timeout=5.0, version="1.0.0")
+    @mcp.tool(tags={"admin"})
     async def activate_heavy_mode(ctx: Context) -> str:
         """Enable heavy analysis tools (full audio feature extraction).
 

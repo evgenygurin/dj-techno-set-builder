@@ -7,7 +7,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
 from app.mcp.dependencies import get_features_service, get_set_service
-from app.mcp.schemas import (
+from app.mcp.types_curation import (
     ClassifyResult,
     GapDescription,
     LibraryGapResult,
@@ -25,7 +25,7 @@ from app.utils.audio.set_templates import TemplateName, get_template
 def register_curation_tools(mcp: FastMCP) -> None:
     """Register curation tools on the MCP server."""
 
-    @mcp.tool(annotations={"readOnlyHint": True}, tags={"curation"}, timeout=30.0, version="1.0.0")
+    @mcp.tool(annotations={"readOnlyHint": True}, tags={"curation"})
     async def classify_tracks(
         ctx: Context,
         features_svc: AudioFeaturesService = Depends(get_features_service),
@@ -57,7 +57,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
             distribution=distribution,
         )
 
-    @mcp.tool(annotations={"readOnlyHint": True}, tags={"curation"}, timeout=30.0, version="1.0.0")
+    @mcp.tool(annotations={"readOnlyHint": True}, tags={"curation"})
     async def analyze_library_gaps(
         ctx: Context,
         template: str = "classic_60",
@@ -120,12 +120,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
             recommendations=recommendations,
         )
 
-    @mcp.tool(
-        annotations={"readOnlyHint": True},
-        tags={"curation", "setbuilder"},
-        timeout=120.0,
-        version="1.0.0",
-    )
+    @mcp.tool(annotations={"readOnlyHint": True}, tags={"curation", "setbuilder"})
     async def review_set(
         set_id: int,
         version_id: int,

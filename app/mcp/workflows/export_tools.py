@@ -18,7 +18,7 @@ from fastmcp.server.context import Context
 
 from app.errors import NotFoundError
 from app.mcp.dependencies import get_features_service, get_set_service, get_track_service
-from app.mcp.schemas import ExportResult
+from app.mcp.types import ExportResult
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
@@ -49,8 +49,6 @@ def register_export_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         annotations={"readOnlyHint": True},
         tags={"export"},
-        timeout=30.0,
-        version="1.0.0",
     )
     async def export_set_m3u(
         set_id: int,
@@ -164,8 +162,6 @@ def register_export_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         annotations={"readOnlyHint": True},
         tags={"export"},
-        timeout=30.0,
-        version="1.0.0",
     )
     async def export_set_json(
         set_id: int,
@@ -373,8 +369,6 @@ def register_export_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         annotations={"readOnlyHint": True},
         tags={"export"},
-        timeout=30.0,
-        version="1.0.0",
     )
     async def export_set_rekordbox(
         set_id: int,
