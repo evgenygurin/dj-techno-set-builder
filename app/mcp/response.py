@@ -37,12 +37,12 @@ async def wrap_list(
     next_cursor = encode_cursor(offset=offset + limit) if has_more else None
 
     resp = EntityListResponse(
-        results=[e.model_dump(exclude_none=True) for e in entities],
+        results=[e.model_dump(mode="json", exclude_none=True) for e in entities],
         total=total,
         library=library,
         pagination=PaginationInfo(limit=limit, has_more=has_more, cursor=next_cursor),
     )
-    return json.dumps(resp.model_dump(exclude_none=True), ensure_ascii=False)
+    return json.dumps(resp.model_dump(mode="json", exclude_none=True), ensure_ascii=False)
 
 
 async def wrap_detail(
@@ -53,10 +53,10 @@ async def wrap_detail(
     library = await get_library_stats(session)
 
     resp = EntityDetailResponse(
-        result=entity.model_dump(exclude_none=True),
+        result=entity.model_dump(mode="json", exclude_none=True),
         library=library,
     )
-    return json.dumps(resp.model_dump(exclude_none=True), ensure_ascii=False)
+    return json.dumps(resp.model_dump(mode="json", exclude_none=True), ensure_ascii=False)
 
 
 async def wrap_action(
@@ -72,7 +72,7 @@ async def wrap_action(
     resp = ActionResponse(
         success=success,
         message=message,
-        result=result.model_dump(exclude_none=True) if result else None,
+        result=result.model_dump(mode="json", exclude_none=True) if result else None,
         library=library,
     )
-    return json.dumps(resp.model_dump(exclude_none=True), ensure_ascii=False)
+    return json.dumps(resp.model_dump(mode="json", exclude_none=True), ensure_ascii=False)

@@ -37,15 +37,18 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         return await self.list(offset=offset, limit=limit, filters=filters)
 
     async def list_all(self) -> list[TrackAudioFeaturesComputed]:
-        """Get latest features for every track (one row per track_id)."""
+        """Get latest features for every existing track (one row per track_id)."""
         from sqlalchemy import func as sa_func
 
-        # Subquery: max(created_at) per track_id
+        from app.models.catalog import Track
+
+        # Subquery: max(created_at) per track_id for existing tracks only
         latest = (
             select(
                 self.model.track_id,
                 sa_func.max(self.model.created_at).label("max_created"),
             )
+            .where(self.model.track_id.in_(select(Track.track_id)))
             .group_by(self.model.track_id)
             .subquery()
         )
@@ -68,8 +71,15 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[TrackAudioFeaturesComputed], int]:
-        """Filter features by audio parameters at SQL level."""
-        filters: list[Any] = []
+        """Filter features by audio parameters at SQL level.
+
+        Only includes features for tracks that still exist (guards against orphaned rows).
+        """
+        from app.models.catalog import Track
+
+        filters: list[Any] = [
+            TrackAudioFeaturesComputed.track_id.in_(select(Track.track_id)),
+        ]
         if bpm_min is not None:
             filters.append(TrackAudioFeaturesComputed.bpm >= bpm_min)
         if bpm_max is not None:
