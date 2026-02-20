@@ -10,6 +10,7 @@ Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
 - `audio.md` — audio utils, transition scoring, set generation
 - `testing.md` — fixtures, test organization, conventions
 - `mcp.md` — FastMCP server, tools, DI, gateway
+- `in-memoria.md` — codebase intelligence tools (session start, when to use, reliability)
 - `documentation.md` — meta-rules for maintaining this documentation system
 
 ## Workflow

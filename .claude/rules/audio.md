@@ -103,6 +103,35 @@ class TrackFeatures:
 - `excluded_ids: frozenset[int]` — banned from mutations
 - Used by `_init_population()` and `_mutate_replace()`
 
+## Set delivery (ОБЯЗАТЕЛЬНО при построении сета)
+
+При каждом построении DJ-сета (`build_set`) ВСЕГДА выполняй полный цикл доставки:
+
+1. **Build** — `dj_build_set(playlist_id, set_name, energy_arc)`
+2. **Score** — `dj_score_transitions(set_id, version_id)` — проверить качество
+3. **Export** — скопировать MP3 файлы в отдельную директорию:
+   ```text
+   generated-sets/{set_name}/
+   ├── 01. Track Title.mp3
+   ├── 02. Track Title.mp3
+   ├── ...
+   ├── {set_name}.m3u8          # M3U с абсолютными путями к локальным копиям
+   └── cheat_sheet.txt          # DJ-подсказка
+   ```
+
+4. **Cheat sheet** (`cheat_sheet.txt`) — для каждого трека:
+   - Номер, название
+   - BPM, тональность (Camelot), LUFS
+   - Тип перехода к следующему треку + оценка + причина
+   - Проблемные переходы (< 0.85) помечены `!!!`
+   - Легенда типов переходов внизу
+
+**Файлы нумеруются** в порядке сета: `01. Title.mp3`, `02. Title.mp3`, ...
+
+**iCloud-стабы**: если файл ещё не скачан из iCloud (blocks < 90% size), пропустить копирование, в M3U указать путь к исходному файлу в `library/`.
+
+**Директория**: `~/Library/Mobile Documents/com~apple~CloudDocs/dj-techno-set-builder/generated-sets/{sanitized_set_name}/`
+
 ## TrackAnalysisService
 
 `app/services/track_analysis.py` — **multi-repo service** bridging utils and repositories:

@@ -47,7 +47,7 @@ def register_download_tools(mcp: FastMCP) -> None:
             >>> await download_tracks([1, 2, 3], prefer_bitrate=320)
             DownloadResult(downloaded=2, skipped=1, failed=0, ...)
         """
-        library_path = Path(settings.dj_library_path)
+        library_path = Path(settings.dj_library_path).expanduser()
 
         download_svc = DownloadService(
             session=session,
