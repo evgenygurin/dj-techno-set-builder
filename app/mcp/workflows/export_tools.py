@@ -15,6 +15,7 @@ from fastmcp.server.context import Context
 
 from app.errors import NotFoundError
 from app.mcp.dependencies import get_features_service, get_set_service, get_track_service
+from app.mcp.resolve import resolve_local_id
 from app.mcp.types import ExportResult
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
@@ -47,7 +48,7 @@ def register_export_tools(mcp: FastMCP) -> None:
         tags={"export"},
     )
     async def export_set_rekordbox(
-        set_id: int,
+        set_ref: str | int,
         version_id: int,
         ctx: Context,
         include_cues: bool = True,
@@ -72,7 +73,7 @@ def register_export_tools(mcp: FastMCP) -> None:
         - PLAYLISTS tree with set name
 
         Args:
-            set_id: DJ set ID (for validation).
+            set_ref: DJ set ref (int, "42", or "local:42").
             version_id: Set version to export.
             include_cues: Include hot + memory cue points.
             include_loops: Include saved loops (hot + memory).
@@ -96,6 +97,8 @@ def register_export_tools(mcp: FastMCP) -> None:
             RekordboxTrackData,
         )
         from app.services.set_export import export_rekordbox_xml
+
+        set_id = resolve_local_id(set_ref, "set")
 
         # Section type enum mapping for cue names
         section_names: dict[int, str] = {

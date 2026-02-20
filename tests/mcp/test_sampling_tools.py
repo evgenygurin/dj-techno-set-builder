@@ -13,5 +13,5 @@ async def test_find_similar_tracks_provides_search_tool(workflow_mcp: FastMCP):
         assert tool is not None
         # The tool still accepts the same params
         props = tool.inputSchema.get("properties", {})
-        assert "playlist_id" in props
+        assert "playlist_ref" in props
         assert "count" in props

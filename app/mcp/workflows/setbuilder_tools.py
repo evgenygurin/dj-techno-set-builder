@@ -13,6 +13,7 @@ from app.mcp.dependencies import (
     get_set_service,
     get_track_service,
 )
+from app.mcp.resolve import resolve_local_id
 from app.mcp.types import ExportResult, SetBuildResult, TransitionScoreResult
 from app.schemas.set_generation import SetGenerationRequest
 from app.schemas.sets import DjSetCreate
@@ -29,7 +30,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"setbuilder"})
     async def build_set(
-        playlist_id: int,
+        playlist_ref: str | int,
         set_name: str,
         ctx: Context,
         template: str | None = None,
@@ -45,13 +46,14 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         all playlist tracks optimizing transitions only.
 
         Args:
-            playlist_id: Source playlist containing candidate tracks.
+            playlist_ref: Source playlist ref (int, "42", or "local:42").
             set_name: Name for the new DJ set.
             template: Template name (classic_60, peak_hour_60, etc.) or None.
             energy_arc: Energy arc shape — classic, progressive,
                         roller, or wave.
             exclude_track_ids: Track IDs to exclude from selection.
         """
+        playlist_id = resolve_local_id(playlist_ref, "playlist")
         # 1. Create DJ set
         await ctx.report_progress(progress=0, total=100)
         dj_set = await set_svc.create(
@@ -91,7 +93,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"setbuilder"})
     async def rebuild_set(
-        set_id: int,
+        set_ref: str | int,
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
         gen_svc: SetGenerationService = Depends(get_set_generation_service),
@@ -102,8 +104,9 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         version with re-optimized track ordering via GA.
 
         Args:
-            set_id: DJ set to rebuild.
+            set_ref: DJ set ref (int, "42", or "local:42").
         """
+        set_id = resolve_local_id(set_ref, "set")
         dj_set = await set_svc.get(set_id)
 
         # Get latest version
@@ -145,7 +148,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         tags={"setbuilder"},
     )
     async def score_transitions(
-        set_id: int,
+        set_ref: str | int,
         version_id: int,
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
@@ -158,9 +161,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         consecutive tracks in the set.
 
         Args:
-            set_id: DJ set ID (used for validation).
+            set_ref: DJ set ref (int, "42", or "local:42").
             version_id: Set version whose items to score.
         """
+        set_id = resolve_local_id(set_ref, "set")
         # Validate set exists
         await set_svc.get(set_id)
 
@@ -275,7 +279,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"setbuilder"})
     async def export_set_m3u(
-        set_id: int,
+        set_ref: str | int,
         version_id: int,
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
@@ -286,11 +290,12 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         mix in/out points, planned EQ, and notes from set items.
 
         Args:
-            set_id: DJ set ID.
+            set_ref: DJ set ref (int, "42", or "local:42").
             version_id: Set version to export.
         """
         from app.services.set_export import export_m3u
 
+        set_id = resolve_local_id(set_ref, "set")
         dj_set = await set_svc.get(set_id)
         items_list = await set_svc.list_items(version_id, offset=0, limit=500)
         items = sorted(items_list.items, key=lambda i: i.sort_index)
@@ -329,7 +334,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         tags={"setbuilder"},
     )
     async def export_set_json(
-        set_id: int,
+        set_ref: str | int,
         version_id: int,
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
@@ -341,7 +346,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         types, and set quality metrics. A DJ cheat sheet.
 
         Args:
-            set_id: DJ set ID.
+            set_ref: DJ set ref (int, "42", or "local:42").
             version_id: Set version to export.
         """
         from typing import Any
@@ -351,6 +356,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         from app.utils.audio.camelot import camelot_distance
         from app.utils.audio.feature_conversion import orm_features_to_track_features
 
+        set_id = resolve_local_id(set_ref, "set")
         await set_svc.get(set_id)
         items_list = await set_svc.list_items(version_id, offset=0, limit=500)
         items = sorted(items_list.items, key=lambda i: i.sort_index)

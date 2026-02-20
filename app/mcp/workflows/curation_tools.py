@@ -7,6 +7,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
 from app.mcp.dependencies import get_features_service, get_set_service
+from app.mcp.resolve import resolve_local_id
 from app.mcp.types import (
     ClassifyResult,
     GapDescription,
@@ -122,7 +123,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(annotations={"readOnlyHint": True}, tags={"curation", "setbuilder"})
     async def review_set(
-        set_id: int,
+        set_ref: str | int,
         version_id: int,
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
@@ -134,7 +135,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
         weak transitions (score < 0.4), energy plateaus, and suggestions.
 
         Args:
-            set_id: DJ set ID.
+            set_ref: DJ set ref (int, "42", or "local:42").
             version_id: Set version to review.
         """
         from app.services.transition_scoring_unified import (
@@ -142,6 +143,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
         )
         from app.utils.audio.set_generator import TrackData, lufs_to_energy, variety_score
 
+        set_id = resolve_local_id(set_ref, "set")
         await set_svc.get(set_id)
         items_list = await set_svc.list_items(version_id, offset=0, limit=500)
         items = sorted(items_list.items, key=lambda i: i.sort_index)

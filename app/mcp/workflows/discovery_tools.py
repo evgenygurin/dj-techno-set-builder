@@ -10,6 +10,7 @@ from fastmcp.server.context import Context
 
 from app.errors import NotFoundError
 from app.mcp.dependencies import get_features_service, get_playlist_service
+from app.mcp.resolve import resolve_local_id
 from app.mcp.types import SimilarTracksResult
 from app.services.features import AudioFeaturesService
 from app.services.playlists import DjPlaylistService
@@ -21,7 +22,7 @@ def register_discovery_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"discovery"})
     async def find_similar_tracks(
-        playlist_id: int,
+        playlist_ref: str | int,
         ctx: Context,
         count: int = 10,
         criteria: str = "bpm,key,energy",
@@ -40,11 +41,12 @@ def register_discovery_tools(mcp: FastMCP) -> None:
         is connected.
 
         Args:
-            playlist_id: Local playlist to base the search on.
+            playlist_ref: Local playlist ref (int, "42", or "local:42").
             count: How many candidates to find.
             criteria: Comma-separated similarity criteria
                       (bpm, key, energy).
         """
+        playlist_id = resolve_local_id(playlist_ref, "playlist")
         # 1. Build playlist audio profile
         await ctx.report_progress(progress=0, total=100)
         items_list = await playlist_svc.list_items(

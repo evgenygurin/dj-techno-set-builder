@@ -24,10 +24,10 @@ async def test_find_similar_tracks_uses_structured_output(workflow_mcp: FastMCP)
     async with Client(workflow_mcp) as client:
         tools = await client.list_tools()
         tool = next(t for t in tools if t.name == "find_similar_tracks")
-        # Tool should accept playlist_id and count params (MCP wire schema)
+        # Tool should accept playlist_ref and count params (MCP wire schema)
         assert tool.inputSchema is not None
         props = tool.inputSchema.get("properties", {})
-        assert "playlist_id" in props
+        assert "playlist_ref" in props
         assert "count" in props
 
 
