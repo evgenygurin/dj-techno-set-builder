@@ -103,7 +103,7 @@ def _is_track_like(obj: Any) -> bool:
 
 
 def _is_genre_like(obj: Any) -> bool:
-    """Heuristic: dict looks like a YM Genre (has id + subGenres or value field without durationMs)."""
+    """Heuristic: dict looks like a YM Genre (has id + subGenres or value, no durationMs)."""
     return (
         isinstance(obj, dict)
         and "id" in obj
