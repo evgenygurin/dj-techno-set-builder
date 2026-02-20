@@ -16,19 +16,19 @@ app/mcp/
 ├── tools/
 │   ├── __init__.py            # re-exports create_workflow_mcp
 │   ├── server.py              # Factory + visibility control
-│   ├── compute_tools.py       # compute_audio_features (heavy)
-│   ├── curation_tools.py      # classify_tracks, review_set, analyze_library_gaps
-│   ├── discovery_tools.py     # find_similar_tracks, search_by_criteria
-│   ├── download_tools.py      # download_tracks
-│   ├── export_tools.py        # export_set_rekordbox
-│   ├── features_tools.py      # get_track_features, get_features_summary
-│   ├── playlist_tools.py      # get_playlist, list_playlists, create/update/delete
-│   ├── search_tools.py        # search_tracks, filter_tracks
-│   ├── set_tools.py           # get_set, list_sets, create/update/delete
-│   ├── setbuilder_tools.py    # build_set, rebuild_set, score_transitions
-│   ├── sync_tools.py          # sync_set_to_ym, sync_set_from_ym, sync_playlist, ...
-│   ├── track_tools.py         # get_track, list_tracks, create/update/archive
-│   └── unified_export_tools.py # export_set (m3u/json/cheat_sheet)
+│   ├── compute.py             # compute_audio_features (heavy)
+│   ├── curation.py            # classify_tracks, review_set, analyze_library_gaps
+│   ├── discovery.py           # find_similar_tracks, search_by_criteria
+│   ├── download.py            # download_tracks
+│   ├── export.py              # export_set_rekordbox
+│   ├── features.py            # get_track_features, get_features_summary
+│   ├── playlist.py            # get_playlist, list_playlists, create/update/delete
+│   ├── search.py              # search_tracks, filter_tracks
+│   ├── set.py                 # get_set, list_sets, create/update/delete
+│   ├── setbuilder.py          # build_set, rebuild_set, score_transitions
+│   ├── sync.py                # sync_set_to_ym, sync_set_from_ym, sync_playlist, ...
+│   ├── track.py               # get_track, list_tracks, create/update/archive
+│   └── unified_export.py      # export_set (m3u/json/cheat_sheet)
 ├── prompts/
 │   └── workflows.py         # 3 recipe prompts (expand, build, improve)
 ├── resources/
@@ -157,7 +157,7 @@ MCP endpoint: `POST /mcp/mcp` (StreamableHTTP). The double `/mcp` is because Fas
 
 ## Adding a new MCP tool
 
-1. Create tool function in the appropriate `app/mcp/tools/*_tools.py` module
+1. Create tool function in the appropriate `app/mcp/tools/*.py` module
 2. Use `@mcp.tool(tags={"tag"}, annotations={"readOnlyHint": True})` for read-only tools
 3. Add DI providers in `app/mcp/dependencies.py` if new services needed
 4. Return a Pydantic model from `app/mcp/types.py` (create new if needed)
