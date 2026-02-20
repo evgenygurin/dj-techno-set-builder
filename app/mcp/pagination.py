@@ -30,9 +30,7 @@ def decode_cursor(cursor: str | None) -> dict[str, int]:
         return {"offset": 0}
 
 
-def paginate_params(
-    *, cursor: str | None = None, limit: int = 20
-) -> tuple[int, int]:
+def paginate_params(*, cursor: str | None = None, limit: int = 20) -> tuple[int, int]:
     """Return (offset, clamped_limit) from cursor + limit."""
     params = decode_cursor(cursor)
     clamped = max(MIN_LIMIT, min(limit, MAX_LIMIT))

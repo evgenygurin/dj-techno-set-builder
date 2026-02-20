@@ -1,4 +1,4 @@
-"""Response models for MCP tools redesign (Phase 1).
+"""Response models for MCP tools redesign (Phase 1 + Phase 2).
 
 Three response levels:
 - Summary (~150 bytes/entity) — for lists, search results
@@ -75,6 +75,27 @@ class TrackDetail(TrackSummary):
     platform_ids: dict[str, str] = Field(default_factory=dict)
 
 
+class PlaylistDetail(PlaylistSummary):
+    """Extended playlist info — single entity view."""
+
+    analyzed_count: int = 0  # type: ignore[assignment]
+    bpm_range: tuple[float, float] | None = None
+    keys: list[str] = Field(default_factory=list)
+    avg_energy: float | None = None
+    duration_minutes: float = 0.0
+
+
+class SetDetail(SetSummary):
+    """Extended set info — single entity view."""
+
+    description: str | None = None
+    template_name: str | None = None
+    target_bpm_min: float | None = None
+    target_bpm_max: float | None = None
+    latest_version_id: int | None = None
+    latest_score: float | None = None
+
+
 # --- Response Envelope ---
 
 
@@ -117,3 +138,31 @@ class FindResult(BaseModel):
     exact: bool
     entities: list[Any]
     source: str
+
+
+# --- Phase 2: Response Envelopes for CRUD ---
+
+
+class EntityListResponse(BaseModel):
+    """Standard response for list/search operations."""
+
+    results: list[Any]
+    total: int
+    library: LibraryStats
+    pagination: PaginationInfo
+
+
+class EntityDetailResponse(BaseModel):
+    """Standard response for single-entity operations."""
+
+    result: dict[str, Any]
+    library: LibraryStats
+
+
+class ActionResponse(BaseModel):
+    """Standard response for create/update/delete actions."""
+
+    success: bool
+    message: str
+    result: dict[str, Any] | None = None
+    library: LibraryStats

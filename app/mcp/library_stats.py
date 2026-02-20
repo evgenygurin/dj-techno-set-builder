@@ -24,9 +24,7 @@ async def get_library_stats(session: AsyncSession) -> LibraryStats:
             select(func.count(func.distinct(TrackAudioFeaturesComputed.track_id)))
         )
     ).scalar_one()
-    playlists = (
-        await session.execute(select(func.count(DjPlaylist.playlist_id)))
-    ).scalar_one()
+    playlists = (await session.execute(select(func.count(DjPlaylist.playlist_id)))).scalar_one()
     sets = (await session.execute(select(func.count(DjSet.set_id)))).scalar_one()
 
     return LibraryStats(

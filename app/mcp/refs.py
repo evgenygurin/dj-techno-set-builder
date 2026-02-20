@@ -1,10 +1,10 @@
 """Entity reference parser.
 
 Parses URN-style refs into structured ParsedRef:
-  "local:42"            -> LOCAL, id=42
-  "ym:12345"            -> PLATFORM, source="ym", platform_id="12345"
-  42                    -> LOCAL, id=42
-  "Boris Brejcha"       -> TEXT, query="Boris Brejcha"
+  "local:42"            → LOCAL, id=42
+  "ym:12345"            → PLATFORM, source="ym", platform_id="12345"
+  42                    → LOCAL, id=42
+  "Boris Brejcha"       → TEXT, query="Boris Brejcha"
 """
 
 from __future__ import annotations
@@ -52,9 +52,7 @@ def parse_ref(ref: str | int) -> ParsedRef:
         if prefix.lower() in KNOWN_PLATFORMS and suffix:
             if prefix.lower() == "local":
                 try:
-                    return ParsedRef(
-                        ref_type=RefType.LOCAL, source="local", local_id=int(suffix)
-                    )
+                    return ParsedRef(ref_type=RefType.LOCAL, source="local", local_id=int(suffix))
                 except ValueError:
                     pass
             else:

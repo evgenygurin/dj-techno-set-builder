@@ -1,13 +1,8 @@
-"""Universal search + filter_tracks tools for DJ workflow MCP server.
-
-search() — fan-out query to tracks, playlists, sets via entity finders.
-filter_tracks() — SQL-level filtering by BPM, key, energy, with pagination.
-Both return SearchResponse with categorized results + stats + library stats.
-"""
+"""Universal search + filter tools (Phase 1)."""
 
 from __future__ import annotations
 
-import contextlib
+import json
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
@@ -24,184 +19,147 @@ from app.mcp.types_v2 import (
     SearchResponse,
 )
 from app.repositories.artists import ArtistRepository
-from app.repositories.audio_features import AudioFeaturesRepository
 from app.repositories.playlists import DjPlaylistRepository
 from app.repositories.sets import DjSetRepository
 from app.repositories.tracks import TrackRepository
 
 
 def register_search_tools(mcp: FastMCP) -> None:
-    """Register search and filter tools on the MCP server."""
+    """Register universal search + filter tools."""
 
-    @mcp.tool(
-        tags={"search"},
-        annotations={"readOnlyHint": True},
-    )
+    @mcp.tool(tags={"search"}, annotations={"readOnlyHint": True})
     async def search(
         query: str,
         scope: str = "all",
         limit: int = 20,
         cursor: str | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> SearchResponse:
-        """Universal search across tracks, playlists, sets, and artists.
+    ) -> str:
+        """Universal search across all entities and platforms.
 
-        Fans out the query to all entity finders and returns categorized
-        results with library stats and pagination.
+        Searches local DB (tracks, playlists, sets, artists) by fuzzy text match.
+        Returns categorized results + background statistics + pagination.
 
         Args:
-            query: Search text — title, artist name, playlist name, etc.
-                   Supports URN refs too: "local:42", "ym:12345".
-            scope: Which entity types to search.
-                   "all" | "tracks" | "playlists" | "sets" | "artists"
+            query: Search text — name, title, artist, anything.
+            scope: "all" | "tracks" | "playlists" | "sets" | "artists".
             limit: Max results per category (default 20, max 100).
-            cursor: Opaque pagination cursor from a previous response.
+            cursor: Pagination cursor from previous response.
         """
-        offset, capped = paginate_params(cursor=cursor, limit=limit)
-
+        offset, clamped_limit = paginate_params(cursor=cursor, limit=limit)
         ref = parse_ref(query)
 
-        scopes = (
-            ["tracks", "playlists", "sets", "artists"]
-            if scope == "all"
-            else [scope]
-        )
-
-        results: dict[str, list] = {}  # type: ignore[type-arg]
+        results: dict[str, list[dict]] = {}  # type: ignore[type-arg]
         total_matches: dict[str, int] = {}
 
-        if "tracks" in scopes:
-            finder = TrackFinder(TrackRepository(session))
-            found = await finder.find(ref, limit=capped)
-            results["tracks"] = [e.model_dump() for e in found.entities]
+        track_repo = TrackRepository(session)
+        playlist_repo = DjPlaylistRepository(session)
+        set_repo = DjSetRepository(session)
+        artist_repo = ArtistRepository(session)
+
+        if scope in ("all", "tracks"):
+            finder = TrackFinder(track_repo, track_repo)
+            found = await finder.find(ref, limit=clamped_limit)
+            results["tracks"] = [e.model_dump(exclude_none=True) for e in found.entities]
             total_matches["tracks"] = len(found.entities)
 
-        if "playlists" in scopes:
-            finder_pl = PlaylistFinder(DjPlaylistRepository(session))
-            found = await finder_pl.find(ref, limit=capped)
-            results["playlists"] = [e.model_dump() for e in found.entities]
+        if scope in ("all", "playlists"):
+            finder_pl = PlaylistFinder(playlist_repo)
+            found = await finder_pl.find(ref, limit=clamped_limit)
+            results["playlists"] = [e.model_dump(exclude_none=True) for e in found.entities]
             total_matches["playlists"] = len(found.entities)
 
-        if "sets" in scopes:
-            finder_set = SetFinder(DjSetRepository(session))
-            found = await finder_set.find(ref, limit=capped)
-            results["sets"] = [e.model_dump() for e in found.entities]
+        if scope in ("all", "sets"):
+            finder_set = SetFinder(set_repo)
+            found = await finder_set.find(ref, limit=clamped_limit)
+            results["sets"] = [e.model_dump(exclude_none=True) for e in found.entities]
             total_matches["sets"] = len(found.entities)
 
-        if "artists" in scopes:
-            finder_art = ArtistFinder(ArtistRepository(session))
-            found = await finder_art.find(ref, limit=capped)
-            results["artists"] = [e.model_dump() for e in found.entities]
+        if scope in ("all", "artists"):
+            finder_art = ArtistFinder(artist_repo)
+            found = await finder_art.find(ref, limit=clamped_limit)
+            results["artists"] = [e.model_dump(exclude_none=True) for e in found.entities]
             total_matches["artists"] = len(found.entities)
 
         library = await get_library_stats(session)
 
-        total = sum(total_matches.values())
-        has_more = total > offset + capped
-        next_cursor = encode_cursor(offset=offset + capped) if has_more else None
+        has_more = any(len(v) >= clamped_limit for v in results.values())
+        next_cursor = encode_cursor(offset=offset + clamped_limit) if has_more else None
 
-        return SearchResponse(
+        response = SearchResponse(
             results=results,
             stats=MatchStats(total_matches=total_matches),
             library=library,
-            pagination=PaginationInfo(
-                limit=capped,
-                has_more=has_more,
-                cursor=next_cursor,
-            ),
+            pagination=PaginationInfo(limit=clamped_limit, has_more=has_more, cursor=next_cursor),
         )
+        return json.dumps(response.model_dump(exclude_none=True), ensure_ascii=False)
 
-    @mcp.tool(
-        tags={"search", "audio"},
-        annotations={"readOnlyHint": True},
-    )
+    @mcp.tool(tags={"search"}, annotations={"readOnlyHint": True})
     async def filter_tracks(
         bpm_min: float | None = None,
         bpm_max: float | None = None,
-        keys: list[str] | None = None,
+        key_code_min: int | None = None,
+        key_code_max: int | None = None,
         energy_min: float | None = None,
         energy_max: float | None = None,
-        limit: int = 20,
+        limit: int = 50,
         cursor: str | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> SearchResponse:
-        """Filter tracks by audio feature criteria (SQL-level).
+    ) -> str:
+        """Filter tracks by audio parameters (BPM, key_code, energy LUFS).
 
-        Searches the local library using extracted audio features.
-        Much faster than in-memory filtering for large libraries.
+        Uses SQL-level filtering — efficient for large libraries.
+        Returns paginated track list with BPM/key/energy populated.
 
         Args:
-            bpm_min: Minimum BPM (inclusive).
-            bpm_max: Maximum BPM (inclusive).
-            keys: Camelot key codes to match (e.g. ["5A", "9A", "7B"]).
-            energy_min: Minimum integrated LUFS loudness.
-            energy_max: Maximum integrated LUFS loudness.
-            limit: Max results (default 20, max 100).
-            cursor: Opaque pagination cursor from a previous response.
+            bpm_min: Minimum BPM (e.g. 138.0).
+            bpm_max: Maximum BPM (e.g. 145.0).
+            key_code_min: Minimum key_code (0-23).
+            key_code_max: Maximum key_code (0-23).
+            energy_min: Minimum LUFS (e.g. -10.0).
+            energy_max: Maximum LUFS (e.g. -5.0).
+            limit: Max results (default 50, max 100).
+            cursor: Pagination cursor.
         """
-        from app.utils.audio.camelot import camelot_to_key_code, key_code_to_camelot
+        from app.mcp.converters import track_to_summary
+        from app.mcp.response import wrap_list
+        from app.repositories.audio_features import AudioFeaturesRepository
 
-        offset, capped = paginate_params(cursor=cursor, limit=limit)
+        offset, clamped = paginate_params(cursor=cursor, limit=limit)
+        features_repo = AudioFeaturesRepository(session)
+        track_repo = TrackRepository(session)
 
-        # Convert Camelot keys to key_codes for SQL filter
+        # Build key_codes list from range if provided
         key_codes: list[int] | None = None
-        if keys:
-            codes = [camelot_to_key_code(k) for k in keys]
-            key_codes = [c for c in codes if c is not None]
-            if not key_codes:
-                key_codes = None
+        if key_code_min is not None or key_code_max is not None:
+            lo = key_code_min if key_code_min is not None else 0
+            hi = key_code_max if key_code_max is not None else 23
+            key_codes = list(range(lo, hi + 1))
 
-        repo = AudioFeaturesRepository(session)
-        features_list, total = await repo.filter_by_criteria(
+        features_list, total = await features_repo.filter_by_criteria(
             bpm_min=bpm_min,
             bpm_max=bpm_max,
             key_codes=key_codes,
             energy_min=energy_min,
             energy_max=energy_max,
             offset=offset,
-            limit=capped,
+            limit=clamped,
         )
 
-        # Batch-load track data for matched features
-        track_repo = TrackRepository(session)
         track_ids = [f.track_id for f in features_list]
-        artists_map = await track_repo.get_artists_for_tracks(track_ids)
+        tracks_by_id = {}
+        artists_map: dict[int, list[str]] = {}
+        if track_ids:
+            for tid in track_ids:
+                t = await track_repo.get_by_id(tid)
+                if t:
+                    tracks_by_id[tid] = t
+            artists_map = await track_repo.get_artists_for_tracks(track_ids)
 
-        from app.mcp.types_v2 import TrackSummary
+        summaries = []
+        for f in features_list:
+            track = tracks_by_id.get(f.track_id)
+            if track:
+                summaries.append(track_to_summary(track, artists_map, features=f))
 
-        entities = []
-        for feat in features_list:
-            track = await track_repo.get_by_id(feat.track_id)
-            if not track:
-                continue
-
-            camelot_key: str | None = None
-            with contextlib.suppress(ValueError, TypeError):
-                camelot_key = key_code_to_camelot(feat.key_code)
-
-            entities.append(
-                TrackSummary(
-                    ref=f"local:{track.track_id}",
-                    title=track.title,
-                    artist=", ".join(artists_map.get(track.track_id, [])) or "Unknown",
-                    bpm=feat.bpm,
-                    key=camelot_key,
-                    energy_lufs=feat.lufs_i,
-                    duration_ms=track.duration_ms,
-                ).model_dump()
-            )
-
-        library = await get_library_stats(session)
-        has_more = total > offset + capped
-        next_cursor = encode_cursor(offset=offset + capped) if has_more else None
-
-        return SearchResponse(
-            results={"tracks": entities},
-            stats=MatchStats(total_matches={"tracks": total}),
-            library=library,
-            pagination=PaginationInfo(
-                limit=capped,
-                has_more=has_more,
-                cursor=next_cursor,
-            ),
-        )
+        return await wrap_list(summaries, total, offset, clamped, session)

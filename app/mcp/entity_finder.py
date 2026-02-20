@@ -27,8 +27,13 @@ if TYPE_CHECKING:
 class TrackFinder:
     """Resolve track refs to TrackSummary entities."""
 
-    def __init__(self, track_repo: TrackRepository) -> None:
+    def __init__(
+        self,
+        track_repo: TrackRepository,
+        track_repo_ext: TrackRepository,
+    ) -> None:
         self._repo = track_repo
+        self._repo_ext = track_repo_ext
 
     async def find(self, ref: ParsedRef, *, limit: int = 20) -> FindResult:
         if ref.ref_type == RefType.LOCAL and ref.local_id is not None:
@@ -42,7 +47,7 @@ class TrackFinder:
         if track is None:
             return FindResult(exact=True, entities=[], source="local")
 
-        artists = await self._repo.get_artists_for_tracks([track.track_id])
+        artists = await self._repo_ext.get_artists_for_tracks([track.track_id])
         artist_str = ", ".join(artists.get(track.track_id, []))
 
         summary = TrackSummary(
@@ -59,7 +64,7 @@ class TrackFinder:
             return FindResult(exact=False, entities=[], source="local")
 
         track_ids = [t.track_id for t in tracks]
-        artists_map = await self._repo.get_artists_for_tracks(track_ids)
+        artists_map = await self._repo_ext.get_artists_for_tracks(track_ids)
 
         entities = [
             TrackSummary(
@@ -98,9 +103,7 @@ class PlaylistFinder:
         return FindResult(exact=True, entities=[summary], source="local")
 
     async def _find_by_text(self, query: str, *, limit: int = 20) -> FindResult:
-        playlists, _total = await self._repo.search_by_name(
-            query, offset=0, limit=limit
-        )
+        playlists, _total = await self._repo.search_by_name(query, offset=0, limit=limit)
         entities = [
             PlaylistSummary(
                 ref=f"local:{p.playlist_id}",
@@ -108,7 +111,7 @@ class PlaylistFinder:
             )
             for p in playlists
         ]
-        return FindResult(exact=False, entities=entities, source="local")
+        return FindResult(exact=bool(entities), entities=entities, source="local")
 
 
 class SetFinder:
@@ -144,7 +147,7 @@ class SetFinder:
             )
             for s in sets
         ]
-        return FindResult(exact=False, entities=entities, source="local")
+        return FindResult(exact=bool(entities), entities=entities, source="local")
 
 
 class ArtistFinder:
@@ -172,9 +175,7 @@ class ArtistFinder:
         return FindResult(exact=True, entities=[summary], source="local")
 
     async def _find_by_text(self, query: str, *, limit: int = 20) -> FindResult:
-        artists, _total = await self._repo.search_by_name(
-            query, offset=0, limit=limit
-        )
+        artists, _total = await self._repo.search_by_name(query, offset=0, limit=limit)
         entities = [
             ArtistSummary(
                 ref=f"local:{a.artist_id}",
@@ -182,4 +183,4 @@ class ArtistFinder:
             )
             for a in artists
         ]
-        return FindResult(exact=False, entities=entities, source="local")
+        return FindResult(exact=bool(entities), entities=entities, source="local")

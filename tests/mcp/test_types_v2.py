@@ -1,15 +1,18 @@
-"""Tests for v2 response models — summary/detail/full + stats + pagination."""
-
-from __future__ import annotations
+"""Tests for types_v2 response models (Phase 1 + Phase 2)."""
 
 from app.mcp.types_v2 import (
+    ActionResponse,
     ArtistSummary,
+    EntityDetailResponse,
+    EntityListResponse,
     FindResult,
     LibraryStats,
     MatchStats,
     PaginationInfo,
+    PlaylistDetail,
     PlaylistSummary,
     SearchResponse,
+    SetDetail,
     SetSummary,
     TrackDetail,
     TrackSummary,
@@ -62,12 +65,40 @@ class TestPlaylistSummary:
         assert p.track_count == 247
 
 
+class TestPlaylistDetail:
+    def test_create(self):
+        p = PlaylistDetail(
+            ref="local:5",
+            name="Techno develop",
+            track_count=247,
+            analyzed_count=100,
+            duration_minutes=120.5,
+        )
+        assert p.analyzed_count == 100
+        assert p.duration_minutes == 120.5
+
+
 class TestSetSummary:
     def test_create(self):
         s = SetSummary(
             ref="local:3", name="Friday night", version_count=2, track_count=15
         )
         assert s.version_count == 2
+
+
+class TestSetDetail:
+    def test_create(self):
+        s = SetDetail(
+            ref="local:3",
+            name="Friday night",
+            version_count=2,
+            track_count=15,
+            description="Test set",
+            latest_version_id=7,
+            latest_score=0.82,
+        )
+        assert s.latest_version_id == 7
+        assert s.latest_score == 0.82
 
 
 class TestArtistSummary:
@@ -139,3 +170,47 @@ class TestFindResult:
             source="local",
         )
         assert len(r.entities) == 2
+
+
+class TestPhase2Envelopes:
+    def test_entity_list_response(self):
+        r = EntityListResponse(
+            results=[{"ref": "local:1", "title": "Track 1"}],
+            total=100,
+            library=LibraryStats(
+                total_tracks=100,
+                analyzed_tracks=50,
+                total_playlists=5,
+                total_sets=3,
+            ),
+            pagination=PaginationInfo(limit=20, has_more=True, cursor="abc"),
+        )
+        assert r.total == 100
+        assert len(r.results) == 1
+
+    def test_entity_detail_response(self):
+        r = EntityDetailResponse(
+            result={"ref": "local:42", "title": "Gravity"},
+            library=LibraryStats(
+                total_tracks=100,
+                analyzed_tracks=50,
+                total_playlists=5,
+                total_sets=3,
+            ),
+        )
+        assert r.result["ref"] == "local:42"
+
+    def test_action_response(self):
+        r = ActionResponse(
+            success=True,
+            message="Created track local:42",
+            result={"ref": "local:42", "title": "Gravity"},
+            library=LibraryStats(
+                total_tracks=101,
+                analyzed_tracks=50,
+                total_playlists=5,
+                total_sets=3,
+            ),
+        )
+        assert r.success is True
+        assert r.message == "Created track local:42"

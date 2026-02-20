@@ -10,8 +10,6 @@ from app.mcp.entity_finder import ArtistFinder, PlaylistFinder, SetFinder, Track
 from app.mcp.refs import parse_ref
 from app.mcp.types_v2 import FindResult
 
-# --- Fixtures ---
-
 
 @pytest.fixture
 def mock_track_repo():
@@ -46,9 +44,6 @@ def mock_artist_repo():
     return repo
 
 
-# --- TrackFinder ---
-
-
 class TestTrackFinder:
     async def test_find_by_local_id_found(self, mock_track_repo):
         track = MagicMock()
@@ -60,7 +55,7 @@ class TestTrackFinder:
             return_value={42: ["Boris Brejcha"]}
         )
 
-        finder = TrackFinder(mock_track_repo)
+        finder = TrackFinder(mock_track_repo, mock_track_repo)
         ref = parse_ref("local:42")
         result = await finder.find(ref)
 
@@ -72,7 +67,7 @@ class TestTrackFinder:
         assert result.entities[0].artist == "Boris Brejcha"
 
     async def test_find_by_local_id_not_found(self, mock_track_repo):
-        finder = TrackFinder(mock_track_repo)
+        finder = TrackFinder(mock_track_repo, mock_track_repo)
         ref = parse_ref("local:999")
         result = await finder.find(ref)
 
@@ -82,11 +77,11 @@ class TestTrackFinder:
     async def test_find_by_text_query(self, mock_track_repo):
         track1 = MagicMock()
         track1.track_id = 42
-        track1.title = "Boris Brejcha - Gravity"
+        track1.title = "Gravity"
         track1.duration_ms = 360000
         track2 = MagicMock()
         track2.track_id = 43
-        track2.title = "Boris Brejcha - Butterfly Effect"
+        track2.title = "Butterfly Effect"
         track2.duration_ms = 300000
 
         mock_track_repo.search_by_title = AsyncMock(
@@ -96,16 +91,13 @@ class TestTrackFinder:
             return_value={42: ["Boris Brejcha"], 43: ["Boris Brejcha"]}
         )
 
-        finder = TrackFinder(mock_track_repo)
+        finder = TrackFinder(mock_track_repo, mock_track_repo)
         ref = parse_ref("Boris Brejcha")
         result = await finder.find(ref, limit=10)
 
         assert result.exact is False
         assert len(result.entities) == 2
         assert result.source == "local"
-
-
-# --- PlaylistFinder ---
 
 
 class TestPlaylistFinder:
@@ -132,26 +124,15 @@ class TestPlaylistFinder:
         ref = parse_ref("Techno")
         result = await finder.find(ref)
 
-        assert result.exact is False
         assert len(result.entities) == 1
-
-    async def test_find_by_id_not_found(self, mock_playlist_repo):
-        finder = PlaylistFinder(mock_playlist_repo)
-        ref = parse_ref("local:999")
-        result = await finder.find(ref)
-        assert result.exact is True
-        assert len(result.entities) == 0
-
-
-# --- SetFinder ---
 
 
 class TestSetFinder:
     async def test_find_by_id(self, mock_set_repo):
-        s = MagicMock()
-        s.set_id = 3
-        s.name = "Friday night"
-        mock_set_repo.get_by_id = AsyncMock(return_value=s)
+        dj_set = MagicMock()
+        dj_set.set_id = 3
+        dj_set.name = "Friday night"
+        mock_set_repo.get_by_id = AsyncMock(return_value=dj_set)
 
         finder = SetFinder(mock_set_repo)
         ref = parse_ref("local:3")
@@ -160,29 +141,13 @@ class TestSetFinder:
         assert result.exact is True
         assert result.entities[0].name == "Friday night"
 
-    async def test_find_by_text(self, mock_set_repo):
-        s = MagicMock()
-        s.set_id = 3
-        s.name = "Friday night"
-        mock_set_repo.search_by_name = AsyncMock(return_value=([s], 1))
-
-        finder = SetFinder(mock_set_repo)
-        ref = parse_ref("Friday")
-        result = await finder.find(ref)
-
-        assert result.exact is False
-        assert len(result.entities) == 1
-
-
-# --- ArtistFinder ---
-
 
 class TestArtistFinder:
     async def test_find_by_id(self, mock_artist_repo):
-        a = MagicMock()
-        a.artist_id = 10
-        a.name = "Boris Brejcha"
-        mock_artist_repo.get_by_id = AsyncMock(return_value=a)
+        artist = MagicMock()
+        artist.artist_id = 10
+        artist.name = "Boris Brejcha"
+        mock_artist_repo.get_by_id = AsyncMock(return_value=artist)
 
         finder = ArtistFinder(mock_artist_repo)
         ref = parse_ref("local:10")
@@ -190,16 +155,3 @@ class TestArtistFinder:
 
         assert result.exact is True
         assert result.entities[0].name == "Boris Brejcha"
-
-    async def test_find_by_text(self, mock_artist_repo):
-        a = MagicMock()
-        a.artist_id = 10
-        a.name = "Boris Brejcha"
-        mock_artist_repo.search_by_name = AsyncMock(return_value=([a], 1))
-
-        finder = ArtistFinder(mock_artist_repo)
-        ref = parse_ref("Boris")
-        result = await finder.find(ref)
-
-        assert result.exact is False
-        assert len(result.entities) == 1

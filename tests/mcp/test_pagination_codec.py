@@ -36,9 +36,9 @@ class TestPaginateParams:
         assert limit == 20
 
     def test_limit_clamped(self):
-        _offset, limit = paginate_params(cursor=None, limit=500)
+        offset, limit = paginate_params(cursor=None, limit=500)
         assert limit == 100  # max limit
 
     def test_limit_minimum(self):
-        _offset, limit = paginate_params(cursor=None, limit=0)
+        offset, limit = paginate_params(cursor=None, limit=0)
         assert limit == 1
