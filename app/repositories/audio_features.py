@@ -57,6 +57,32 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def filter_by_criteria(
+        self,
+        *,
+        bpm_min: float | None = None,
+        bpm_max: float | None = None,
+        key_codes: list[int] | None = None,
+        energy_min: float | None = None,
+        energy_max: float | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[TrackAudioFeaturesComputed], int]:
+        """Filter features by audio parameters at SQL level."""
+        filters: list[Any] = []
+        if bpm_min is not None:
+            filters.append(TrackAudioFeaturesComputed.bpm >= bpm_min)
+        if bpm_max is not None:
+            filters.append(TrackAudioFeaturesComputed.bpm <= bpm_max)
+        if key_codes:
+            filters.append(TrackAudioFeaturesComputed.key_code.in_(key_codes))
+        if energy_min is not None:
+            filters.append(TrackAudioFeaturesComputed.lufs_i >= energy_min)
+        if energy_max is not None:
+            filters.append(TrackAudioFeaturesComputed.lufs_i <= energy_max)
+
+        return await self.list(offset=offset, limit=limit, filters=filters)
+
     async def save_features(
         self,
         track_id: int,

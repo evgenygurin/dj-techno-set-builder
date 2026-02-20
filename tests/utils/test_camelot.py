@@ -6,6 +6,7 @@ from app.utils.audio.camelot import (
     build_pitch_class_lookup,
     camelot_distance,
     camelot_score,
+    camelot_to_key_code,
     is_compatible,
     key_code_to_camelot,
 )
@@ -31,6 +32,37 @@ class TestKeyCodeToCamelot:
     def test_all_24_keys_unique(self) -> None:
         codes = [key_code_to_camelot(i) for i in range(24)]
         assert len(set(codes)) == 24
+
+
+class TestCamelotToKeyCode:
+    """Verify reverse mapping: Camelot notation → key_code."""
+
+    @pytest.mark.parametrize(
+        ("camelot", "expected"),
+        [
+            ("5A", 0),   # Cm
+            ("8B", 1),   # C
+            ("7A", 4),   # Dm
+            ("1A", 16),  # G#m
+            ("8A", 18),  # Am
+            ("1B", 23),  # B
+        ],
+    )
+    def test_reverse_mapping(self, camelot: str, expected: int) -> None:
+        assert camelot_to_key_code(camelot) == expected
+
+    def test_all_24_roundtrip(self) -> None:
+        """key_code → Camelot → key_code roundtrip for all 24 keys."""
+        for kc in range(24):
+            cam = key_code_to_camelot(kc)
+            assert camelot_to_key_code(cam) == kc
+
+    def test_unknown_returns_none(self) -> None:
+        assert camelot_to_key_code("99Z") is None
+
+    def test_case_insensitive(self) -> None:
+        assert camelot_to_key_code("5a") == 0
+        assert camelot_to_key_code("8b") == 1
 
 
 class TestCamelotDistance:

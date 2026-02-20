@@ -1,0 +1,258 @@
+"""Integration tests for search + filter_tracks tools with real DB.
+
+These tests seed data into an in-memory SQLite via the test session,
+then invoke MCP tools via Client to verify end-to-end behavior
+including DI, entity resolution, and response envelope structure.
+"""
+
+from __future__ import annotations
+
+from fastmcp import Client
+
+from app.models.catalog import Track
+from app.models.dj import DjPlaylist
+from app.models.features import TrackAudioFeaturesComputed
+from app.models.harmony import Key
+from app.models.runs import FeatureExtractionRun
+from app.models.sets import DjSet
+
+
+async def _seed_keys(session) -> None:
+    """Seed the keys lookup table (required FK for audio features)."""
+    for kc in range(24):
+        pitch_class = kc // 2
+        mode = kc % 2
+        name = f"key_{kc}"
+        session.add(Key(key_code=kc, pitch_class=pitch_class, mode=mode, name=name))
+    await session.flush()
+
+
+async def _seed_tracks(session) -> dict[str, int]:
+    """Seed tracks + playlists + sets for search tests. Returns track IDs."""
+    t1 = Track(title="Gravity", title_sort="gravity", duration_ms=360000, status=0)
+    t2 = Track(title="Space Motion", title_sort="space motion", duration_ms=300000, status=0)
+    t3 = Track(title="Dark Gravity", title_sort="dark gravity", duration_ms=400000, status=0)
+    session.add_all([t1, t2, t3])
+
+    pl = DjPlaylist(name="My Gravity playlist")
+    session.add(pl)
+
+    s = DjSet(name="Gravity Live Set")
+    session.add(s)
+
+    await session.flush()
+    return {"t1": t1.track_id, "t2": t2.track_id, "t3": t3.track_id}
+
+
+def _make_features(track_id: int, run_id: int, **overrides) -> TrackAudioFeaturesComputed:
+    """Build a TrackAudioFeaturesComputed with sensible defaults for all NOT NULL fields."""
+    defaults = {
+        "track_id": track_id,
+        "run_id": run_id,
+        "bpm": 140.0,
+        "tempo_confidence": 0.9,
+        "bpm_stability": 0.95,
+        "is_variable_tempo": False,
+        "lufs_i": -8.0,
+        "rms_dbfs": -10.0,
+        "energy_mean": 0.5,
+        "energy_max": 0.8,
+        "energy_std": 0.1,
+        "key_code": 0,
+        "key_confidence": 0.85,
+        "is_atonal": False,
+    }
+    defaults.update(overrides)
+    return TrackAudioFeaturesComputed(**defaults)
+
+
+async def _seed_features(session, track_ids: dict[str, int]) -> None:
+    """Seed audio features for tracks."""
+    await _seed_keys(session)
+
+    run = FeatureExtractionRun(
+        pipeline_name="test", pipeline_version="1.0", status="completed"
+    )
+    session.add(run)
+    await session.flush()
+
+    # t1: Gravity — 140 BPM, Em (key_code=8), -8.3 LUFS
+    f1 = _make_features(
+        track_ids["t1"], run.run_id, bpm=140.0, key_code=8, lufs_i=-8.3
+    )
+    # t2: Space Motion — 138 BPM, Am (key_code=18), -6.0 LUFS
+    f2 = _make_features(
+        track_ids["t2"], run.run_id, bpm=138.0, key_code=18, lufs_i=-6.0
+    )
+    # t3: Dark Gravity — 145 BPM, Cm (key_code=0), -10.5 LUFS
+    f3 = _make_features(
+        track_ids["t3"], run.run_id, bpm=145.0, key_code=0, lufs_i=-10.5
+    )
+    session.add_all([f1, f2, f3])
+    await session.flush()
+
+
+async def test_search_finds_tracks_by_title(workflow_mcp_with_db, session):
+    """search tool finds tracks matching the query text."""
+    await _seed_tracks(session)
+    await session.commit()
+
+    async with Client(workflow_mcp_with_db) as client:
+        result = await client.call_tool("search", {"query": "Gravity"})
+        assert not result.is_error
+        data = result.structured_content
+
+        # Should have tracks category with at least 2 matches
+        assert "tracks" in data["results"]
+        track_titles = [t["title"] for t in data["results"]["tracks"]]
+        assert "Gravity" in track_titles
+        assert "Dark Gravity" in track_titles
+
+        # Library stats should be present
+        assert data["library"]["total_tracks"] == 3
+
+        # Pagination should be present
+        assert "limit" in data["pagination"]
+        assert data["pagination"]["has_more"] is False
+
+
+async def test_search_scoped_to_tracks(workflow_mcp_with_db, session):
+    """search with scope=tracks returns only tracks category."""
+    await _seed_tracks(session)
+    await session.commit()
+
+    async with Client(workflow_mcp_with_db) as client:
+        result = await client.call_tool(
+            "search", {"query": "Gravity", "scope": "tracks"}
+        )
+        data = result.structured_content
+        assert "tracks" in data["results"]
+        assert "playlists" not in data["results"]
+        assert "sets" not in data["results"]
+
+
+async def test_search_finds_playlists(workflow_mcp_with_db, session):
+    """search finds playlists matching the query."""
+    await _seed_tracks(session)
+    await session.commit()
+
+    async with Client(workflow_mcp_with_db) as client:
+        result = await client.call_tool(
+            "search", {"query": "Gravity", "scope": "playlists"}
+        )
+        data = result.structured_content
+        assert "playlists" in data["results"]
+        assert len(data["results"]["playlists"]) >= 1
+        assert data["results"]["playlists"][0]["name"] == "My Gravity playlist"
+
+
+async def test_search_finds_sets(workflow_mcp_with_db, session):
+    """search finds DJ sets matching the query."""
+    await _seed_tracks(session)
+    await session.commit()
+
+    async with Client(workflow_mcp_with_db) as client:
+        result = await client.call_tool(
+            "search", {"query": "Gravity", "scope": "sets"}
+        )
+        data = result.structured_content
+        assert "sets" in data["results"]
+        assert len(data["results"]["sets"]) >= 1
+        assert data["results"]["sets"][0]["name"] == "Gravity Live Set"
+
+
+async def test_search_no_results(workflow_mcp_with_db, session):
+    """search returns empty results for non-matching query."""
+    await _seed_tracks(session)
+    await session.commit()
+
+    async with Client(workflow_mcp_with_db) as client:
+        result = await client.call_tool(
+            "search", {"query": "zzz_nonexistent_zzz"}
+        )
+        data = result.structured_content
+        assert data["stats"]["total_matches"]["tracks"] == 0
+
+
+async def test_filter_tracks_by_bpm(workflow_mcp_with_db, session):
+    """filter_tracks returns tracks within BPM range."""
+    track_ids = await _seed_tracks(session)
+    await _seed_features(session, track_ids)
+    await session.commit()
+
+    async with Client(workflow_mcp_with_db) as client:
+        result = await client.call_tool(
+            "filter_tracks",
+            {"bpm_min": 139.0, "bpm_max": 141.0},
+        )
+        assert not result.is_error
+        data = result.structured_content
+
+        tracks = data["results"]["tracks"]
+        assert len(tracks) == 1
+        assert tracks[0]["bpm"] == 140.0
+        assert tracks[0]["title"] == "Gravity"
+
+
+async def test_filter_tracks_by_key(workflow_mcp_with_db, session):
+    """filter_tracks returns tracks matching Camelot key codes."""
+    track_ids = await _seed_tracks(session)
+    await _seed_features(session, track_ids)
+    await session.commit()
+
+    async with Client(workflow_mcp_with_db) as client:
+        # 9A = Em (key_code=8), 8A = Am (key_code=18)
+        result = await client.call_tool(
+            "filter_tracks",
+            {"keys": ["9A", "8A"]},
+        )
+        data = result.structured_content
+        tracks = data["results"]["tracks"]
+        assert len(tracks) == 2
+        keys_found = {t["key"] for t in tracks}
+        assert keys_found == {"9A", "8A"}
+
+
+async def test_filter_tracks_by_energy(workflow_mcp_with_db, session):
+    """filter_tracks returns tracks within energy (LUFS) range."""
+    track_ids = await _seed_tracks(session)
+    await _seed_features(session, track_ids)
+    await session.commit()
+
+    async with Client(workflow_mcp_with_db) as client:
+        result = await client.call_tool(
+            "filter_tracks",
+            {"energy_min": -9.0, "energy_max": -5.0},
+        )
+        data = result.structured_content
+        tracks = data["results"]["tracks"]
+        # t1: -8.3 LUFS (within range), t2: -6.0 (within), t3: -10.5 (below)
+        assert len(tracks) == 2
+
+
+async def test_filter_tracks_no_criteria_returns_all(workflow_mcp_with_db, session):
+    """filter_tracks with no criteria returns all analyzed tracks."""
+    track_ids = await _seed_tracks(session)
+    await _seed_features(session, track_ids)
+    await session.commit()
+
+    async with Client(workflow_mcp_with_db) as client:
+        result = await client.call_tool("filter_tracks", {})
+        data = result.structured_content
+        tracks = data["results"]["tracks"]
+        assert len(tracks) == 3
+
+
+async def test_filter_tracks_library_stats(workflow_mcp_with_db, session):
+    """filter_tracks includes accurate library stats."""
+    track_ids = await _seed_tracks(session)
+    await _seed_features(session, track_ids)
+    await session.commit()
+
+    async with Client(workflow_mcp_with_db) as client:
+        result = await client.call_tool("filter_tracks", {})
+        data = result.structured_content
+        assert data["library"]["total_tracks"] == 3
+        assert data["library"]["analyzed_tracks"] == 3
+        assert data["library"]["total_playlists"] == 1
+        assert data["library"]["total_sets"] == 1

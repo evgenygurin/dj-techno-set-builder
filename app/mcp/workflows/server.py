@@ -12,6 +12,7 @@ from app.mcp.workflows.curation_tools import register_curation_tools
 from app.mcp.workflows.discovery_tools import register_discovery_tools
 from app.mcp.workflows.export_tools import register_export_tools
 from app.mcp.workflows.import_tools import register_import_tools
+from app.mcp.workflows.search_tools import register_search_tools
 from app.mcp.workflows.setbuilder_tools import register_setbuilder_tools
 from app.mcp.workflows.sync_tools import register_sync_tools
 
@@ -40,6 +41,7 @@ def create_workflow_mcp() -> FastMCP:
     register_export_tools(mcp)
     register_curation_tools(mcp)
     register_sync_tools(mcp)
+    register_search_tools(mcp)
     register_prompts(mcp)
     register_resources(mcp)
     _register_visibility_tools(mcp)

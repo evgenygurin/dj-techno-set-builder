@@ -1,3 +1,6 @@
+# direnv
+.envrc
+
 # Python
 __pycache__/
 *.py[cod]
@@ -93,7 +96,6 @@ dmypy.json
 .ruff_cache/
 
 # docs/
-docs/plans/
 
 # Data (keep API specs tracked)
 data/*
