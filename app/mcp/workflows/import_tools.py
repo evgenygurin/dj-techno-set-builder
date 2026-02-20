@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.mcp.dependencies import get_session, get_ym_client
-from app.mcp.types import ImportResult
+from app.mcp.schemas import ImportResult
 from app.services.download import DownloadResult, DownloadService
 from app.services.yandex_music_client import YandexMusicClient
 
@@ -19,7 +19,7 @@ from app.services.yandex_music_client import YandexMusicClient
 def register_import_tools(mcp: FastMCP) -> None:
     """Register import tools on the MCP server."""
 
-    @mcp.tool(tags={"import"})
+    @mcp.tool(tags={"import"}, timeout=600.0, version="0.1.0")
     async def import_playlist(
         source: str,
         playlist_id: str,
@@ -46,9 +46,7 @@ def register_import_tools(mcp: FastMCP) -> None:
 
         await ctx.report_progress(progress=0, total=100)
 
-        download_note = (
-            "\n5. Download MP3 files (download_files=True)" if download_files else ""
-        )
+        download_note = "\n5. Download MP3 files (download_files=True)" if download_files else ""
         await ctx.info(
             f"Import from '{source}' playlist {playlist_id} is not yet "
             "automated end-to-end.  Manual steps required:\n"
@@ -66,7 +64,7 @@ def register_import_tools(mcp: FastMCP) -> None:
             enriched_count=0,
         )
 
-    @mcp.tool(tags={"import"})
+    @mcp.tool(tags={"import"}, timeout=600.0, version="0.1.0")
     async def import_tracks(
         track_ids: list[int],
         ctx: Context,
@@ -106,6 +104,8 @@ def register_import_tools(mcp: FastMCP) -> None:
         description="Download MP3 files for tracks from Yandex Music to iCloud library",
         tags={"download", "yandex"},
         annotations={"readonly": False},
+        timeout=600.0,
+        version="1.0.0",
     )
     async def download_tracks(
         track_ids: list[int],
