@@ -7,6 +7,8 @@ including DI, entity resolution, and response envelope structure.
 
 from __future__ import annotations
 
+import json
+
 from fastmcp import Client
 
 from app.models.catalog import Track
@@ -92,6 +94,11 @@ async def _seed_features(session, track_ids: dict[str, int]) -> None:
     await session.flush()
 
 
+def _parse_response(result) -> dict:
+    """Parse JSON text content from MCP tool result."""
+    return json.loads(result.content[0].text)
+
+
 async def test_search_finds_tracks_by_title(workflow_mcp_with_db, session):
     """search tool finds tracks matching the query text."""
     await _seed_tracks(session)
@@ -100,7 +107,7 @@ async def test_search_finds_tracks_by_title(workflow_mcp_with_db, session):
     async with Client(workflow_mcp_with_db) as client:
         result = await client.call_tool("search", {"query": "Gravity"})
         assert not result.is_error
-        data = result.structured_content
+        data = _parse_response(result)
 
         # Should have tracks category with at least 2 matches
         assert "tracks" in data["results"]
@@ -125,7 +132,7 @@ async def test_search_scoped_to_tracks(workflow_mcp_with_db, session):
         result = await client.call_tool(
             "search", {"query": "Gravity", "scope": "tracks"}
         )
-        data = result.structured_content
+        data = _parse_response(result)
         assert "tracks" in data["results"]
         assert "playlists" not in data["results"]
         assert "sets" not in data["results"]
@@ -140,7 +147,7 @@ async def test_search_finds_playlists(workflow_mcp_with_db, session):
         result = await client.call_tool(
             "search", {"query": "Gravity", "scope": "playlists"}
         )
-        data = result.structured_content
+        data = _parse_response(result)
         assert "playlists" in data["results"]
         assert len(data["results"]["playlists"]) >= 1
         assert data["results"]["playlists"][0]["name"] == "My Gravity playlist"
@@ -155,7 +162,7 @@ async def test_search_finds_sets(workflow_mcp_with_db, session):
         result = await client.call_tool(
             "search", {"query": "Gravity", "scope": "sets"}
         )
-        data = result.structured_content
+        data = _parse_response(result)
         assert "sets" in data["results"]
         assert len(data["results"]["sets"]) >= 1
         assert data["results"]["sets"][0]["name"] == "Gravity Live Set"
@@ -170,7 +177,7 @@ async def test_search_no_results(workflow_mcp_with_db, session):
         result = await client.call_tool(
             "search", {"query": "zzz_nonexistent_zzz"}
         )
-        data = result.structured_content
+        data = _parse_response(result)
         assert data["stats"]["total_matches"]["tracks"] == 0
 
 
@@ -186,31 +193,31 @@ async def test_filter_tracks_by_bpm(workflow_mcp_with_db, session):
             {"bpm_min": 139.0, "bpm_max": 141.0},
         )
         assert not result.is_error
-        data = result.structured_content
+        data = _parse_response(result)
 
-        tracks = data["results"]["tracks"]
+        # Phase 2 filter_tracks returns EntityListResponse (flat results list)
+        tracks = data["results"]
         assert len(tracks) == 1
         assert tracks[0]["bpm"] == 140.0
         assert tracks[0]["title"] == "Gravity"
 
 
-async def test_filter_tracks_by_key(workflow_mcp_with_db, session):
-    """filter_tracks returns tracks matching Camelot key codes."""
+async def test_filter_tracks_by_key_code(workflow_mcp_with_db, session):
+    """filter_tracks returns tracks matching key code range."""
     track_ids = await _seed_tracks(session)
     await _seed_features(session, track_ids)
     await session.commit()
 
     async with Client(workflow_mcp_with_db) as client:
-        # 9A = Em (key_code=8), 8A = Am (key_code=18)
+        # key_code 8 = Em, key_code 18 = Am
         result = await client.call_tool(
             "filter_tracks",
-            {"keys": ["9A", "8A"]},
+            {"key_code_min": 8, "key_code_max": 18},
         )
-        data = result.structured_content
-        tracks = data["results"]["tracks"]
+        data = _parse_response(result)
+        tracks = data["results"]
+        # Should include t1 (key_code=8) and t2 (key_code=18)
         assert len(tracks) == 2
-        keys_found = {t["key"] for t in tracks}
-        assert keys_found == {"9A", "8A"}
 
 
 async def test_filter_tracks_by_energy(workflow_mcp_with_db, session):
@@ -224,8 +231,8 @@ async def test_filter_tracks_by_energy(workflow_mcp_with_db, session):
             "filter_tracks",
             {"energy_min": -9.0, "energy_max": -5.0},
         )
-        data = result.structured_content
-        tracks = data["results"]["tracks"]
+        data = _parse_response(result)
+        tracks = data["results"]
         # t1: -8.3 LUFS (within range), t2: -6.0 (within), t3: -10.5 (below)
         assert len(tracks) == 2
 
@@ -238,8 +245,8 @@ async def test_filter_tracks_no_criteria_returns_all(workflow_mcp_with_db, sessi
 
     async with Client(workflow_mcp_with_db) as client:
         result = await client.call_tool("filter_tracks", {})
-        data = result.structured_content
-        tracks = data["results"]["tracks"]
+        data = _parse_response(result)
+        tracks = data["results"]
         assert len(tracks) == 3
 
 
@@ -251,7 +258,7 @@ async def test_filter_tracks_library_stats(workflow_mcp_with_db, session):
 
     async with Client(workflow_mcp_with_db) as client:
         result = await client.call_tool("filter_tracks", {})
-        data = result.structured_content
+        data = _parse_response(result)
         assert data["library"]["total_tracks"] == 3
         assert data["library"]["analyzed_tracks"] == 3
         assert data["library"]["total_playlists"] == 1

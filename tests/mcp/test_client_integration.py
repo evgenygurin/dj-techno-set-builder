@@ -10,6 +10,8 @@ and structured output serialization.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastmcp import Client, FastMCP
 from fastmcp.exceptions import ToolError
@@ -42,6 +44,7 @@ async def test_client_lists_all_workflow_tools(workflow_mcp: FastMCP):
         tools = await client.list_tools()
         tool_names = {t.name for t in tools}
         expected = {
+            # Legacy tools
             "get_playlist_status",
             "get_track_details",
             "import_playlist",
@@ -53,6 +56,7 @@ async def test_client_lists_all_workflow_tools(workflow_mcp: FastMCP):
             "score_transitions",
             "export_set_m3u",
             "export_set_json",
+            "export_set_rekordbox",
             "classify_tracks",
             "analyze_library_gaps",
             "review_set",
@@ -61,8 +65,32 @@ async def test_client_lists_all_workflow_tools(workflow_mcp: FastMCP):
             "sync_playlist",
             "download_tracks",
             "activate_heavy_mode",
+            # Phase 1: Search
             "search",
             "filter_tracks",
+            # Phase 2: CRUD
+            "list_tracks",
+            "get_track",
+            "create_track",
+            "update_track",
+            "delete_track",
+            "list_playlists",
+            "get_playlist",
+            "create_playlist",
+            "update_playlist",
+            "delete_playlist",
+            "list_sets",
+            "get_set",
+            "create_set",
+            "update_set",
+            "delete_set",
+            "list_features",
+            "get_features",
+            "save_features",
+            # Phase 2: Compute + Export
+            "analyze_track",
+            "compute_set_order",
+            "export_set",
         }
         missing = expected - tool_names
         assert not missing, f"Missing tools: {missing}"
@@ -161,7 +189,13 @@ async def test_gateway_import_playlist_via_namespace(gateway_mcp: FastMCP):
             {"source": "yandex", "playlist_id": "456"},
         )
         assert not result.is_error
-        assert result.data.imported_count == 0
+        # Structured data may be None for namespaced (proxy) tools;
+        # fall back to parsing the text content.
+        if result.data is not None:
+            assert result.data.imported_count == 0
+        else:
+            payload = json.loads(result.content[0].text)
+            assert payload["imported_count"] == 0
 
 
 async def test_gateway_import_tracks_via_namespace(gateway_mcp: FastMCP):
@@ -172,4 +206,10 @@ async def test_gateway_import_tracks_via_namespace(gateway_mcp: FastMCP):
             {"track_ids": [1, 2]},
         )
         assert not result.is_error
-        assert result.data.skipped_count == 2
+        # Structured data may be None for namespaced (proxy) tools;
+        # fall back to parsing the text content.
+        if result.data is not None:
+            assert result.data.skipped_count == 2
+        else:
+            payload = json.loads(result.content[0].text)
+            assert payload["skipped_count"] == 2
