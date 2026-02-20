@@ -57,7 +57,7 @@ def register_prompts(mcp: FastMCP) -> None:
                     "Please follow these steps:\n"
                     "1. Use `ym_search_tracks` to search Yandex Music for tracks "
                     f"matching the '{genre}' genre.\n"
-                    "2. Use `dj_import_tracks` to import the found tracks into "
+                    "2. Use `dj_create_track` to add the found tracks to "
                     "the local database.\n"
                     "3. Use `dj_find_similar_tracks` to expand the selection with "
                     "similar tracks that fit the vibe.\n"

@@ -15,9 +15,9 @@ from app.mcp.resources import register_resources
 from app.mcp.workflows.compute_tools import register_compute_tools
 from app.mcp.workflows.curation_tools import register_curation_tools
 from app.mcp.workflows.discovery_tools import register_discovery_tools
+from app.mcp.workflows.download_tools import register_download_tools
 from app.mcp.workflows.export_tools import register_export_tools
 from app.mcp.workflows.features_tools import register_features_tools
-from app.mcp.workflows.import_tools import register_import_tools
 from app.mcp.workflows.playlist_tools import register_playlist_tools
 
 # Phase 1: Search + filter
@@ -94,8 +94,8 @@ def create_workflow_mcp() -> FastMCP:
     register_compute_tools(mcp)
     register_unified_export_tools(mcp)
 
-    # === Legacy tools (kept until Phase 4 cleanup) ===
-    register_import_tools(mcp)
+    # === Download ===
+    register_download_tools(mcp)
     register_discovery_tools(mcp)
     register_setbuilder_tools(mcp)
     register_export_tools(mcp)

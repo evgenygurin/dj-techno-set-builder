@@ -10,11 +10,7 @@ and structured output serialization.
 
 from __future__ import annotations
 
-import json
-
-import pytest
 from fastmcp import Client, FastMCP
-from fastmcp.exceptions import ToolError
 
 # ---------------------------------------------------------------------------
 # Connectivity
@@ -47,8 +43,6 @@ async def test_client_lists_all_workflow_tools(workflow_mcp: FastMCP):
             # Legacy tools
             "get_playlist_status",
             "get_track_details",
-            "import_playlist",
-            "import_tracks",
             "find_similar_tracks",
             "search_by_criteria",
             "build_set",
@@ -126,90 +120,5 @@ async def test_gateway_client_sees_namespaced_tools(gateway_mcp: FastMCP):
 
 
 # ---------------------------------------------------------------------------
-# Import tool invocations (stubs — no DB needed)
-# ---------------------------------------------------------------------------
-
-
-async def test_import_playlist_yandex_stub(workflow_mcp: FastMCP):
-    """import_playlist returns zero-count ImportResult for supported source."""
-    async with Client(workflow_mcp) as client:
-        result = await client.call_tool(
-            "import_playlist",
-            {"source": "yandex", "playlist_id": "123"},
-        )
-        assert not result.is_error
-        # Structured output: ImportResult with all-zero counts
-        assert result.data.imported_count == 0
-        assert result.data.skipped_count == 0
-        assert result.data.enriched_count == 0
-
-
-async def test_import_playlist_unsupported_source_raises(workflow_mcp: FastMCP):
-    """import_playlist raises ToolError for unsupported source."""
-    async with Client(workflow_mcp) as client:
-        with pytest.raises(ToolError, match="Unsupported source 'spotify'"):
-            await client.call_tool(
-                "import_playlist",
-                {"source": "spotify", "playlist_id": "123"},
-            )
-
-
-async def test_import_tracks_stub(workflow_mcp: FastMCP):
-    """import_tracks returns skipped_count matching input length."""
-    async with Client(workflow_mcp) as client:
-        result = await client.call_tool(
-            "import_tracks",
-            {"track_ids": [100, 200, 300]},
-        )
-        assert not result.is_error
-        assert result.data.imported_count == 0
-        assert result.data.skipped_count == 3
-
-
-async def test_import_tracks_empty_raises(workflow_mcp: FastMCP):
-    """import_tracks raises ToolError for empty track list."""
-    async with Client(workflow_mcp) as client:
-        with pytest.raises(ToolError, match="track_ids must not be empty"):
-            await client.call_tool(
-                "import_tracks",
-                {"track_ids": []},
-            )
-
-
-# ---------------------------------------------------------------------------
 # Gateway namespaced tool invocations
 # ---------------------------------------------------------------------------
-
-
-async def test_gateway_import_playlist_via_namespace(gateway_mcp: FastMCP):
-    """Gateway-namespaced dj_import_playlist works end-to-end."""
-    async with Client(gateway_mcp) as client:
-        result = await client.call_tool(
-            "dj_import_playlist",
-            {"source": "yandex", "playlist_id": "456"},
-        )
-        assert not result.is_error
-        # Structured data may be None for namespaced (proxy) tools;
-        # fall back to parsing the text content.
-        if result.data is not None:
-            assert result.data.imported_count == 0
-        else:
-            payload = json.loads(result.content[0].text)
-            assert payload["imported_count"] == 0
-
-
-async def test_gateway_import_tracks_via_namespace(gateway_mcp: FastMCP):
-    """Gateway-namespaced dj_import_tracks works end-to-end."""
-    async with Client(gateway_mcp) as client:
-        result = await client.call_tool(
-            "dj_import_tracks",
-            {"track_ids": [1, 2]},
-        )
-        assert not result.is_error
-        # Structured data may be None for namespaced (proxy) tools;
-        # fall back to parsing the text content.
-        if result.data is not None:
-            assert result.data.skipped_count == 2
-        else:
-            payload = json.loads(result.content[0].text)
-            assert payload["skipped_count"] == 2
