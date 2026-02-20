@@ -65,7 +65,7 @@ _PLAYLIST_FIELDS: frozenset[str] = frozenset(
         "revision",
         "owner",
         "tags",
-        "tracks",
+        # "tracks" — NOT here: stripped in list context, added separately in single context
         "created",
         "modified",
         "playlistUuid",
