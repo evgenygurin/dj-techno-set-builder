@@ -39,3 +39,11 @@ async def test_tool_names_are_snake_case(ym_mcp: FastMCP):
     for tool in tools:
         assert tool.name == tool.name.lower(), f"Tool name not lowercase: {tool.name}"
         assert " " not in tool.name, f"Tool name has spaces: {tool.name}"
+
+
+async def test_broken_endpoints_are_excluded(ym_mcp: FastMCP):
+    """brief-info (403) and lyrics (HMAC required) must not be exposed."""
+    tools = await ym_mcp.list_tools()
+    tool_names = {t.name for t in tools}
+    assert "get_artist_brief_info" not in tool_names, "brief-info always returns 403"
+    assert "get_track_lyrics" not in tool_names, "lyrics requires HMAC sign, not implemented"
