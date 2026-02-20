@@ -1,0 +1,2 @@
+# Lock files contain package hashes that trigger false positives
+^uv\.lock$
