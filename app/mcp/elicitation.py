@@ -8,10 +8,18 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from mcp.shared.exceptions import McpError
+
 if TYPE_CHECKING:
     from fastmcp.server.context import Context
 
 logger = logging.getLogger(__name__)
+
+# Elicitation may fail with various exceptions depending on the transport:
+# - NotImplementedError: transport doesn't implement elicitation
+# - AttributeError/TypeError: older SDK without elicit() method
+# - McpError: client explicitly rejects elicitation capability
+_ELICIT_ERRORS = (NotImplementedError, AttributeError, TypeError, McpError)
 
 
 async def confirm_action(ctx: Context, message: str) -> bool:
@@ -24,7 +32,7 @@ async def confirm_action(ctx: Context, message: str) -> bool:
             return True
         logger.info("User declined action: %s", message)
         return False
-    except (NotImplementedError, AttributeError, TypeError) as exc:
+    except _ELICIT_ERRORS as exc:
         logger.warning("Elicitation not supported: %s", exc)
         return False  # fail-closed
 
@@ -50,5 +58,5 @@ async def resolve_conflict(
                 return data.get("choice")
             return str(data) if data else None
         return None
-    except (NotImplementedError, AttributeError, TypeError):
+    except _ELICIT_ERRORS:
         return None

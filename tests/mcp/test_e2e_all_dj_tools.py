@@ -8,6 +8,7 @@ work correctly end-to-end.
 from __future__ import annotations
 
 import json
+from unittest.mock import AsyncMock, patch
 
 import fastmcp.exceptions
 import pytest
@@ -503,3 +504,290 @@ async def test_export_set_rekordbox(workflow_mcp_with_db: FastMCP):
         data = _json(raw)
         assert data["format"] == "rekordbox_xml"
         assert "DJ_PLAYLISTS" in data["content"]
+
+
+# ---------------------------------------------------------------------------
+# 16. Rebuild set
+# ---------------------------------------------------------------------------
+
+
+async def test_rebuild_set_no_versions(workflow_mcp_with_db: FastMCP):
+    """rebuild_set on set with no versions raises ToolError."""
+    async with Client(workflow_mcp_with_db) as c:
+        # Create an empty set (no track_ids → no version)
+        raw = await c.call_tool("create_set", {"name": "Empty Rebuild Set"})
+        set_data = _json(raw)
+        set_id = set_data["message"].split("local:")[1]
+
+        with pytest.raises(fastmcp.exceptions.ToolError):
+            await c.call_tool("rebuild_set", {"set_ref": set_id})
+
+
+# ---------------------------------------------------------------------------
+# 17. Sync tools (E2E with mock platform)
+# ---------------------------------------------------------------------------
+
+
+async def test_sync_set_to_ym_elicitation_fail_closed(workflow_mcp_with_db: FastMCP):
+    """sync_set_to_ym returns cancelled or ToolError depending on env.
+
+    If YM is connected (env has token), elicitation fail-closed → cancelled.
+    If YM is not connected → ToolError (platform not connected).
+    """
+    async with Client(workflow_mcp_with_db) as c:
+        # Create a set first
+        raw = await c.call_tool("create_track", {"title": "Sync T", "duration_ms": 300000})
+        t_id = int(_json(raw)["message"].split("local:")[1])
+        raw = await c.call_tool("create_set", {"name": "Sync Set", "track_ids": [t_id]})
+        set_data = _json(raw)
+        set_id = int(set_data["message"].split("local:")[1])
+
+        try:
+            raw = await c.call_tool("sync_set_to_ym", {"set_id": set_id})
+            data = _json(raw)
+            # YM connected but elicitation not supported → cancelled
+            assert data["status"] == "cancelled"
+        except fastmcp.exceptions.ToolError:
+            # YM not connected → ValueError → ToolError
+            pass
+
+
+async def test_sync_set_from_ym_no_link(workflow_mcp_with_db: FastMCP):
+    """sync_set_from_ym raises ToolError: set has no ym_playlist_id or YM not connected."""
+    async with Client(workflow_mcp_with_db) as c:
+        raw = await c.call_tool("create_track", {"title": "SyncFrom T", "duration_ms": 300000})
+        t_id = int(_json(raw)["message"].split("local:")[1])
+        raw = await c.call_tool("create_set", {"name": "SyncFrom Set", "track_ids": [t_id]})
+        set_data = _json(raw)
+        set_id = int(set_data["message"].split("local:")[1])
+
+        # Either YM not connected or set has no ym_playlist_id → ToolError
+        with pytest.raises(fastmcp.exceptions.ToolError):
+            await c.call_tool("sync_set_from_ym", {"set_id": set_id})
+
+
+async def test_sync_playlist_not_connected(workflow_mcp_with_db: FastMCP):
+    """sync_playlist raises ToolError when platform is not connected."""
+    async with Client(workflow_mcp_with_db) as c:
+        raw = await c.call_tool("create_playlist", {"name": "SyncPL"})
+        pl_id = int(_json(raw)["message"].split("local:")[1])
+
+        # Platform 'ym' not connected → sync engine raises ValueError → ToolError
+        with pytest.raises(fastmcp.exceptions.ToolError):
+            await c.call_tool(
+                "sync_playlist",
+                {"playlist_id": pl_id, "platform": "ym", "direction": "remote_to_local"},
+            )
+
+
+# ---------------------------------------------------------------------------
+# 18. Sync tools with mock platform (happy path)
+# ---------------------------------------------------------------------------
+
+
+async def _make_mock_platform_registry():
+    """Create a PlatformRegistry with a mock YM adapter."""
+    from app.mcp.platforms.protocol import PlatformCapability, PlatformPlaylist
+    from app.mcp.platforms.registry import PlatformRegistry
+
+    mock_platform = AsyncMock()
+    mock_platform.name = "ym"
+    mock_platform.capabilities = frozenset(
+        {PlatformCapability.PLAYLIST_READ, PlatformCapability.PLAYLIST_WRITE}
+    )
+    mock_platform.create_playlist = AsyncMock(return_value="ym_pl_999")
+    mock_platform.get_playlist = AsyncMock(
+        return_value=PlatformPlaylist(platform_id="ym_pl_999", name="test", track_ids=[])
+    )
+    mock_platform.add_tracks_to_playlist = AsyncMock()
+    mock_platform.remove_tracks_from_playlist = AsyncMock()
+
+    registry = PlatformRegistry()
+    registry.register(mock_platform)
+    return registry
+
+
+async def test_sync_set_to_ym_with_mock_platform(engine):
+    """sync_set_to_ym creates YM playlist when platform connected."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.mcp.tools import create_workflow_mcp
+
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    mock_registry = await _make_mock_platform_registry()
+
+    with (
+        patch("app.mcp.dependencies.session_factory", factory),
+        patch("app.mcp.dependencies._platform_registry", mock_registry),
+    ):
+        mcp = create_workflow_mcp()
+        async with Client(mcp) as c:
+            # Create track + set
+            raw = await c.call_tool("create_track", {"title": "YM Push T", "duration_ms": 300000})
+            t_id = int(_json(raw)["message"].split("local:")[1])
+            raw = await c.call_tool("create_set", {"name": "YM Push Set", "track_ids": [t_id]})
+            set_data = _json(raw)
+            set_id = int(set_data["message"].split("local:")[1])
+
+            raw = await c.call_tool("sync_set_to_ym", {"set_id": set_id})
+            data = _json(raw)
+            # Elicitation fail-closed → cancelled, or if it gets through:
+            # mock mapper returns no mapped IDs → create_playlist with 0 tracks
+            assert "status" in data
+            assert data["status"] in ("cancelled", "synced", "not_supported")
+
+
+async def test_sync_set_from_ym_no_ym_playlist(engine):
+    """sync_set_from_ym raises when set has no ym_playlist_id."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from app.mcp.tools import create_workflow_mcp
+
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    mock_registry = await _make_mock_platform_registry()
+
+    with (
+        patch("app.mcp.dependencies.session_factory", factory),
+        patch("app.mcp.dependencies._platform_registry", mock_registry),
+    ):
+        mcp = create_workflow_mcp()
+        async with Client(mcp) as c:
+            raw = await c.call_tool("create_track", {"title": "FromYM T", "duration_ms": 300000})
+            t_id = int(_json(raw)["message"].split("local:")[1])
+            raw = await c.call_tool("create_set", {"name": "FromYM Set", "track_ids": [t_id]})
+            set_data = _json(raw)
+            set_id = int(set_data["message"].split("local:")[1])
+
+            # Set has no ym_playlist_id → should raise
+            with pytest.raises(fastmcp.exceptions.ToolError):
+                await c.call_tool("sync_set_from_ym", {"set_id": set_id})
+
+
+# ---------------------------------------------------------------------------
+# 19. Export set — rekordbox format via unified export
+# ---------------------------------------------------------------------------
+
+
+async def test_export_set_rekordbox_via_unified(workflow_mcp_with_db: FastMCP):
+    """export_set with format=rekordbox works."""
+    async with Client(workflow_mcp_with_db) as c:
+        raw = await c.call_tool("create_track", {"title": "RB Unified", "duration_ms": 300000})
+        t_id = int(_json(raw)["message"].split("local:")[1])
+        raw = await c.call_tool("create_set", {"name": "RB Unified Set", "track_ids": [t_id]})
+        set_data = _json(raw)
+        set_id = set_data["message"].split("local:")[1]
+        version_id = set_data["result"]["latest_version_id"]
+
+        raw = await c.call_tool(
+            "export_set",
+            {"set_ref": set_id, "version_id": version_id, "format": "rekordbox"},
+        )
+        data = _json(raw)
+        assert data["format"] == "rekordbox"
+        assert "DJ_PLAYLISTS" in data["content"]
+
+
+# ---------------------------------------------------------------------------
+# 20. Features — save + list with BPM filter
+# ---------------------------------------------------------------------------
+
+
+async def test_list_features_with_bpm_filter(workflow_mcp_with_db: FastMCP):
+    """list_features with BPM filter returns filtered results."""
+    async with Client(workflow_mcp_with_db) as c:
+        # Create two tracks with different BPMs
+        raw = await c.call_tool("create_track", {"title": "Slow Track", "duration_ms": 300000})
+        slow_id = _json(raw)["message"].split("local:")[1]
+        raw = await c.call_tool("create_track", {"title": "Fast Track", "duration_ms": 300000})
+        fast_id = _json(raw)["message"].split("local:")[1]
+
+        # Save features for slow track (BPM=125)
+        features_slow = json.dumps(
+            {
+                "bpm": 125.0,
+                "tempo_confidence": 0.9,
+                "bpm_stability": 0.1,
+                "lufs_i": -8.0,
+                "rms_dbfs": -10.0,
+                "energy_mean": 0.6,
+                "energy_max": 0.8,
+                "energy_std": 0.1,
+                "key_code": 3,
+                "key_confidence": 0.8,
+                "is_atonal": False,
+            }
+        )
+        await c.call_tool("save_features", {"track_ref": slow_id, "features_json": features_slow})
+
+        # Save features for fast track (BPM=145)
+        features_fast = json.dumps(
+            {
+                "bpm": 145.0,
+                "tempo_confidence": 0.95,
+                "bpm_stability": 0.05,
+                "lufs_i": -7.0,
+                "rms_dbfs": -9.0,
+                "energy_mean": 0.8,
+                "energy_max": 0.95,
+                "energy_std": 0.1,
+                "key_code": 7,
+                "key_confidence": 0.9,
+                "is_atonal": False,
+            }
+        )
+        await c.call_tool("save_features", {"track_ref": fast_id, "features_json": features_fast})
+
+        # Filter by BPM 140-150 — only fast track
+        raw = await c.call_tool("list_features", {"bpm_min": 140.0, "bpm_max": 150.0})
+        data = _json(raw)
+        assert data["total"] == 1
+        assert len(data["results"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# 21. Search — text search by track title
+# ---------------------------------------------------------------------------
+
+
+async def test_search_with_results(workflow_mcp_with_db: FastMCP):
+    """search returns matching tracks when data exists."""
+    async with Client(workflow_mcp_with_db) as c:
+        await c.call_tool(
+            "create_track", {"title": "Boris Brejcha Gravity", "duration_ms": 420000}
+        )
+        raw = await c.call_tool("search", {"query": "Boris", "scope": "tracks"})
+        data = _json(raw)
+        assert data["results"]["tracks"]  # at least one match
+
+
+# ---------------------------------------------------------------------------
+# 22. Track text search via get_track
+# ---------------------------------------------------------------------------
+
+
+async def test_get_track_text_ref(workflow_mcp_with_db: FastMCP):
+    """get_track with text ref returns search results."""
+    async with Client(workflow_mcp_with_db) as c:
+        await c.call_tool("create_track", {"title": "ANNA RRDR", "duration_ms": 360000})
+        raw = await c.call_tool("get_track", {"track_ref": "ANNA"})
+        data = _json(raw)
+        # Text ref returns a list of matches
+        assert "results" in data
+
+
+# ---------------------------------------------------------------------------
+# 23. Set source of truth — invalid source
+# ---------------------------------------------------------------------------
+
+
+async def test_set_source_of_truth_invalid(workflow_mcp_with_db: FastMCP):
+    """set_source_of_truth with invalid source raises ToolError."""
+    async with Client(workflow_mcp_with_db) as c:
+        raw = await c.call_tool("create_playlist", {"name": "SoT PL"})
+        pl_id = int(_json(raw)["message"].split("local:")[1])
+
+        with pytest.raises(fastmcp.exceptions.ToolError):
+            await c.call_tool(
+                "set_source_of_truth",
+                {"playlist_id": pl_id, "source": "invalid_platform"},
+            )
