@@ -2,7 +2,7 @@
 
 This module applies all middleware to the FastMCP gateway in the correct order.
 The order matters: ErrorHandling -> StructuredLogging -> DetailedTiming ->
-ResponseCaching -> Retry -> Ping.
+ResponseLimiting -> ResponseCaching -> Retry -> Ping.
 """
 
 from __future__ import annotations
@@ -12,12 +12,18 @@ from typing import TYPE_CHECKING
 
 import httpx
 import sentry_sdk
+from fastmcp.server.middleware.caching import (
+    CallToolSettings,
+    ReadResourceSettings,
+    ResponseCachingMiddleware,
+)
 from fastmcp.server.middleware.error_handling import (
     ErrorHandlingMiddleware,
     RetryMiddleware,
 )
 from fastmcp.server.middleware.logging import StructuredLoggingMiddleware
 from fastmcp.server.middleware.ping import PingMiddleware
+from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
 from fastmcp.server.middleware.timing import DetailedTimingMiddleware
 
 if TYPE_CHECKING:
@@ -51,9 +57,10 @@ def apply_observability(mcp: FastMCP, settings: Settings) -> None:
     1. ErrorHandling -- catches all errors, forwards to Sentry
     2. StructuredLogging -- JSON logs for each request/response
     3. DetailedTiming -- per-operation timing breakdown
-    4. ResponseCaching -- DiskStore-backed cache with TTL
-    5. Retry -- exponential backoff for transient errors
-    6. Ping -- keepalive for HTTP/SSE connections
+    4. ResponseLimiting -- prevent context overflow with large responses
+    5. ResponseCaching -- selective cache with TTL (list_tools NOT cached)
+    6. Retry -- exponential backoff for transient errors
+    7. Ping -- keepalive for HTTP/SSE connections
     """
     # 1. Error handling (outermost -- catches errors from all inner middleware)
     mcp.add_middleware(
@@ -73,23 +80,24 @@ def apply_observability(mcp: FastMCP, settings: Settings) -> None:
     # 3. Detailed timing
     mcp.add_middleware(DetailedTimingMiddleware())
 
-    # 4. Response caching — DISABLED: stale DiskStore cache can hide newly
-    #    registered tools (list_tools returns cached snapshot). Re-enable
-    #    once we add cache invalidation on tool registration.
-    # cache_store = DiskStore(directory=settings.mcp_cache_dir)
-    # mcp.add_middleware(
-    #     ResponseCachingMiddleware(
-    #         cache_storage=cache_store,
-    #         call_tool_settings=CallToolSettings(
-    #             ttl=settings.mcp_cache_ttl_tools,
-    #         ),
-    #         read_resource_settings=ReadResourceSettings(
-    #             ttl=settings.mcp_cache_ttl_resources,
-    #         ),
-    #     )
-    # )
+    # 4. Response limiting (prevent context overflow)
+    mcp.add_middleware(ResponseLimitingMiddleware(max_size=settings.mcp_max_response_size))
 
-    # 5. Retry (transient errors only)
+    # 5. Response caching — selective TTLs
+    #    list_tools is NOT cached (no settings = disabled) to prevent stale
+    #    snapshots when visibility changes via activate_heavy_mode.
+    mcp.add_middleware(
+        ResponseCachingMiddleware(
+            call_tool_settings=CallToolSettings(
+                ttl=settings.mcp_cache_ttl_tools,
+            ),
+            read_resource_settings=ReadResourceSettings(
+                ttl=settings.mcp_cache_ttl_resources,
+            ),
+        )
+    )
+
+    # 6. Retry (transient errors only)
     mcp.add_middleware(
         RetryMiddleware(
             max_retries=settings.mcp_retry_max,
@@ -103,10 +111,10 @@ def apply_observability(mcp: FastMCP, settings: Settings) -> None:
         )
     )
 
-    # 6. Ping (keepalive for SSE/streamable HTTP)
+    # 7. Ping (keepalive for SSE/streamable HTTP)
     mcp.add_middleware(PingMiddleware(interval_ms=settings.mcp_ping_interval * 1000))
 
     logger.info(
-        "MCP observability applied: 6 middleware",
+        "MCP observability applied: 7 middleware",
         extra={"server": mcp.name, "debug": settings.debug},
     )

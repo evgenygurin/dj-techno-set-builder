@@ -18,24 +18,28 @@ def _make_settings(**overrides: object) -> Settings:
 
 
 async def test_apply_observability_adds_middleware():
-    """apply_observability should add 5 middleware to gateway (caching disabled)."""
+    """apply_observability should add 7 middleware to gateway."""
     from app.mcp.observability import apply_observability
 
     mcp = FastMCP("test")
     before = len(mcp.middleware)
     apply_observability(mcp, _make_settings())
-    # 5 middleware (caching disabled): ErrorHandling, Logging, Timing, Retry, Ping
-    assert len(mcp.middleware) - before == 5
+    # 7 middleware: ErrorHandling, Logging, Timing, ResponseLimiting,
+    # ResponseCaching, Retry, Ping
+    assert len(mcp.middleware) - before == 7
 
 
 async def test_apply_observability_correct_order():
-    """Middleware order: ErrorHandling, StructuredLogging, DetailedTiming, Retry, Ping."""
+    """Middleware order: ErrorHandling, StructuredLogging, DetailedTiming,
+    ResponseLimiting, ResponseCaching, Retry, Ping."""
+    from fastmcp.server.middleware.caching import ResponseCachingMiddleware
     from fastmcp.server.middleware.error_handling import (
         ErrorHandlingMiddleware,
         RetryMiddleware,
     )
     from fastmcp.server.middleware.logging import StructuredLoggingMiddleware
     from fastmcp.server.middleware.ping import PingMiddleware
+    from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
     from fastmcp.server.middleware.timing import DetailedTimingMiddleware
 
     from app.mcp.observability import apply_observability
@@ -48,6 +52,8 @@ async def test_apply_observability_correct_order():
         ErrorHandlingMiddleware,
         StructuredLoggingMiddleware,
         DetailedTimingMiddleware,
+        ResponseLimitingMiddleware,
+        ResponseCachingMiddleware,
         RetryMiddleware,
         PingMiddleware,
     ]
@@ -78,6 +84,21 @@ async def test_apply_observability_respects_debug_settings():
     assert log_mw.include_payloads is True
 
 
+async def test_apply_observability_response_limiting():
+    """Response limiting should use configured max_size."""
+    from fastmcp.server.middleware.response_limiting import ResponseLimitingMiddleware
+
+    from app.mcp.observability import apply_observability
+
+    mcp = FastMCP("test")
+    offset = len(mcp.middleware)
+    apply_observability(mcp, _make_settings(mcp_max_response_size=100_000))
+
+    limit_mw = mcp.middleware[offset + 3]  # index 3
+    assert isinstance(limit_mw, ResponseLimitingMiddleware)
+    assert limit_mw.max_size == 100_000
+
+
 async def test_apply_observability_retry_config():
     """Retry middleware respects settings."""
     from fastmcp.server.middleware.error_handling import RetryMiddleware
@@ -88,7 +109,7 @@ async def test_apply_observability_retry_config():
     offset = len(mcp.middleware)
     apply_observability(mcp, _make_settings(mcp_retry_max=5, mcp_retry_backoff=2.0))
 
-    retry_mw = mcp.middleware[offset + 3]  # index 3 (caching removed, was 4)
+    retry_mw = mcp.middleware[offset + 5]  # index 5
     assert isinstance(retry_mw, RetryMiddleware)
     assert retry_mw.max_retries == 5
     assert retry_mw.base_delay == 2.0
@@ -136,6 +157,6 @@ async def test_apply_observability_ping_interval():
     offset = len(mcp.middleware)
     apply_observability(mcp, _make_settings(mcp_ping_interval=45))
 
-    ping_mw = mcp.middleware[offset + 4]  # index 4 (caching removed, was 5)
+    ping_mw = mcp.middleware[offset + 6]  # index 6
     assert isinstance(ping_mw, PingMiddleware)
     assert ping_mw.interval_ms == 45_000

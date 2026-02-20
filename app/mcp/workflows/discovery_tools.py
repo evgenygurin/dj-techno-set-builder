@@ -10,7 +10,7 @@ from fastmcp.server.context import Context
 
 from app.errors import NotFoundError
 from app.mcp.dependencies import get_features_service, get_playlist_service, get_track_service
-from app.mcp.types import SimilarTracksResult, TrackDetails
+from app.mcp.schemas import SimilarTracksResult, TrackDetails
 from app.services.features import AudioFeaturesService
 from app.services.playlists import DjPlaylistService
 from app.services.tracks import TrackService
@@ -20,7 +20,7 @@ from app.utils.audio.camelot import key_code_to_camelot
 def register_discovery_tools(mcp: FastMCP) -> None:
     """Register discovery tools on the MCP server."""
 
-    @mcp.tool(tags={"discovery"})
+    @mcp.tool(tags={"discovery"}, timeout=120.0, version="1.0.0")
     async def find_similar_tracks(
         playlist_id: int,
         ctx: Context,
@@ -142,7 +142,7 @@ def register_discovery_tools(mcp: FastMCP) -> None:
             return matches
 
         # Sampling requires client support — gracefully degrade
-        from app.mcp.types import SearchStrategy
+        from app.mcp.schemas import SearchStrategy
 
         strategy: SearchStrategy | None = None
         strategy_text: str | None = None
@@ -190,6 +190,8 @@ def register_discovery_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         annotations={"readOnlyHint": True},
         tags={"discovery"},
+        timeout=30.0,
+        version="1.0.0",
     )
     async def search_by_criteria(
         ctx: Context,

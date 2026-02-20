@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     # OpenTelemetry
     otel_endpoint: str = ""
     otel_service_name: str = "dj-set-builder-mcp"
+    otel_insecure: bool = True
 
     # MCP Observability
     mcp_cache_dir: str = "./cache/mcp"
@@ -41,6 +42,7 @@ class Settings(BaseSettings):
     mcp_retry_backoff: float = 1.0
     mcp_ping_interval: int = 30
     mcp_log_payloads: bool = False
+    mcp_max_response_size: int = 500_000  # 500KB max response
 
     # Sampling (LLM fallback)
     anthropic_api_key: str = ""
