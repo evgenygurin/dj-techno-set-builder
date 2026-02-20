@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 @pytest.fixture
 def workflow_mcp() -> FastMCP:
     """DJ Workflows MCP server (12 hand-written tools + prompts + resources)."""
-    from app.mcp.workflows import create_workflow_mcp
+    from app.mcp.tools import create_workflow_mcp
 
     return create_workflow_mcp()
 
@@ -46,7 +46,7 @@ async def workflow_mcp_with_db(engine) -> AsyncIterator[FastMCP]:
     Patches ``app.database.session_factory`` (used by ``get_session``)
     so every MCP tool call uses the same in-memory SQLite engine.
     """
-    from app.mcp.workflows import create_workflow_mcp
+    from app.mcp.tools import create_workflow_mcp
 
     factory = async_sessionmaker(engine, expire_on_commit=False)
 
