@@ -45,6 +45,42 @@ def _register_visibility_tools(mcp: FastMCP) -> None:
         await ctx.enable_components(tags={"heavy"})
         return "Heavy analysis tools are now available."
 
+    @mcp.tool(tags={"admin"})
+    async def activate_ym_raw(ctx: Context) -> str:
+        """Enable raw Yandex Music API tools.
+
+        Unlocks the full YM API namespace for advanced queries
+        not covered by the DJ workflow tools.
+        """
+        await ctx.enable_components(tags={"ym_raw"})
+        return "Raw YM API tools are now available."
+
+    @mcp.tool(
+        annotations={"readOnlyHint": True},
+        tags={"admin"},
+    )
+    async def list_platforms() -> dict[str, object]:
+        """List all configured music platforms and their capabilities.
+
+        Shows connected status and available capabilities for each platform.
+        """
+        from app.mcp.dependencies import get_platform_registry
+
+        registry = get_platform_registry()
+        platforms = []
+        for name in registry.list_connected():
+            adapter = registry.get(name)
+            platforms.append(
+                {
+                    "name": name,
+                    "capabilities": [c.name for c in adapter.capabilities],
+                }
+            )
+        return {
+            "platforms": platforms,
+            "total": len(platforms),
+        }
+
 
 def create_workflow_mcp() -> FastMCP:
     """Create the DJ Workflows MCP server with all tools registered."""

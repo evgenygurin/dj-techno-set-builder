@@ -15,12 +15,15 @@ async def test_sync_tools_registered(workflow_mcp: FastMCP):
 
 async def test_sync_tools_have_sync_tag(workflow_mcp: FastMCP):
     tools = await workflow_mcp.list_tools()
-    sync_tools = {"sync_set_to_ym", "sync_set_from_ym", "sync_playlist"}
+    ym_sync_tools = {"sync_set_to_ym", "sync_set_from_ym"}
     for tool in tools:
-        if tool.name in sync_tools:
+        if tool.name in ym_sync_tools:
             assert tool.tags is not None
             assert "sync" in tool.tags
             assert "yandex" in tool.tags
+        elif tool.name == "sync_playlist":
+            assert tool.tags is not None
+            assert "sync" in tool.tags
 
 
 async def test_gateway_has_namespaced_sync_tools(gateway_mcp: FastMCP):
@@ -53,3 +56,36 @@ async def test_sync_playlist_params(workflow_mcp: FastMCP):
     tool = next(t for t in tools if t.name == "sync_playlist")
     props = set(tool.parameters.get("properties", {}).keys())
     assert "playlist_id" in props
+
+
+async def test_set_source_of_truth_registered(workflow_mcp: FastMCP):
+    """set_source_of_truth tool should be registered."""
+    tools = await workflow_mcp.list_tools()
+    tool_names = {t.name for t in tools}
+    assert "set_source_of_truth" in tool_names
+
+
+async def test_link_playlist_registered(workflow_mcp: FastMCP):
+    """link_playlist tool should be registered."""
+    tools = await workflow_mcp.list_tools()
+    tool_names = {t.name for t in tools}
+    assert "link_playlist" in tool_names
+
+
+async def test_set_source_of_truth_params(workflow_mcp: FastMCP):
+    """set_source_of_truth should accept playlist_id and source parameters."""
+    tools = await workflow_mcp.list_tools()
+    tool = next(t for t in tools if t.name == "set_source_of_truth")
+    props = set(tool.parameters.get("properties", {}).keys())
+    assert "playlist_id" in props
+    assert "source" in props
+
+
+async def test_link_playlist_params(workflow_mcp: FastMCP):
+    """link_playlist should accept playlist_id, platform, platform_playlist_id."""
+    tools = await workflow_mcp.list_tools()
+    tool = next(t for t in tools if t.name == "link_playlist")
+    props = set(tool.parameters.get("properties", {}).keys())
+    assert "playlist_id" in props
+    assert "platform" in props
+    assert "platform_playlist_id" in props

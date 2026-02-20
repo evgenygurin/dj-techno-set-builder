@@ -122,3 +122,37 @@ def get_ym_client() -> YandexMusicClient:
         token=settings.yandex_music_token,
         base_url=settings.yandex_music_base_url,
     )
+
+
+# --- Phase 3: Platform registry + sync ---
+
+from app.mcp.platforms.factory import create_platform_registry  # noqa: E402
+from app.mcp.platforms.registry import PlatformRegistry  # noqa: E402
+from app.mcp.sync.engine import SyncEngine  # noqa: E402
+from app.mcp.sync.track_mapper import DbTrackMapper  # noqa: E402
+
+# Module-level singleton — created once, shared across all MCP tool calls.
+_platform_registry: PlatformRegistry | None = None
+
+
+def get_platform_registry() -> PlatformRegistry:
+    """Provide the global PlatformRegistry singleton.
+
+    Created on first call via create_platform_registry().
+    """
+    global _platform_registry
+    if _platform_registry is None:
+        _platform_registry = create_platform_registry()
+    return _platform_registry
+
+
+def get_sync_engine(
+    session: AsyncSession = Depends(get_session),
+) -> SyncEngine:
+    """Build a SyncEngine with playlist service and track mapper."""
+    playlist_svc = DjPlaylistService(
+        DjPlaylistRepository(session),
+        DjPlaylistItemRepository(session),
+    )
+    mapper = DbTrackMapper(session)
+    return SyncEngine(playlist_svc=playlist_svc, track_mapper=mapper)

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     Float,
@@ -153,6 +154,13 @@ class DjPlaylist(Base):
         SmallInteger,
         CheckConstraint("source_app BETWEEN 1 AND 5", name="ck_playlist_source_app"),
     )
+    # --- Sync fields (Phase 3) ---
+    source_of_truth: Mapped[str] = mapped_column(
+        String(20),
+        default="local",
+        server_default="local",
+    )
+    platform_ids: Mapped[dict[str, str] | None] = mapped_column(JSON, default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
