@@ -13,6 +13,11 @@ Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
 - `in-memoria.md` — codebase intelligence tools (session start, when to use, reliability)
 - `documentation.md` — meta-rules for maintaining this documentation system
 
+Workflow skills in `.claude/skills/` (read when working on that domain):
+- `dj-set-workflow.md` — декларативный гайд: build → score → deliver → YM sync
+- `mcp-tool-dev.md` — разработка MCP-инструментов: DI, staged pattern, тесты, чеклист
+- `audio-analysis.md` — аудио пайплайн, scoring, cheat_sheet, iCloud стабы, M3U8
+
 ## Workflow
 
 - **Linear**: branches and PR titles must start with the Linear issue ID (e.g. `BPM-123: ...`). See `docs/linear.md`.
@@ -66,7 +71,7 @@ Schemas   Errors     Models
 
 MCP Gateway (FastMCP 3.0)
   ├── Yandex Music (namespace "ym") — ~30 OpenAPI-generated tools
-  └── DJ Workflows (namespace "dj") — 13 hand-written tools
+  └── DJ Workflows (namespace "dj") — 20 hand-written tools
 ```
 
 - **DI**: `DbSession = Annotated[AsyncSession, Depends(get_session)]` in `app/dependencies.py`

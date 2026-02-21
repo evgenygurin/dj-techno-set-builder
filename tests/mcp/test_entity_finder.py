@@ -25,6 +25,7 @@ def mock_playlist_repo():
     repo = AsyncMock()
     repo.get_by_id = AsyncMock(return_value=None)
     repo.search_by_name = AsyncMock(return_value=([], 0))
+    repo.get_track_counts_batch = AsyncMock(return_value={})
     return repo
 
 
@@ -33,6 +34,7 @@ def mock_set_repo():
     repo = AsyncMock()
     repo.get_by_id = AsyncMock(return_value=None)
     repo.search_by_name = AsyncMock(return_value=([], 0))
+    repo.get_stats_batch = AsyncMock(return_value={})
     return repo
 
 
@@ -102,6 +104,7 @@ class TestPlaylistFinder:
         playlist.playlist_id = 5
         playlist.name = "Techno develop"
         mock_playlist_repo.get_by_id = AsyncMock(return_value=playlist)
+        mock_playlist_repo.get_track_counts_batch = AsyncMock(return_value={5: 42})
 
         finder = PlaylistFinder(mock_playlist_repo)
         ref = parse_ref("local:5")
@@ -109,18 +112,21 @@ class TestPlaylistFinder:
 
         assert result.exact is True
         assert result.entities[0].name == "Techno develop"
+        assert result.entities[0].track_count == 42
 
     async def test_find_by_text(self, mock_playlist_repo):
         p = MagicMock()
         p.playlist_id = 5
         p.name = "Techno develop"
         mock_playlist_repo.search_by_name = AsyncMock(return_value=([p], 1))
+        mock_playlist_repo.get_track_counts_batch = AsyncMock(return_value={5: 10})
 
         finder = PlaylistFinder(mock_playlist_repo)
         ref = parse_ref("Techno")
         result = await finder.find(ref)
 
         assert len(result.entities) == 1
+        assert result.entities[0].track_count == 10
 
 
 class TestSetFinder:
@@ -129,6 +135,7 @@ class TestSetFinder:
         dj_set.set_id = 3
         dj_set.name = "Friday night"
         mock_set_repo.get_by_id = AsyncMock(return_value=dj_set)
+        mock_set_repo.get_stats_batch = AsyncMock(return_value={3: (2, 15)})
 
         finder = SetFinder(mock_set_repo)
         ref = parse_ref("local:3")
@@ -136,6 +143,8 @@ class TestSetFinder:
 
         assert result.exact is True
         assert result.entities[0].name == "Friday night"
+        assert result.entities[0].version_count == 2
+        assert result.entities[0].track_count == 15
 
 
 class TestArtistFinder:

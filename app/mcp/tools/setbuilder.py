@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
@@ -23,6 +25,7 @@ from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.utils.audio.camelot import key_code_to_camelot
 
 
 def register_setbuilder_tools(mcp: FastMCP) -> None:
@@ -101,16 +104,24 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
     async def rebuild_set(
         set_ref: str | int,
         ctx: Context,
+        pinned_track_ids: list[int] | None = None,
+        exclude_track_ids: list[int] | None = None,
         set_svc: DjSetService = Depends(get_set_service),
         gen_svc: SetGenerationService = Depends(get_set_generation_service),
     ) -> SetBuildResult:
         """Rebuild a set respecting pinned tracks and excluding rejected ones.
 
-        Reads pinned flags from the latest version's items. Creates a new
-        version with re-optimized track ordering via GA.
+        Reads pinned flags from the latest version's items unless pinned_track_ids
+        is provided explicitly. Creates a new version with re-optimized track
+        ordering via GA. When exclude_track_ids are provided the pool expands to
+        the full library so GA can pick replacements for excluded tracks.
 
         Args:
             set_ref: DJ set ref (int, "42", or "local:42").
+            pinned_track_ids: Track IDs that MUST appear in the new version.
+                Overrides pinned flags stored in the latest version.
+            exclude_track_ids: Track IDs to ban from the new version.
+                GA will pick replacements from the full library.
         """
         set_id = resolve_local_id(set_ref, "set")
         dj_set = await set_svc.get(set_id)
@@ -124,15 +135,32 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         items_list = await set_svc.list_items(latest.set_version_id, offset=0, limit=500)
         items = items_list.items
 
-        pinned_ids = [item.track_id for item in items if item.pinned]
+        # Use explicit pinned_track_ids if provided, otherwise read from version
+        if pinned_track_ids is not None:
+            pinned_ids = pinned_track_ids
+        else:
+            pinned_ids = [item.track_id for item in items if item.pinned]
+        excluded_set = set(exclude_track_ids or [])
 
-        await ctx.info(f"Rebuilding set {set_id} with {len(pinned_ids)} pinned tracks...")
+        await ctx.info(
+            f"Rebuilding set {set_id} with {len(pinned_ids)} pinned tracks"
+            + (f", {len(excluded_set)} excluded" if excluded_set else "")
+            + "..."
+        )
+
+        # When tracks are excluded we open the pool to the full library so GA
+        # can find replacements; otherwise keep source_playlist_id as filter.
+        playlist_id = None if excluded_set else dj_set.source_playlist_id
+        # Keep the same total track count
+        target_count = len(items)
 
         # Re-run GA with constraints
         request = SetGenerationRequest(
-            playlist_id=dj_set.source_playlist_id,
+            playlist_id=playlist_id,
             template_name=dj_set.template_name,
             pinned_track_ids=pinned_ids if pinned_ids else None,
+            exclude_track_ids=list(excluded_set) if excluded_set else None,
+            track_count=target_count,
         )
         gen_result = await gen_svc.generate(set_id, request)
 
@@ -237,11 +265,17 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 )
                 continue
 
-            # Try to get features for transition recommendation
+            # Try to get features for transition recommendation + audio context
             rec_type: str | None = None
             rec_confidence: float | None = None
             rec_reason: str | None = None
             rec_alt: str | None = None
+            from_bpm_val: float | None = None
+            to_bpm_val: float | None = None
+            from_key_val: str | None = None
+            to_key_val: str | None = None
+            cam_dist_val: int | None = None
+            bpm_delta_val: float | None = None
 
             try:
                 feat_a_raw = await features_svc.get_latest(from_item.track_id)
@@ -263,6 +297,16 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 rec_confidence = rec.confidence
                 rec_reason = rec.reason
                 rec_alt = str(rec.alt_type) if rec.alt_type else None
+
+                # Populate audio context fields
+                from_bpm_val = tf_a.bpm
+                to_bpm_val = tf_b.bpm
+                with contextlib.suppress(ValueError):
+                    from_key_val = key_code_to_camelot(tf_a.key_code)
+                    to_key_val = key_code_to_camelot(tf_b.key_code)
+                cam_dist_val = cam_dist
+                if tf_a.bpm and tf_b.bpm:
+                    bpm_delta_val = abs(tf_a.bpm - tf_b.bpm)
             except (NotFoundError, ValueError):
                 pass
 
@@ -283,6 +327,12 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                     type_confidence=rec_confidence,
                     reason=rec_reason,
                     alt_type=rec_alt,
+                    from_bpm=from_bpm_val,
+                    to_bpm=to_bpm_val,
+                    from_key=from_key_val,
+                    to_key=to_key_val,
+                    camelot_distance=cam_dist_val,
+                    bpm_delta=bpm_delta_val,
                 )
             )
 

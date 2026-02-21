@@ -473,6 +473,55 @@ class GeneticSetGenerator:
         self._np_rng.shuffle(subset)
         return subset
 
+    def _nn_anchored_spread(self, subset: NDArray[np.int32]) -> NDArray[np.int32]:
+        """Build NN path with multiple pinned tracks spread as segment anchors.
+
+        When there are ≥2 pinned tracks, divides the subset into K equal segments
+        (K = number of pinned tracks) and seeds each segment from its designated
+        pinned anchor.  This prevents pinned tracks from clustering together in the
+        initial population and gives the GA a better starting point.
+
+        Falls back to a single-anchor NN path when there are 0-1 pinned tracks.
+
+        Args:
+            subset: Array of track indices to arrange (all tracks for this chromosome).
+
+        Returns:
+            Ordered chromosome with pinned tracks distributed across segments.
+        """
+        pinned_in_subset = [i for i in subset if i in self._pinned_indices]
+        k = len(pinned_in_subset)
+
+        if k < 2:
+            # Standard NN: single starting point
+            start = int(self._np_rng.choice(subset))
+            return self._nearest_neighbor_path(start, subset)
+
+        # Shuffle pinned anchors so segment assignment varies across individuals
+        self._rng.shuffle(pinned_in_subset)
+
+        # Non-pinned tracks to distribute across segments
+        non_pinned = [i for i in subset if i not in self._pinned_indices]
+        self._rng.shuffle(non_pinned)
+
+        # Distribute non-pinned roughly evenly across k segments
+        n_non = len(non_pinned)
+        base_size = n_non // k
+        remainder = n_non % k
+
+        segments: list[NDArray[np.int32]] = []
+        pos = 0
+        for seg_idx, anchor in enumerate(pinned_in_subset):
+            extra = 1 if seg_idx < remainder else 0
+            seg_non_pinned = non_pinned[pos : pos + base_size + extra]
+            pos += base_size + extra
+
+            seg_array = np.array([anchor, *seg_non_pinned], dtype=np.int32)
+            seg_path = self._nearest_neighbor_path(anchor, seg_array)
+            segments.append(seg_path)
+
+        return np.concatenate(segments)
+
     def _init_population(
         self, n_all: int, n_select: int, pop_size: int
     ) -> list[NDArray[np.int32]]:
@@ -483,10 +532,16 @@ class GeneticSetGenerator:
 
         If constraints are set, every individual includes all pinned track
         indices and excludes all excluded indices.
+
+        When multiple pinned tracks are present, NN-seeded individuals are
+        initialised using ``_nn_anchored_spread`` so that pinned tracks act as
+        segment anchors and are distributed across the chromosome rather than
+        clustering at the start.
         """
         population: list[NDArray[np.int32]] = []
         large = n_select > _LARGE_SET_THRESHOLD
         has_constraints = bool(self._pinned_indices or self._excluded_indices)
+        spread_pinned = len(self._pinned_indices) >= 2
 
         nn_count = pop_size // 2
 
@@ -498,8 +553,14 @@ class GeneticSetGenerator:
                 indices = np.arange(n_all, dtype=np.int32)
                 perm = self._np_rng.permutation(indices)
                 subset = perm[:n_select].copy()
-            start_idx = int(self._np_rng.choice(subset))
-            path = self._nearest_neighbor_path(start_idx, subset)
+
+            if spread_pinned:
+                # Anchor each pinned track to its own segment, fill via NN
+                path = self._nn_anchored_spread(subset)
+            else:
+                start_idx = int(self._np_rng.choice(subset))
+                path = self._nearest_neighbor_path(start_idx, subset)
+
             if large:
                 for _r in range(min(n_select, 50)):
                     self._relocate_worst(path)
@@ -521,8 +582,41 @@ class GeneticSetGenerator:
 
     # ── Fitness ─────────────────────────────────────────────
 
+    def _pinned_spread_score(self, chromosome: NDArray[np.int32]) -> float:
+        """Score how well pinned tracks are spread throughout the set (1.0 = ideal).
+
+        With K pinned tracks in a set of N, the ideal gap between consecutive
+        pinned positions is N/K.  Scores 1.0 when no two pinned tracks are
+        adjacent (gap ≥ 2); approaches 0.0 when all pinned tracks cluster
+        together.
+
+        Returns 1.0 when there are fewer than 2 pinned tracks (no spread
+        requirement with a single mandatory track).
+        """
+        k = len(self._pinned_indices)
+        if k < 2:
+            return 1.0
+
+        n = len(chromosome)
+        positions = [i for i in range(n) if chromosome[i] in self._pinned_indices]
+        if len(positions) < 2:
+            return 1.0
+
+        adjacent_pairs = sum(
+            1 for i in range(len(positions) - 1) if positions[i + 1] - positions[i] <= 1
+        )
+        return max(0.0, 1.0 - adjacent_pairs / (len(positions) - 1))
+
     def _fitness(self, chromosome: NDArray[np.int32]) -> float:
-        """Evaluate fitness of a chromosome (higher = better)."""
+        """Evaluate fitness of a chromosome (higher = better).
+
+        When pinned constraints are present a multiplicative spread bonus is
+        applied so that configurations where pinned tracks cluster together are
+        penalised relative to configurations where they are well-distributed:
+
+        * perfect spread (no adjacent pinned) -> x1.00 (no penalty)
+        * all pinned adjacent -> x0.85 (15 % penalty)
+        """
         cfg = self.config
         transition = self._mean_transition_quality(chromosome)
         arc = self._energy_arc_score(chromosome)
@@ -534,13 +628,22 @@ class GeneticSetGenerator:
             ordered_tracks = [self._all_tracks[i] for i in chromosome]
             tmpl = template_slot_fit(ordered_tracks, self._template_slots)
 
-        return (
+        score = (
             cfg.w_transition * transition
             + cfg.w_template * tmpl
             + cfg.w_energy_arc * arc
             + cfg.w_bpm_smooth * bpm
             + cfg.w_variety * var
         )
+
+        # Multiplicative spread bonus: encourages pinned tracks to be
+        # distributed throughout the set rather than clustered.
+        # Adjacent pinned pair -> 15% discount; all spread -> no discount.
+        if self._pinned_indices:
+            spread = self._pinned_spread_score(chromosome)
+            score *= 0.85 + 0.15 * spread
+
+        return score
 
     def _mean_transition_quality(self, chromosome: NDArray[np.int32]) -> float:
         """Average transition quality across consecutive pairs."""
@@ -598,6 +701,11 @@ class GeneticSetGenerator:
         """Order Crossover (OX): preserves relative order from both parents.
 
         Suitable for permutation-based chromosomes (no duplicate tracks).
+
+        When ``track_count < n_all`` (subset GA), OX can silently drop pinned
+        tracks that appear late in p2's ordering because ``p2_filtered`` has
+        more elements than the remaining slots.  A repair step re-inserts any
+        missing pinned indices by replacing random non-pinned positions.
         """
         n = len(p1)
         start, end = sorted(self._rng.sample(range(n), 2))
@@ -616,22 +724,52 @@ class GeneticSetGenerator:
                 child[i] = p2_filtered[pos]
                 pos += 1
 
+        # Repair: re-insert pinned indices that were dropped (subset GA case).
+        # Both parents always contain all pinned indices; the child may lose some
+        # when parents have different filler sets and p2_filtered is longer than
+        # the remaining slots (OX fills only the first n-segment elements).
+        if self._pinned_indices:
+            child_set = set(child.tolist())
+            missing = [p for p in self._pinned_indices if p not in child_set]
+            if missing:
+                replaceable = [
+                    pos for pos in range(n) if child[pos] not in self._pinned_indices
+                ]
+                self._rng.shuffle(replaceable)
+                for i, pinned_idx in enumerate(missing):
+                    if i < len(replaceable):
+                        child[replaceable[i]] = pinned_idx
+
         return child
 
     # ── Mutation ────────────────────────────────────────────
 
     def _mutate(self, chromosome: NDArray[np.int32]) -> None:
-        """Apply swap + insert mutation (in-place)."""
+        """Apply swap + insert mutation (in-place).
+
+        When pinned tracks are present, only **swap** mutation is applied.
+        Insert (relocate) mutation is skipped because it shifts all intermediate
+        elements between src and dst — this indirectly moves pinned tracks even
+        when neither src nor dst is a pinned position.
+
+        Without pinned constraints both swap and insert are applied as before.
+        """
         n = len(chromosome)
         if n < 2:
             return
 
-        # Swap mutation: exchange two random positions
-        i, j = self._rng.sample(range(n), 2)
-        chromosome[i], chromosome[j] = chromosome[j], chromosome[i]
+        # Free positions: not occupied by a pinned track
+        free = [p for p in range(n) if chromosome[p] not in self._pinned_indices]
 
-        # Insert mutation: move a random element to a random position
-        if self._rng.random() < 0.5 and n > 2:
+        # Swap mutation: exchange two free positions (always safe for pinned tracks)
+        if len(free) >= 2:
+            i, j = self._rng.sample(free, 2)
+            chromosome[i], chromosome[j] = chromosome[j], chromosome[i]
+
+        # Insert mutation: only when no pinned constraints.
+        # With pinned tracks, insert shifts intermediate positions and would
+        # move pinned tracks — swap-only is used instead.
+        if not self._pinned_indices and self._rng.random() < 0.5 and n > 2:
             src = self._rng.randrange(n)
             dst = self._rng.randrange(n)
             if src != dst:

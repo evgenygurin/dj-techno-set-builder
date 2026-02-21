@@ -34,13 +34,18 @@ from app.mcp.types.responses import (
 )
 from app.mcp.types.workflows import (
     AdjustmentPlan,
+    DeliveryResult,
     ExportResult,
     ReorderSuggestion,
     SearchStrategy,
     SetBuildResult,
+    SetCheatSheet,
+    SetTrackItem,
+    SetVersionSummary,
     SimilarTracksResult,
     SwapSuggestion,
     TransitionScoreResult,
+    TransitionSummary,
 )
 
 __all__ = [
@@ -50,6 +55,7 @@ __all__ = [
     "ClassifyResult",
     "CurateCandidate",
     "CurateSetResult",
+    "DeliveryResult",
     "EntityDetailResponse",
     "EntityListResponse",
     "ExportResult",
@@ -66,13 +72,17 @@ __all__ = [
     "SearchResponse",
     "SearchStrategy",
     "SetBuildResult",
+    "SetCheatSheet",
     "SetDetail",
     "SetReviewResult",
     "SetSummary",
+    "SetTrackItem",
+    "SetVersionSummary",
     "SimilarTracksResult",
     "SwapSuggestion",
     "TrackDetail",
     "TrackSummary",
     "TransitionScoreResult",
+    "TransitionSummary",
     "WeakTransition",
 ]

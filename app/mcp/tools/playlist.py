@@ -35,19 +35,23 @@ def _make_svc(session: AsyncSession) -> DjPlaylistService:
 
 
 async def _build_playlist_detail(playlist_id: int, session: AsyncSession) -> PlaylistDetail | None:
-    """Build PlaylistDetail with track stats."""
-    svc = _make_svc(session)
-    try:
-        pl_read = await svc.get(playlist_id)
-    except Exception:
+    """Build PlaylistDetail with track stats.
+
+    Uses repo directly (not service) to avoid Pydantic schema validation
+    which may fail on legacy data (e.g. source_app stored as string).
+    """
+    repo = DjPlaylistRepository(session)
+    item_repo = DjPlaylistItemRepository(session)
+
+    playlist = await repo.get_by_id(playlist_id)
+    if playlist is None:
         return None
 
-    items = await svc.list_items(playlist_id, limit=10000)
-    track_count = items.total
+    _, track_count = await item_repo.list_by_playlist(playlist_id, offset=0, limit=0)
 
     return PlaylistDetail(
-        ref=f"local:{pl_read.playlist_id}",
-        name=pl_read.name,
+        ref=f"local:{playlist.playlist_id}",
+        name=playlist.name,
         track_count=track_count,
     )
 
@@ -73,13 +77,17 @@ def register_playlist_tools(mcp: FastMCP) -> None:
         """
         offset, clamped = paginate_params(cursor=cursor, limit=limit)
         repo = DjPlaylistRepository(session)
+        item_repo = DjPlaylistItemRepository(session)
 
         if search:
             playlists, total = await repo.search_by_name(search, offset=offset, limit=clamped)
         else:
             playlists, total = await repo.list(offset=offset, limit=clamped)
 
-        summaries = [playlist_to_summary(p) for p in playlists]
+        counts = await item_repo.get_counts_batch([p.playlist_id for p in playlists])
+        summaries = [
+            playlist_to_summary(p, item_count=counts.get(p.playlist_id, 0)) for p in playlists
+        ]
         return await wrap_list(summaries, total, offset, clamped, session)
 
     @mcp.tool(tags={"crud", "playlist"}, annotations={"readOnlyHint": True})

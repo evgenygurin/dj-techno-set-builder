@@ -119,6 +119,14 @@ class SetGenerationService(BaseService):
                     f"No tracks with audio features in playlist {data.playlist_id}"
                 )
 
+        # Filter out excluded tracks BEFORE building any data structures (matrix, mood_map, etc.)
+        # Must happen early so that matrix size matches the tracks list size exactly.
+        if data.exclude_track_ids:
+            excluded_early = set(data.exclude_track_ids)
+            features_list = [f for f in features_list if f.track_id not in excluded_early]
+            if not features_list:
+                raise ValidationError("All tracks were excluded — cannot generate set")
+
         # Batch-load sections for structure scoring
         sections_map: dict[int, list[Any]] = {}
         if self.sections_repo is not None:
@@ -167,11 +175,6 @@ class SetGenerationService(BaseService):
             # Set track_count from template if not explicitly specified
             if data.track_count is None and template.target_track_count > 0:
                 data_track_count = template.target_track_count
-
-        # Filter out excluded tracks
-        if data.exclude_track_ids:
-            excluded = set(data.exclude_track_ids)
-            tracks = [t for t in tracks if t.track_id not in excluded]
 
         # Configure GA — rebalance weights when template is active
         config = GAConfig(

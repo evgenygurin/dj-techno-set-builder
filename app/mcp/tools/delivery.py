@@ -1,0 +1,526 @@
+"""DJ set delivery tool — orchestrates scoring → file export → YM sync.
+
+Visible stages via ctx.info():
+  1. Score transitions (with elicitation checkpoint on hard conflicts)
+  2. Write M3U8 + JSON + cheat_sheet.txt to output_dir
+  3. Sync to Yandex Music (optional)
+
+Each stage is atomic and visible. The tool does not hide decisions —
+it surfaces them via ctx.elicit() so the operator can intervene.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import json
+import logging
+import re
+from pathlib import Path
+from typing import Any
+
+from fastmcp import FastMCP
+from fastmcp.dependencies import Depends
+from fastmcp.server.context import Context
+
+from app.clients.yandex_music import YandexMusicClient
+from app.config import settings
+from app.errors import NotFoundError
+from app.mcp.dependencies import (
+    get_features_service,
+    get_set_service,
+    get_track_service,
+    get_ym_client,
+)
+from app.mcp.elicitation import resolve_conflict
+from app.mcp.resolve import resolve_local_id
+from app.mcp.types.workflows import DeliveryResult, TransitionScoreResult, TransitionSummary
+from app.services.features import AudioFeaturesService
+from app.services.sets import DjSetService
+from app.services.tracks import TrackService
+from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.utils.audio.camelot import key_code_to_camelot
+
+logger = logging.getLogger(__name__)
+
+_BAD_PATH_RE = re.compile(r'[<>:"/\\|?*]')
+_WEAK_THRESHOLD = 0.85
+
+
+# ── Internal helpers ──────────────────────────────────────────────────────────
+
+
+def _safe_name(name: str) -> str:
+    """Convert set name to a safe directory name."""
+    s = _BAD_PATH_RE.sub("_", name).strip(". ")
+    return s.lower().replace(" ", "_")
+
+
+def _output_dir(set_name: str) -> Path:
+    """Resolve output directory from settings.dj_library_path."""
+    library = Path(settings.dj_library_path).expanduser()
+    base = library.parent / "generated-sets"
+    return base / _safe_name(set_name)
+
+
+async def _score_version(
+    set_id: int,
+    version_id: int,
+    set_svc: DjSetService,
+    features_svc: AudioFeaturesService,
+    track_svc: TrackService,
+) -> list[TransitionScoreResult]:
+    """Score all transitions in a set version. Same logic as score_transitions tool."""
+    items_list = await set_svc.list_items(version_id, offset=0, limit=500)
+    items = sorted(items_list.items, key=lambda i: i.sort_index)
+
+    if len(items) < 2:
+        return []
+
+    title_map: dict[int, str] = {}
+    for item in items:
+        with contextlib.suppress(NotFoundError):
+            track = await track_svc.get(item.track_id)
+            title_map[item.track_id] = track.title
+
+    unified_svc = UnifiedTransitionScoringService(
+        features_svc.features_repo.session,
+    )
+
+    results: list[TransitionScoreResult] = []
+    for i in range(len(items) - 1):
+        from_item = items[i]
+        to_item = items[i + 1]
+        from_title = title_map.get(from_item.track_id, f"Track {from_item.track_id}")
+        to_title = title_map.get(to_item.track_id, f"Track {to_item.track_id}")
+
+        try:
+            components = await unified_svc.score_components_by_ids(
+                from_item.track_id, to_item.track_id
+            )
+        except ValueError:
+            results.append(
+                TransitionScoreResult(
+                    from_track_id=from_item.track_id,
+                    to_track_id=to_item.track_id,
+                    from_title=from_title,
+                    to_title=to_title,
+                    total=0.0,
+                    bpm=0.0,
+                    harmonic=0.0,
+                    energy=0.0,
+                    spectral=0.0,
+                    groove=0.0,
+                )
+            )
+            continue
+
+        # Transition type recommendation + audio context
+        rec_type: str | None = None
+        rec_reason: str | None = None
+        from_bpm_val: float | None = None
+        to_bpm_val: float | None = None
+        from_key_val: str | None = None
+        to_key_val: str | None = None
+        cam_dist_val: int | None = None
+        bpm_delta_val: float | None = None
+        with contextlib.suppress(Exception):
+            from app.services.transition_type import recommend_transition
+            from app.utils.audio.camelot import camelot_distance
+            from app.utils.audio.feature_conversion import orm_features_to_track_features
+
+            feat_a = await features_svc.get_latest(from_item.track_id)
+            feat_b = await features_svc.get_latest(to_item.track_id)
+            tf_a = orm_features_to_track_features(feat_a)  # type: ignore[arg-type]
+            tf_b = orm_features_to_track_features(feat_b)  # type: ignore[arg-type]
+            dist = camelot_distance(tf_a.key_code, tf_b.key_code)
+            rec = recommend_transition(tf_a, tf_b, camelot_compatible=dist <= 1)
+            rec_type = str(rec.transition_type)
+            rec_reason = rec.reason
+            # Audio context fields
+            from_bpm_val = tf_a.bpm
+            to_bpm_val = tf_b.bpm
+            with contextlib.suppress(ValueError):
+                from_key_val = key_code_to_camelot(tf_a.key_code)
+                to_key_val = key_code_to_camelot(tf_b.key_code)
+            cam_dist_val = dist
+            if tf_a.bpm and tf_b.bpm:
+                bpm_delta_val = abs(tf_a.bpm - tf_b.bpm)
+
+        results.append(
+            TransitionScoreResult(
+                from_track_id=from_item.track_id,
+                to_track_id=to_item.track_id,
+                from_title=from_title,
+                to_title=to_title,
+                total=components["total"],
+                bpm=components["bpm"],
+                harmonic=components["harmonic"],
+                energy=components["energy"],
+                spectral=components["spectral"],
+                groove=components["groove"],
+                structure=components.get("structure", 0.5),
+                recommended_type=rec_type,
+                reason=rec_reason,
+                from_bpm=from_bpm_val,
+                to_bpm=to_bpm_val,
+                from_key=from_key_val,
+                to_key=to_key_val,
+                camelot_distance=cam_dist_val,
+                bpm_delta=bpm_delta_val,
+            )
+        )
+
+    return results
+
+
+def _build_transition_summary(scores: list[TransitionScoreResult]) -> TransitionSummary:
+    scored = [s for s in scores if s.total > 0.0]
+    return TransitionSummary(
+        total=len(scores),
+        hard_conflicts=sum(1 for s in scores if s.total == 0.0),
+        weak=sum(1 for s in scored if s.total < _WEAK_THRESHOLD),
+        avg_score=sum(s.total for s in scored) / len(scored) if scored else 0.0,
+        min_score=min((s.total for s in scored), default=0.0),
+    )
+
+
+def _generate_cheat_sheet(
+    set_name: str,
+    tracks: list[dict[str, Any]],
+    scores: list[TransitionScoreResult],
+) -> str:
+    """Generate a plain-text cheat sheet for the DJ booth."""
+    # Build transition lookup: (from_id, to_id) → score
+    tx_by_from: dict[int, TransitionScoreResult] = {s.from_track_id: s for s in scores}
+
+    lines = [
+        "=" * 80,
+        f"CHEAT SHEET: {set_name}",
+        "=" * 80,
+        f"{'#':<4} {'Track':<30} {'BPM':>7} {'Key':>4} {'LUFS':>6}  → Next Transition",
+        "-" * 80,
+    ]
+
+    for tr in tracks:
+        pos = tr["position"]
+        title = tr.get("title", f"Track {tr['track_id']}")
+        bpm = f"{tr['bpm']:.1f}" if tr.get("bpm") else "—"
+        key = tr.get("key", "—")
+        lufs = f"{tr['lufs']:.1f}" if tr.get("lufs") else "—"
+
+        tx = tx_by_from.get(tr["track_id"])
+        if tx is None:
+            tx_str = "— (last track)"
+        elif tx.total == 0.0:
+            tx_str = f"0.000 [{tx.recommended_type or '—'}]  # no features or hard conflict"
+        else:
+            flag = " !!!" if tx.total < _WEAK_THRESHOLD else "    "
+            tx_str = f"{tx.total:.3f} [{tx.recommended_type or '—'}]{flag}"
+            if tx.reason:
+                tx_str += f"  # {tx.reason}"
+
+        lines.append(f"{pos:02d}.  {title:<30} {bpm:>7} {key:>4} {lufs:>6}  {tx_str}")
+
+    lines += [
+        "=" * 80,
+        "",
+        "TRANSITION TYPES:",
+        "  drum_cut  — hard cut on downbeat (kick→kick)",
+        "  drum_swap — replace kick loop under outgoing track",
+        "  eq        — gradual freq blend, use high/low-pass EQ",
+        "  blend     — full overlap mix",
+        "",
+        "!!! = weak transition (score < 0.85), handle with care",
+        "",
+    ]
+
+    # Harmonic chain
+    keys: list[str] = [k for tr in tracks if (k := tr.get("key")) is not None]
+    if keys:
+        lines.append("HARMONIC CHAIN:")
+        lines.append("  " + "→".join(keys))
+        lines.append("")
+
+    bpms = [tr["bpm"] for tr in tracks if tr.get("bpm")]
+    if bpms:
+        lines.append(f"BPM ARC: {min(bpms):.1f} → {max(bpms):.1f}")
+
+    total_s = sum(tr.get("duration_s", 0) for tr in tracks)
+    if total_s:
+        lines.append(f"DURATION: {total_s // 3600}h {(total_s % 3600) // 60}min")
+
+    return "\n".join(lines) + "\n"
+
+
+async def _collect_track_data(
+    items: list[Any],
+    track_svc: TrackService,
+    features_svc: AudioFeaturesService,
+) -> list[dict[str, Any]]:
+    """Collect per-track metadata + audio features for export."""
+    track_ids = [item.track_id for item in items]
+    artists_map = await track_svc.get_track_artists(track_ids)
+
+    tracks: list[dict[str, Any]] = []
+    for pos, item in enumerate(items, 1):
+        entry: dict[str, Any] = {"position": pos, "track_id": item.track_id}
+        with contextlib.suppress(NotFoundError):
+            track = await track_svc.get(item.track_id)
+            entry["title"] = track.title
+            entry["duration_s"] = track.duration_ms // 1000
+
+        artists = artists_map.get(item.track_id, [])
+        entry["artists"] = ", ".join(artists) if artists else ""
+
+        with contextlib.suppress(Exception):
+            feat = await features_svc.get_latest(item.track_id)
+            entry["bpm"] = feat.bpm
+            entry["lufs"] = feat.lufs_i
+            with contextlib.suppress(ValueError):
+                entry["key"] = key_code_to_camelot(feat.key_code)
+
+        tracks.append(entry)
+
+    return tracks
+
+
+def _write_m3u8(set_name: str, tracks: list[dict[str, Any]]) -> str:
+    """Generate M3U8 content from track data."""
+    lines = ["#EXTM3U", f"#PLAYLIST:{set_name}"]
+    for tr in tracks:
+        title = tr.get("title", f"Track {tr['track_id']}")
+        artists = tr.get("artists", "")
+        display = f"{artists} - {title}" if artists else title
+        safe = _BAD_PATH_RE.sub("_", display).strip(". ")
+        duration = tr.get("duration_s", -1)
+        lines.append(f"#EXTINF:{duration},{title}")
+        if tr.get("bpm"):
+            lines.append(f"#EXTDJ-BPM:{tr['bpm']}")
+        if tr.get("key"):
+            lines.append(f"#EXTDJ-KEY:{tr['key']}")
+        if tr.get("lufs"):
+            lines.append(f"#EXTDJ-ENERGY:{tr['lufs']}")
+        lines.append(f"{tr['position']:03d}. {safe}.mp3")
+    return "\n".join(lines) + "\n"
+
+
+def _write_json_guide(
+    set_name: str,
+    tracks: list[dict[str, Any]],
+    scores: list[TransitionScoreResult],
+) -> str:
+    """Generate JSON export."""
+    bpms = [tr["bpm"] for tr in tracks if tr.get("bpm")]
+    total_s = sum(tr.get("duration_s", 0) for tr in tracks)
+    guide = {
+        "set_name": set_name,
+        "track_count": len(tracks),
+        "tracks": tracks,
+        "transitions": [s.model_dump() for s in scores],
+        "analytics": {
+            "bpm_range": [min(bpms), max(bpms)] if bpms else [],
+            "total_duration_s": total_s,
+        },
+    }
+    return json.dumps(guide, ensure_ascii=False, indent=2)
+
+
+# ── YM sync helper ────────────────────────────────────────────────────────────
+
+
+async def _sync_to_ym(
+    set_name: str,
+    tracks: list[dict[str, Any]],
+    ym_user_id: int,
+    ym_playlist_title: str,
+    ym_client: YandexMusicClient,
+) -> int:
+    """Create a YM playlist with set tracks. Returns playlist kind."""
+    # Map track_id → ym_track_id + ym_album_id via yandex_metadata table
+    from sqlalchemy import text
+
+    from app.database import session_factory
+
+    track_ids = [tr["track_id"] for tr in tracks]
+    ym_tracks: list[dict[str, str]] = []
+
+    async with session_factory() as session:
+        if track_ids:
+            placeholders = ",".join(str(tid) for tid in track_ids)
+            rows = await session.execute(
+                text(
+                    f"SELECT track_id, yandex_track_id, yandex_album_id"
+                    f" FROM yandex_metadata WHERE track_id IN ({placeholders})"
+                )
+            )
+            ym_map = {row.track_id: row for row in rows}
+        else:
+            ym_map = {}
+
+    for tr in tracks:
+        tid = tr["track_id"]
+        row = ym_map.get(tid)
+        if row and row.yandex_track_id:
+            ym_tracks.append(
+                {"id": str(row.yandex_track_id), "albumId": str(row.yandex_album_id or "")}
+            )
+        else:
+            # YM-native track: track_id IS the ym_track_id (large int > 1_000_000)
+            if tid > 1_000_000:
+                # Need album id — skip if not available (set will be partial)
+                logger.warning("No YM metadata for track_id=%d (YM native, no album)", tid)
+
+    kind = await ym_client.create_playlist(ym_user_id, ym_playlist_title)
+    if ym_tracks:
+        await ym_client.add_tracks_to_playlist(ym_user_id, kind, ym_tracks, revision=1)
+
+    return kind
+
+
+# ── Tool registration ─────────────────────────────────────────────────────────
+
+
+def register_delivery_tools(mcp: FastMCP) -> None:
+    """Register deliver_set tool on the MCP server."""
+
+    @mcp.tool(tags={"setbuilder"}, timeout=300)
+    async def deliver_set(
+        set_ref: str | int,
+        version_id: int,
+        ctx: Context,
+        sync_to_ym: bool = False,
+        ym_user_id: int | None = None,
+        ym_playlist_title: str | None = None,
+        set_svc: DjSetService = Depends(get_set_service),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
+        track_svc: TrackService = Depends(get_track_service),
+        ym_client: YandexMusicClient = Depends(get_ym_client),
+    ) -> DeliveryResult:
+        """Deliver a DJ set: score transitions, write files, optionally sync to YM.
+
+        Runs three visible stages with elicitation checkpoints:
+
+        **Stage 1 — Score:** Evaluates every transition. Hard conflicts
+        (Camelot dist ≥ 5, score = 0.0) trigger a checkpoint — you decide
+        whether to continue or abort before any files are written.
+
+        **Stage 2 — Write files:** Writes M3U8, JSON guide, and cheat_sheet.txt
+        to generated-sets/{set_name}/. Skips iCloud stubs silently.
+
+        **Stage 3 — YM sync** (if sync_to_ym=True): Creates or updates a
+        Yandex Music playlist with the set's tracks. Requires ym_user_id.
+
+        Args:
+            set_ref: DJ set ref (int, "42", or "local:42").
+            version_id: Set version to deliver.
+            sync_to_ym: Push set to Yandex Music as a playlist.
+            ym_user_id: YM user ID (required when sync_to_ym=True).
+            ym_playlist_title: YM playlist title (default: "{set_name} [set]").
+        """
+        set_id = resolve_local_id(set_ref, "set")
+        dj_set = await set_svc.get(set_id)
+        set_name = dj_set.name
+
+        # ── Stage 1: Score transitions ────────────────────────────────────────
+        await ctx.info(f"Stage 1/3 — Scoring transitions for '{set_name}'...")
+        await ctx.report_progress(progress=0, total=3)
+
+        scores = await _score_version(set_id, version_id, set_svc, features_svc, track_svc)
+        summary = _build_transition_summary(scores)
+
+        conflicts = [s for s in scores if s.total == 0.0]
+        weak = [s for s in scores if 0.0 < s.total < _WEAK_THRESHOLD]
+
+        await ctx.info(
+            f"Scored {summary.total} transitions: "
+            f"{summary.hard_conflicts} hard conflicts, "
+            f"{summary.weak} weak (< {_WEAK_THRESHOLD}), "
+            f"avg={summary.avg_score:.3f}"
+        )
+
+        if conflicts:
+            conflict_lines = "\n".join(
+                f"  • {c.from_title} → {c.to_title} (score=0.0)" for c in conflicts[:10]
+            )
+            decision = await resolve_conflict(
+                ctx,
+                f"Found {len(conflicts)} hard conflict(s) — tracks with no audio features "
+                f"or Camelot distance ≥ 5:\n{conflict_lines}\n\nContinue delivery anyway?",
+                options=["continue", "abort"],
+            )
+            if decision == "abort" or decision is None:
+                return DeliveryResult(
+                    set_id=set_id,
+                    version_id=version_id,
+                    set_name=set_name,
+                    output_dir="",
+                    files_written=[],
+                    transitions=summary,
+                    status="aborted",
+                )
+
+        # ── Stage 2: Write files ──────────────────────────────────────────────
+        await ctx.report_progress(progress=1, total=3)
+        items_list = await set_svc.list_items(version_id, offset=0, limit=500)
+        items = sorted(items_list.items, key=lambda i: i.sort_index)
+
+        tracks = await _collect_track_data(items, track_svc, features_svc)
+
+        out_dir = _output_dir(set_name)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        await ctx.info(f"Stage 2/3 — Writing files to {out_dir}...")
+
+        files_written: list[str] = []
+
+        m3u_path = out_dir / f"{set_name}.m3u8"
+        m3u_path.write_text(_write_m3u8(set_name, tracks), encoding="utf-8")
+        files_written.append(m3u_path.name)
+
+        json_path = out_dir / f"{set_name}.json"
+        json_path.write_text(_write_json_guide(set_name, tracks, scores), encoding="utf-8")
+        files_written.append(json_path.name)
+
+        cheat_path = out_dir / "cheat_sheet.txt"
+        cheat_path.write_text(_generate_cheat_sheet(set_name, tracks, scores), encoding="utf-8")
+        files_written.append(cheat_path.name)
+
+        await ctx.info(f"Written: {', '.join(files_written)}")
+        if weak:
+            await ctx.info(
+                f"Note: {len(weak)} weak transitions marked with !!! in cheat_sheet.txt"
+            )
+
+        # ── Stage 3: YM sync ──────────────────────────────────────────────────
+        ym_kind: int | None = None
+        if sync_to_ym:
+            if ym_user_id is None:
+                await ctx.info("Stage 3/3 — Skipped YM sync: ym_user_id not provided.")
+            else:
+                await ctx.report_progress(progress=2, total=3)
+                title = ym_playlist_title or f"{set_name} [set]"
+                await ctx.info(f"Stage 3/3 — Creating YM playlist '{title}'...")
+                try:
+                    ym_kind = await _sync_to_ym(
+                        set_name=set_name,
+                        tracks=tracks,
+                        ym_user_id=ym_user_id,
+                        ym_playlist_title=title,
+                        ym_client=ym_client,
+                    )
+                    await ctx.info(f"YM playlist created: kind={ym_kind}")
+                except Exception as exc:
+                    await ctx.info(f"YM sync failed: {exc}. Files already written.")
+
+        await ctx.report_progress(progress=3, total=3)
+
+        return DeliveryResult(
+            set_id=set_id,
+            version_id=version_id,
+            set_name=set_name,
+            output_dir=str(out_dir),
+            files_written=files_written,
+            transitions=summary,
+            ym_playlist_kind=ym_kind,
+            status="ok",
+        )

@@ -53,7 +53,9 @@ def _make_playlist(kind: int, track_count: int = 5) -> dict:
         "durationMs": track_count * 300_000,
         "revision": 10,
         "visibility": "public",
-        "tracks": [{"id": i, "albumId": i * 10, "timestamp": "2026-01-01"} for i in range(track_count)],
+        "tracks": [
+            {"id": i, "albumId": i * 10, "timestamp": "2026-01-01"} for i in range(track_count)
+        ],
         "coverUri": "avatars.yandex.net/huge-cover",
         "ogImage": "og-image-url",
     }

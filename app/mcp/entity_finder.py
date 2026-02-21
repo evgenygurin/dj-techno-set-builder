@@ -96,18 +96,28 @@ class PlaylistFinder:
         if playlist is None:
             return FindResult(exact=True, entities=[], source="local")
 
+        counts = await self._repo.get_track_counts_batch([playlist_id])
+
         summary = PlaylistSummary(
             ref=f"local:{playlist.playlist_id}",
             name=playlist.name,
+            track_count=counts.get(playlist_id, 0),
         )
         return FindResult(exact=True, entities=[summary], source="local")
 
     async def _find_by_text(self, query: str, *, limit: int = 20) -> FindResult:
         playlists, _total = await self._repo.search_by_name(query, offset=0, limit=limit)
+        if not playlists:
+            return FindResult(exact=False, entities=[], source="local")
+
+        playlist_ids = [p.playlist_id for p in playlists]
+        counts = await self._repo.get_track_counts_batch(playlist_ids)
+
         entities = [
             PlaylistSummary(
                 ref=f"local:{p.playlist_id}",
                 name=p.name,
+                track_count=counts.get(p.playlist_id, 0),
             )
             for p in playlists
         ]
@@ -132,18 +142,31 @@ class SetFinder:
         if dj_set is None:
             return FindResult(exact=True, entities=[], source="local")
 
+        stats = await self._repo.get_stats_batch([set_id])
+        v_count, t_count = stats.get(set_id, (0, 0))
+
         summary = SetSummary(
             ref=f"local:{dj_set.set_id}",
             name=dj_set.name,
+            version_count=v_count,
+            track_count=t_count,
         )
         return FindResult(exact=True, entities=[summary], source="local")
 
     async def _find_by_text(self, query: str, *, limit: int = 20) -> FindResult:
         sets, _total = await self._repo.search_by_name(query, offset=0, limit=limit)
+        if not sets:
+            return FindResult(exact=False, entities=[], source="local")
+
+        set_ids = [s.set_id for s in sets]
+        stats = await self._repo.get_stats_batch(set_ids)
+
         entities = [
             SetSummary(
                 ref=f"local:{s.set_id}",
                 name=s.name,
+                version_count=stats.get(s.set_id, (0, 0))[0],
+                track_count=stats.get(s.set_id, (0, 0))[1],
             )
             for s in sets
         ]

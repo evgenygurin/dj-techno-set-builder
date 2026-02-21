@@ -69,6 +69,36 @@ def register_prompts(mcp: FastMCP) -> None:
         ]
 
     @mcp.prompt
+    def deliver_set_workflow(
+        set_id: str,
+        version_id: str,
+        sync_to_ym: bool = False,
+        ym_user_id: str = "",
+    ) -> list[Message]:
+        """Deliver a built DJ set: score, export files, optionally sync to YM."""
+        ym_line = ""
+        if sync_to_ym and ym_user_id:
+            ym_line = f", sync_to_ym=true, ym_user_id={ym_user_id}"
+
+        return [
+            Message(
+                role="user",
+                content=(
+                    f"Deliver DJ set {set_id} version {version_id}.\\n\\n"
+                    f"Call `dj_deliver_set` with set_ref={set_id}, "
+                    f"version_id={version_id}{ym_line}.\\n\\n"
+                    "The tool runs three visible stages:\\n"
+                    "1. **Score** — evaluates transitions, flags hard conflicts.\\n"
+                    "   If hard conflicts are found you will be asked whether to "
+                    "   continue or abort.\\n"
+                    "2. **Write files** — M3U8, JSON guide, cheat_sheet.txt.\\n"
+                    "3. **YM sync** — creates a Yandex Music playlist (if requested).\\n\\n"
+                    "After delivery, report the output_dir and transition summary."
+                ),
+            ),
+        ]
+
+    @mcp.prompt
     def improve_set(
         set_id: str,
         version_id: str,
