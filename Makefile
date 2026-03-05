@@ -149,6 +149,9 @@ check: lint test
 test:
 	$(UV) run pytest
 
+test-all:
+	$(UV) run pytest -m "" -v
+
 test-v:
 	$(UV) run pytest -v
 

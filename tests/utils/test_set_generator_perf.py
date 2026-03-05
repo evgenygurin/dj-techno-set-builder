@@ -10,6 +10,7 @@ Full 2-opt is reserved for final polish on the single best solution.
 import time
 
 import numpy as np
+import pytest
 
 from app.utils.audio.set_generator import (
     GAConfig,
@@ -173,6 +174,7 @@ def test_two_opt_max_passes_zero_is_noop():
 # ── Adaptive strategy: large sets skip per-child 2-opt ──
 
 
+@pytest.mark.slow
 def test_large_set_ga_completes_in_time():
     """214 tracks with GA should complete in < 30s (was 73,000+ seconds)."""
     tracks = _make_tracks(214)
@@ -211,6 +213,7 @@ def test_small_set_still_uses_two_opt():
     assert result.score > 0.3
 
 
+@pytest.mark.slow
 def test_ga_result_quality_large_set():
     """Large set should still produce a reasonable fitness score."""
     tracks = _make_tracks(100)
