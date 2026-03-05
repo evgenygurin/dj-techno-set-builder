@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **DB schema dump**: `scripts/dump_db_schema.py` + `make db-schema` — auto-generates `.claude/rules/db-schema.md` with all tables, columns, types, PKs, FKs, row counts from live SQLite DB. Path-scoped to `app/models/**`, `app/repositories/**`, `app/mcp/tools/**`, `migrations/**`.
 - Документация: добавлен раздел про MCP/OpenAI контекст и рекомендованный базовый набор MCP-серверов (безопасность/принципы доступа) в `docs/data-inventory.md`.
 - **Claude Code project config**: `.claude/settings.json` with codegen-bridge marketplace (`github:evgenygurin/codegen-bridge`) + plugin auto-install for team
 - **SQLite MCP server**: `sqlite-db` in `.mcp.json` — direct SQL access to dev.db via `${DJ_DB_PATH}` env var (set in `.claude/settings.local.json`)
@@ -17,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **CLAUDE.md**: добавлен `db-schema.md` в список rules, `make db-schema` в Makefile shortcuts, заметка про 12 pre-existing mypy errors
+- **database.md**: добавлена секция "Schema reference" с правилами регенерации `db-schema.md`
 - **Episodic Memory**: добавлено обязательное правило использования `episodic-memory:search-conversations` при старте сессии (`.claude/rules/in-memoria.md`)
 - **Official Documentation**: добавлены таблицы ссылок на docs.anthropic.com (Claude Code, 12 ссылок) и docs.codegen.com (Codegen AI, 13 ссылок) в `CLAUDE.md` с требованием изучения перед работой
 - **Documentation meta-rules**: добавлена секция Official Documentation Requirement в `.claude/rules/documentation.md` со ссылками на Memory, Skills, Hooks, Settings, Plugins

@@ -11,6 +11,7 @@ Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
 - `testing.md` — fixtures, test organization, conventions
 - `mcp.md` — FastMCP server, tools, DI, gateway
 - `in-memoria.md` — codebase intelligence + episodic memory (session start, when to use, reliability)
+- `db-schema.md` — live DB schema reference (auto-generated, path-scoped to models/repos/mcp/migrations)
 - `documentation.md` — meta-rules for maintaining this documentation system
 - `git.md` — Linear integration, domain scopes, branching model
 
@@ -61,6 +62,7 @@ make mcp-dev         # HTTP dev-сервер с hot-reload (PORT=9100)
 make mcp-inspect     # MCP Inspector UI (порт 6274)
 make mcp-list        # Список всех MCP-инструментов
 make mcp-call TOOL=x ARGS='{...}'  # Вызов инструмента
+make db-schema       # Дамп схемы БД → .claude/rules/db-schema.md
 make mcp-install-desktop  # Установить в Claude Desktop (stdio)
 make mcp-install-code     # Установить в Claude Code (stdio)
 ```
@@ -139,5 +141,5 @@ External MCP servers (.mcp.json):
 ## Lint & Type Rules
 
 - **ruff**: Python 3.12, line-length 99, rules: E/F/W/I/N/UP/B/SIM/RUF. `A003` ignored. B008 per-file ignore for MCP.
-- **mypy**: strict + `pydantic.mypy` plugin. `ignore_missing_imports`: fastmcp, alembic, essentia, soundfile, scipy, demucs, torch, torchaudio.
+- **mypy**: strict + `pydantic.mypy` plugin. `ignore_missing_imports`: fastmcp, alembic, essentia, soundfile, scipy, demucs, torch, torchaudio. **12 pre-existing errors** in `app/mcp/` (`wrap_list` variance, `unified_export`, `compute`, `track_mapper`) — documented in `mcp.md`, do not fix.
 - **pytest-asyncio**: `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed.

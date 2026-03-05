@@ -19,7 +19,7 @@ DC_PROD  := $(DC) -f compose.yaml -f compose.prod.yaml
         lint ruff ruff-fix format mypy check \
         test test-v test-k test-file coverage \
         run run-prod kill \
-        db db-upgrade db-downgrade db-revision db-history db-current db-reset \
+        db db-upgrade db-downgrade db-revision db-history db-current db-reset db-schema \
         docker-local docker-dev docker-prod docker-down docker-logs docker-ps docker-shell docker-test \
         mcp-dev mcp-inspect mcp-list mcp-call mcp-install-desktop mcp-install-code \
         all ci
@@ -71,6 +71,7 @@ help:
 	@echo "  db-history     История миграций"
 	@echo "  db-current     Текущая ревизия"
 	@echo "  db-reset       Откатить ВСЕ миграции до base"
+	@echo "  db-schema      Дамп схемы БД в .claude/rules/db-schema.md"
 	@echo ""
 	@echo "  Docker"
 	@echo "  ─────────────────────────────────────"
@@ -215,6 +216,9 @@ db-current:
 db-reset:
 	@echo "Откат ВСЕХ миграций до base..."
 	$(UV) run alembic downgrade base
+
+db-schema:
+	$(UV) run python scripts/dump_db_schema.py
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Docker

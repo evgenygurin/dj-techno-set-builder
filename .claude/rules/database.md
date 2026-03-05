@@ -11,9 +11,25 @@ paths:
 ## Overview
 
 - **DDL source of truth**: `data/schema_v6.sql` (PostgreSQL DDL with pgvector, btree_gist, pg_trgm)
+- **Live schema reference**: `.claude/rules/db-schema.md` (auto-generated, path-scoped)
 - **Dev DB**: SQLite via aiosqlite (auto-created by `init_db()` when URL starts with `sqlite`)
 - **Prod DB**: PostgreSQL 16+ with asyncpg
 - **30+ ORM models** in `app/models/` — all re-exported through `app/models/__init__.py`
+
+## Schema reference (`db-schema.md`)
+
+Auto-generated file with all table names, columns, types, PKs, FKs, and row counts.
+Loaded automatically when editing `app/models/**`, `app/repositories/**`, `app/mcp/tools/**`, `migrations/**`.
+
+**Regenerate when:**
+- After `alembic upgrade` or `alembic downgrade` (schema changed)
+- After adding/modifying ORM models
+- After bulk data operations that significantly change row counts
+- After `init_db()` on a fresh database
+
+**Command:** `make db-schema`
+
+**Do NOT edit `db-schema.md` manually** — changes will be overwritten on next generation.
 
 ## Configuration
 
