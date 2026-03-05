@@ -118,6 +118,11 @@ in-memoria-vectors.db
 
 # Override global gitignore for project-level configs
 !.mcp.json
+!.claude/
+.claude/*
+!.claude/settings.json
+!.claude/rules/
+!.claude/skills/
 
 dev.db-shm
 dev.db-wal

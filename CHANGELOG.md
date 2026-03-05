@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - Документация: добавлен раздел про MCP/OpenAI контекст и рекомендованный базовый набор MCP-серверов (безопасность/принципы доступа) в `docs/data-inventory.md`.
+- **Claude Code project config**: `.claude/settings.json` with codegen-bridge marketplace (`github:evgenygurin/codegen-bridge`) + plugin auto-install for team
+- **SQLite MCP server**: `sqlite-db` in `.mcp.json` — direct SQL access to dev.db via `${DJ_DB_PATH}` env var (set in `.claude/settings.local.json`)
+- **In-Memoria MCP server**: added to `.mcp.json` as project-level stdio server with `SURREAL_SYNC_DATA=true`
+- **Documentation rule**: mandatory CHANGELOG + docs update after every change (`.claude/rules/documentation.md`)
 
 ### Fixed
 

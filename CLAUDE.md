@@ -72,11 +72,26 @@ Schemas   Errors     Models
 MCP Gateway (FastMCP 3.0)
   ├── Yandex Music (namespace "ym") — ~30 OpenAPI-generated tools
   └── DJ Workflows (namespace "dj") — 20 hand-written tools
+
+External MCP servers (.mcp.json):
+  ├── dj-techno (HTTP :9100) — project FastMCP gateway
+  ├── sqlite-db (stdio, npx) — direct SQL access to dev.db via ${DJ_DB_PATH}
+  └── in-memoria (stdio, sh) — codebase intelligence (13 tools)
 ```
 
 - **DI**: `DbSession = Annotated[AsyncSession, Depends(get_session)]` in `app/dependencies.py`
 - **App factory**: `create_app()` in `app/main.py` — lifespan manages DB + MCP
 - **Routes**: `/health` (unversioned), `/api/v1/...` (13 domain routers), `/mcp/mcp` (MCP)
+
+## Plugins & Settings
+
+- **codegen-bridge** — делегирование задач в Codegen облачные агенты (`github:evgenygurin/codegen-bridge`)
+
+| File | Scope | Git | Purpose |
+|------|-------|-----|---------|
+| `.claude/settings.json` | Project (team) | Yes | Marketplaces, plugins |
+| `.claude/settings.local.json` | Personal | No | Env vars (`DJ_DB_PATH`), outputStyle, permissions |
+| `.mcp.json` | Project (team) | Yes | MCP servers (dj-techno, sqlite-db, in-memoria) |
 
 ## Lint & Type Rules
 

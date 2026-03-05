@@ -3,6 +3,24 @@
     "dj-techno": {
       "type": "http",
       "url": "http://localhost:9100/mcp"
+    },
+    "sqlite-db": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-server-sqlite-npx",
+        "${DJ_DB_PATH}"
+      ]
+    },
+    "in-memoria": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "cd /Users/laptop/dev/dj-techno-set-builder && in-memoria server"
+      ],
+      "env": {
+        "SURREAL_SYNC_DATA": "true"
+      }
     }
   }
 }

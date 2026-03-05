@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "codegen-bridge-dev": {
+      "source": {
+        "source": "github",
+        "repo": "evgenygurin/codegen-bridge"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "codegen-bridge@codegen-bridge-dev": true
+  }
+}
