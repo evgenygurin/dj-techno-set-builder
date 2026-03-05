@@ -366,6 +366,10 @@ Claude создаёт PR с:
 - Follow existing patterns in <файл-образец>
 - Run `make check` before committing
 - Conventional commit: <type>(<scope>): <description>
+- Do NOT modify files outside of <scope-dirs>
+- Do NOT edit CHANGELOG.md (handled separately)
+- Create branch `<branch-name>` from `<base-branch>`
+- Create PR to `<base-branch>` (NOT main or dev!)
 
 ## Acceptance criteria
 - [ ] <Конкретный критерий 1>
