@@ -72,6 +72,216 @@
 
 ---
 
+## `/delegate` — Основной интерфейс делегирования
+
+### Назначение
+
+`/delegate` — slash-команда Claude Code для быстрого запуска Codegen cloud агента прямо из чата.
+Без создания PR, без ручной настройки — описываешь задачу, Claude формирует промпт и запускает агента.
+
+### Синтаксис
+
+```text
+/delegate <описание задачи>
+```
+
+### Когда использовать
+
+| Ситуация | Использовать `/delegate` | Альтернатива |
+|----------|-------------------------|--------------|
+| Новая фича с нуля | ✅ ДА | `@codegen-sh` в PR (если PR уже есть) |
+| Быстрый прототип | ✅ ДА | Написать локально |
+| Рефакторинг без PR | ✅ ДА | `@codegen-sh` в существующем PR |
+| Исследование кодовой базы | ✅ ДА | Grep/Glob локально |
+| Исправление замечаний в PR | ❌ НЕТ | `@codegen-sh` в PR comment |
+| Доработка существующего PR | ❌ НЕТ | `@codegen-sh` в PR comment |
+| Merge conflicts resolution | ❌ НЕТ | Локально |
+
+**Правило:** `/delegate` для новых задач, `@codegen-sh` для работы с существующим PR.
+
+### Workflow
+
+```text
+1. Пользователь: "/delegate implement energy arc adherence scoring"
+2. Claude (эта сессия):
+   - Анализирует задачу
+   - Декомпозирует на subtasks (если нужно)
+   - Формирует полный промпт с context, requirements, constraints
+   - Запускает Codegen agent через codegen-bridge plugin
+3. Codegen agent:
+   - Клонирует репозиторий в cloud sandbox
+   - Читает CLAUDE.md + .claude/rules/
+   - Реализует задачу
+   - Запускает make check
+   - Создаёт PR с conventional commit
+4. Claude (основная сессия):
+   - Получает notification о PR
+   - Делает review через view_pr (только diff)
+   - Approve или request changes через @codegen-sh
+
+Время: 3-15 минут от /delegate до PR.
+```
+
+### Пример простой задачи
+
+```text
+User: /delegate add a GET endpoint to fetch track by spotify_track_id
+
+Claude формирует:
+---
+## Task
+Add GET /api/v1/tracks/by-spotify-id/{spotify_track_id} endpoint.
+
+## Context
+- Branch: feat/BPM-xxx-spotify-lookup
+- Pattern file: app/routers/v1/tracks.py
+- Repository: app/repositories/track.py (has get_by_id, add get_by_spotify_id)
+
+## Requirements
+- New method in TrackRepository: get_by_spotify_id(spotify_track_id: str)
+- New endpoint in tracks router with proper error handling
+- Return 404 if track not found
+- OpenAPI docs with error responses
+
+## Constraints
+- Follow existing patterns in app/routers/v1/tracks.py
+- DI: DbSession = Annotated[AsyncSession, Depends(get_session)]
+- make check must pass
+
+## Acceptance criteria
+- [ ] Repository method implemented
+- [ ] Router endpoint added
+- [ ] 404 handling
+- [ ] make check passes
+---
+
+Agent создаёт PR → Claude делает review → merge или request changes.
+```
+
+### Пример сложной задачи (декомпозиция)
+
+```text
+User: /delegate implement Rekordbox XML export for DJ sets
+
+Claude анализирует:
+- Это архитектурная фича, затрагивает 5+ файлов
+- Нужна декомпозиция на bounded subtasks
+
+Claude создаёт:
+---
+Задача требует декомпозиции. Создаю 3 агента:
+
+## Agent A: XML Builder Service
+- Task: Create RekordboxXmlBuilder service with playlist/track serialization
+- Files: app/services/rekordbox_xml_builder.py + tests
+- Dependencies: None (pure service logic)
+
+## Agent B: Delivery Integration  
+- Task: Integrate XML export into dj_deliver_set MCP tool
+- Files: app/mcp/dj_workflows.py, app/services/set_delivery_service.py
+- Dependencies: Agent A (needs RekordboxXmlBuilder API)
+
+## Agent C: Documentation
+- Task: Update dj-set-workflow.md skill with XML export section
+- Files: .claude/skills/dj-set-workflow.md, CHANGELOG.md
+- Dependencies: Agent B (needs to see final API)
+---
+
+Claude запускает Agent A → ждёт PR → review → merge → запускает Agent B → ...
+```
+
+### Обработка результата `/delegate`
+
+После запуска агента через `/delegate`:
+
+1. **Мониторинг** — Claude получает trace URL от codegen-bridge
+2. **Notification** — когда PR создан, Claude показывает ссылку
+3. **Review** — `view_pr` MCP tool для инспекции diff (НЕ полное чтение файлов)
+4. **Decision tree**:
+
+```text
+make check failed?
+  └─> "@codegen-sh fix CI errors" в PR
+      └─> Ждать фикса → re-review
+
+Codex нашёл P1/P2 issues?
+  └─> "@codegen-sh исправь замечания codex" в PR
+      └─> Ждать фикса → re-review
+
+Diff OK + tests pass?
+  └─> Merge в dev (или feature branch)
+      └─> Закрыть задачу
+
+Агент не справился (2+ попытки)?
+  └─> Забрать локально
+      └─> Описать проблему в Linear issue / PR comment
+```
+
+### Rate Limits и Ограничения
+
+| Ограничение | Лимит | Обход |
+|-------------|-------|-------|
+| Codegen API requests/min | 30 | Батчить задачи, не спамить |
+| Параллельных агентов | 3 рекомендуемо | > 3 только если файлы независимы |
+| Размер задачи | ≤ 5 файлов | Декомпозиция на subtasks |
+| Sandbox timeout | 30 минут | Разбить на меньшие шаги |
+| Context window агента | ~200K токенов | Указать конкретные pattern files |
+
+**При ошибке "Rate limit exceeded":**
+1. Подожди 60 секунд
+2. Перезапусти через `/delegate` ещё раз
+3. Если повторяется — используй Codegen Dashboard (manual run, не через API)
+
+### Интеграция с Linear
+
+`/delegate` автоматически связывается с текущей Linear задачей если:
+- Branch name содержит `BPM-xxx`
+- Или в промпте явно указан issue ID
+
+```text
+User: /delegate BPM-123 add caching layer for Yandex Music API
+
+Claude создаёт PR с:
+- Branch: feat/BPM-123-ym-api-cache
+- PR title: BPM-123: add caching layer for Yandex Music API
+- PR body: Fixes BPM-123
+
+→ На merge PR → Linear issue автоматически закрывается
+```
+
+### Troubleshooting
+
+| Проблема | Причина | Решение |
+|----------|---------|---------|
+| "codegen-bridge plugin not found" | Plugin не установлен | Проверить `.claude/settings.json` → enabledPlugins |
+| "Invalid repository access" | Codegen app не подключён к GitHub | Установить через codegen.com/settings |
+| Agent не создал PR (> 15 мин) | Timeout или internal error | Посмотреть trace URL, перезапустить |
+| Agent создал пустой PR | Неверная декомпозиция задачи | Уточнить промпт, указать pattern files |
+| "Setup commands failed" | Sandbox setup issue | Проверить uv sync в trace logs |
+
+### Best Practices
+
+1. **Специфичность** — чем конкретнее задача, тем выше success rate
+   - ✅ "Add GET endpoint for track by spotify_id following tracks.py pattern"
+   - ❌ "Implement Spotify integration"
+
+2. **Pattern files** — всегда указывай файл-образец
+   - "Follow existing pattern in `app/routers/v1/tracks.py`"
+   - "Use same structure as `app/services/track_service.py`"
+
+3. **Bounded scope** — задача должна быть завершаема за 10-20 минут
+   - ✅ 1-3 файла
+   - ❌ > 5 файлов → декомпозируй
+
+4. **Context inclusion** — дай агенту минимум контекста, максимум clarity
+   - Какие файлы читать
+   - Какие паттерны следовать
+   - Какие acceptance criteria
+
+5. **Linear ID** — всегда включай BPM-xxx для автоматического трекинга
+
+---
+
 ## Экономия контекста основной сессии
 
 **Основная сессия = диспетчер. Не читай код, не пиши код.**

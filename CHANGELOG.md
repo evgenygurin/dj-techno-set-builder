@@ -8,17 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **Energy arc adherence**: `SetCurationService.compute_energy_arc_adherence()` — compares actual set LUFS curve against template energy arc via linear interpolation, returns [0,1] adherence score. `review_set` MCP tool now computes real energy_arc_adherence (was hardcoded 0.0). Added optional `template` parameter to `review_set`. 15 unit tests.
-- **Delegated Development skill v2**: `.claude/skills/delegated-development.md` — вертикальная система управления AI-агентами: Codegen Bridge API, Linear интеграция, parallel ops, conflict resolution, hooks, sandbox setup, agent rules, case study PR #26, session handoff protocol, метрики эффективности
-- **Codegen Orchestration GHA**: `.github/workflows/codegen-orchestrator.yml` — dispatches Codegen cloud agents via `@codegen-sh` mentions in PR comments
-- **Codegen Orchestration docs**: `docs/codegen-orchestration.md` — setup, usage, monitoring, troubleshooting guide
-- **GHA Security scanning**: Bandit + Safety in CI, non-blocking, reports as artifacts
+- **Energy arc adherence**: `SetCurationService.compute_energy_arc_adherence()` — energy arc scoring for DJ sets
+- **Delegated Development skill v2**: vertical AI agent management with Codegen Bridge
+- **`/delegate` command docs**: comprehensive guide for Codegen delegation from Claude Code
+- **Codegen Orchestration GHA**: `@codegen-sh` dispatch from PR comments
+- **GHA Security scanning**: Bandit + Safety in CI, non-blocking
 - **Ruff lint fix**: 122→0 violations in scripts/ and migrations/
 
 ### Fixed
 
-- **DB data cleanup**: removed 5 orphan features, 3 duplicate provider_track_ids, 3 duplicate tracks from dev.db
-- **Hookify rule**: `warn-sql-check-schema` — reminds to verify column names against `db-schema.md` before SQL queries
+- **DB data cleanup**: removed orphan features, duplicate tracks from dev.db
 - **Router count**: CLAUDE.md + api.md updated 13→15 (actual count)
 - **DB schema dump**: `scripts/dump_db_schema.py` + `make db-schema` — auto-generates `.claude/rules/db-schema.md` with all tables, columns, types, PKs, FKs, row counts from live SQLite DB. Path-scoped to `app/models/**`, `app/repositories/**`, `app/mcp/tools/**`, `migrations/**`.
 - Документация: добавлен раздел про MCP/OpenAI контекст и рекомендованный базовый набор MCP-серверов (безопасность/принципы доступа) в `docs/data-inventory.md`.
