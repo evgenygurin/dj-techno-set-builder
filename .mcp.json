@@ -3,6 +3,14 @@
     "dj-techno": {
       "type": "http",
       "url": "http://localhost:9100/mcp"
+    },
+    "sqlite-db": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-server-sqlite-npx",
+        "./dev.db"
+      ]
     }
   }
 }
