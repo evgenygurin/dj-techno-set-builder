@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **SQLite MCP server**: `sqlite-db` in `.mcp.json` — direct SQL access to dev.db via `${DJ_DB_PATH}` env var (set in `.claude/settings.local.json`)
 - **In-Memoria MCP server**: added to `.mcp.json` as project-level stdio server with `SURREAL_SYNC_DATA=true`
 - **Documentation rule**: mandatory CHANGELOG + docs update after every change (`.claude/rules/documentation.md`)
+- **Git workflow rules**: глобальные (`~/.claude/rules/git.md`) + project-specific (`.claude/rules/git.md`) — conventional commits, HEREDOC fix, Linear integration, domain scopes, safety guardrails
 
 ### Changed
 
