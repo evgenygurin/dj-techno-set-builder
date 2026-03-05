@@ -19,6 +19,7 @@ Workflow skills in `.claude/skills/` (read when working on that domain):
 - `dj-set-workflow.md` — декларативный гайд: build → score → deliver → YM sync
 - `mcp-tool-dev.md` — разработка MCP-инструментов: DI, staged pattern, тесты, чеклист
 - `audio-analysis.md` — аудио пайплайн, scoring, cheat_sheet, iCloud стабы, M3U8
+- `delegated-development.md` — вертикальное управление Codegen агентами, Linear, parallel ops
 
 ## Workflow
 
