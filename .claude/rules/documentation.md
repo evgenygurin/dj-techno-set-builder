@@ -13,8 +13,11 @@ Rules for maintaining the `.claude/rules/` documentation system.
 | Hooks | https://docs.anthropic.com/en/docs/claude-code/hooks |
 | Settings | https://docs.anthropic.com/en/docs/claude-code/settings |
 | Plugins | https://docs.anthropic.com/en/docs/claude-code/plugins |
+| Codegen API | https://docs.codegen.com/api-reference/overview |
+| Codegen + Claude Code | https://docs.codegen.com/guides/claude-code |
 
-Offline-копии доступны через скилл `working-with-claude-code` (`references/*.md`).
+Offline-копии Claude Code docs через скилл `working-with-claude-code` (`references/*.md`).
+Codegen docs: `https://docs.codegen.com/llms.txt` — полный индекс для LLM.
 Не угадывай формат/структуру — сверяйся с docs.
 
 ## File hierarchy (load order)
@@ -174,7 +177,7 @@ After EVERY feature/fix/config change, BEFORE committing:
 
 ## Keeping CLAUDE.md minimal
 
-Root `CLAUDE.md` should stay under 130 lines. It contains:
+Root `CLAUDE.md` should stay under 150 lines. It contains:
 
 - Commands (install, test, lint, run, migrate, MCP CLI)
 - Makefile shortcuts

@@ -12,6 +12,7 @@ Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
 - `mcp.md` — FastMCP server, tools, DI, gateway
 - `in-memoria.md` — codebase intelligence + episodic memory (session start, when to use, reliability)
 - `documentation.md` — meta-rules for maintaining this documentation system
+- `git.md` — Linear integration, domain scopes, branching model
 
 Workflow skills in `.claude/skills/` (read when working on that domain):
 - `dj-set-workflow.md` — декларативный гайд: build → score → deliver → YM sync
@@ -97,8 +98,10 @@ External MCP servers (.mcp.json):
 
 ## Official Documentation (ОБЯЗАТЕЛЬНО к изучению)
 
-**СТРОГОЕ ТРЕБОВАНИЕ**: Перед работой с любой подсистемой Claude Code — ИЗУЧИ соответствующий раздел
-официальной документации. Используй скилл `working-with-claude-code` для доступа к offline-копиям.
+**СТРОГОЕ ТРЕБОВАНИЕ**: Перед работой с любой подсистемой — ИЗУЧИ соответствующий раздел
+официальной документации. Используй скилл `working-with-claude-code` для offline-копий Claude Code docs.
+
+### Claude Code (docs.anthropic.com)
 
 | Тема | URL | Когда изучать |
 |------|-----|---------------|
@@ -114,6 +117,24 @@ External MCP servers (.mcp.json):
 | CLI Reference | https://docs.anthropic.com/en/docs/claude-code/cli-reference | Команды claude CLI |
 | Output Styles | https://docs.anthropic.com/en/docs/claude-code/output-styles | Перед настройкой outputStyle |
 | Troubleshooting | https://docs.anthropic.com/en/docs/claude-code/troubleshooting | При проблемах с Claude Code |
+
+### Codegen AI Platform (docs.codegen.com)
+
+| Тема | URL | Когда изучать |
+|------|-----|---------------|
+| Overview | https://docs.codegen.com | Общее понимание платформы |
+| API Reference | https://docs.codegen.com/api-reference/overview | Перед работой с Codegen API / codegen-bridge |
+| Create Agent Run | https://docs.codegen.com/api-reference/agents/create-agent-run | Создание агентов через API |
+| How It Works | https://docs.codegen.com/guides/how-it-works | Архитектура агентов и sandbox |
+| Claude Code Guide | https://docs.codegen.com/guides/claude-code | Интеграция Codegen ↔ Claude Code |
+| Agent Rules | https://docs.codegen.com/settings/agent-rules | Настройка правил агентов |
+| Model Configuration | https://docs.codegen.com/settings/model-configuration | Выбор LLM (Claude, GPT, Gemini) |
+| MCP Servers | https://docs.codegen.com/integrations/mcp-servers | MCP серверы для агентов Codegen |
+| Prompting | https://docs.codegen.com/prompting | Best practices промптинга агентов |
+| PR Review | https://docs.codegen.com/guides/pr-review | Автоматический review PR |
+| Checks Auto-fixer | https://docs.codegen.com/guides/checks-auto-fixer | Авто-исправление CI checks |
+| Sandbox Setup | https://docs.codegen.com/sandboxes/overview | Настройка sandbox окружения |
+| LLMs.txt | https://docs.codegen.com/llms.txt | Полный индекс документации |
 
 ## Lint & Type Rules
 
