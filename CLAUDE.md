@@ -86,7 +86,7 @@ External MCP servers (.mcp.json):
 
 - **DI**: `DbSession = Annotated[AsyncSession, Depends(get_session)]` in `app/dependencies.py`
 - **App factory**: `create_app()` in `app/main.py` — lifespan manages DB + MCP
-- **Routes**: `/health` (unversioned), `/api/v1/...` (13 domain routers), `/mcp/mcp` (MCP)
+- **Routes**: `/health` (unversioned), `/api/v1/...` (15 domain routers), `/mcp/mcp` (MCP)
 
 ## Plugins & Settings
 
