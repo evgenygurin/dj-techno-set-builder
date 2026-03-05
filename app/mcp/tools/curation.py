@@ -146,8 +146,11 @@ def register_curation_tools(mcp: FastMCP) -> None:
         from app.utils.audio.set_generator import TrackData, lufs_to_energy, variety_score
 
         set_id = resolve_local_id(set_ref, "set")
-        await set_svc.get(set_id)
+        set_obj = await set_svc.get(set_id)
         items_list = await set_svc.list_items(version_id, offset=0, limit=500)
+
+        # Use set's template if available, otherwise fall back to provided template
+        actual_template = set_obj.template_name or template
         items = sorted(items_list.items, key=lambda i: i.sort_index)
 
         if len(items) < 2:
@@ -211,12 +214,22 @@ def register_curation_tools(mcp: FastMCP) -> None:
         var_score = variety_score(track_data_list) if track_data_list else 0.0
 
         # Energy arc adherence: compare actual LUFS curve to template
-        track_lufs = [
-            feat_map[item.track_id].lufs_i
-            for item in items
-            if item.track_id in feat_map
-        ]
-        arc_score = svc.compute_energy_arc_adherence(track_lufs, template)
+        # Preserve original set positions - use None for missing features
+        track_lufs_with_positions: list[float | None] = []
+        for item in items:
+            if item.track_id in feat_map:
+                track_lufs_with_positions.append(feat_map[item.track_id].lufs_i)
+            else:
+                # For missing features, use None to mark gaps
+                track_lufs_with_positions.append(None)
+
+        # Compute arc score only if we have enough tracks with features
+        if sum(1 for x in track_lufs_with_positions if x is not None) >= 2:
+            arc_score = svc.compute_energy_arc_adherence_with_gaps(
+                track_lufs_with_positions, actual_template
+            )
+        else:
+            arc_score = 0.0
 
         suggestions: list[str] = []
         if weak:
@@ -226,7 +239,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
         if arc_score < 0.5:
             suggestions.append(
                 f"Energy arc adherence is low ({arc_score:.1%}) — "
-                f"set does not follow {template} template energy curve"
+                f"set does not follow {actual_template} template energy curve"
             )
 
         return SetReviewResult(

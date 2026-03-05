@@ -187,6 +187,52 @@ class SetCurationService:
 
         return round(max(0.0, 1.0 - total_error / n), 3)
 
+    def compute_energy_arc_adherence_with_gaps(
+        self,
+        track_lufs_values: list[float | None],
+        template_name: str = "classic_60",
+    ) -> float:
+        """Compare actual energy curve against template, handling missing features.
+
+        Similar to compute_energy_arc_adherence but accepts None values for
+        tracks without extracted features. Preserves original set positions
+        and penalizes missing features appropriately.
+
+        Args:
+            track_lufs_values: LUFS values or None for tracks in set order.
+            template_name: Template to compare against.
+
+        Returns:
+            Adherence score [0.0, 1.0] where 1.0 = perfect match.
+        """
+        n = len(track_lufs_values)
+        if n < 2:
+            return 0.0
+
+        template = get_template(TemplateName(template_name))
+        if not template.slots:
+            return 1.0  # FULL_LIBRARY — no arc to adhere to
+
+        total_error = 0.0
+        valid_tracks = 0
+
+        for i, lufs in enumerate(track_lufs_values):
+            pos = i / (n - 1)
+            expected_lufs = self._interpolate_template_energy(template, pos)
+
+            if lufs is not None:
+                # Track has features - compute normal error
+                error = min(1.0, abs(lufs - expected_lufs) / 8.0)
+                total_error += error
+                valid_tracks += 1
+            else:
+                # Missing features - apply penalty
+                # Use max error (1.0) to discourage gaps
+                total_error += 1.0
+
+        # Score based on all positions (including gaps)
+        return round(max(0.0, 1.0 - total_error / n), 3)
+
     @staticmethod
     def _interpolate_template_energy(template: SetTemplate, pos: float) -> float:
         """Interpolate expected energy (LUFS) at a normalized position.
