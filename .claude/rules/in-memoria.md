@@ -13,6 +13,7 @@ Rules for using In-Memoria MCP tools to get project context before writing code.
 2. get_project_blueprint(path: '/Users/laptop/dev/dj-techno-set-builder', includeFeatureMap: true)
 3. If learningStatus.recommendation !== 'ready' → auto_learn_if_needed(path: '...')
 4. get_developer_profile(includeRecentActivity: true) — once per session
+5. Episodic Memory → поиск контекста прошлых сессий (см. секцию ниже)
 ```
 
 **Почему**: blueprint даёт featureMap, architecture, keyDirectories — ты получаешь карту проекта мгновенно вместо слепого поиска через Glob/Grep.
@@ -98,6 +99,48 @@ contribute_insights(
 ## Path parameter
 
 **ALWAYS** use absolute path: `/Users/laptop/dev/dj-techno-set-builder`
+
+## Episodic Memory (ОБЯЗАТЕЛЬНО при старте сессии)
+
+**Плагин `episodic-memory`** хранит историю всех сессий Claude Code и позволяет искать решения, архитектурные решения и gotchas из прошлых разговоров.
+
+### Когда использовать
+
+| Ситуация | Действие |
+|----------|----------|
+| Старт сессии | Поиск контекста по текущей задаче |
+| "Как мы делали X?" | Поиск прошлых решений |
+| Повторяющаяся ошибка | Поиск по error message |
+| Архитектурное решение | Поиск прецедентов |
+| Застрял на проблеме | Поиск похожих ситуаций |
+
+### Как использовать
+
+**ВСЕГДА через Agent tool** (не через MCP tools напрямую — экономит контекст в 50-100x):
+
+```text
+Agent(
+  description: "Search past sessions for [topic]",
+  prompt: "Search for [query]. Focus on [decisions/solutions/gotchas].",
+  subagent_type: "episodic-memory:search-conversations"
+)
+```
+
+### Правило старта сессии (дополнение к шагам 1-4)
+
+```text
+5. Agent(episodic-memory:search-conversations) → поиск по теме текущей задачи
+   - "dj set builder [тема задачи]" — контекст прошлых решений
+   - Если задача связана с MCP/config — "mcp.json sqlite-db .env"
+   - Если задача связана с audio/sets — "set generation GA crossover"
+   - Если задача связана с YM API — "yandex music 429 retry"
+```
+
+### Что НЕ искать в episodic memory
+
+- Текущую структуру файлов → Glob/Grep/Read
+- Информацию из текущего разговора → уже в контексте
+- Документацию библиотек → Context7/Exa
 
 ## Patched installation
 

@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Episodic Memory**: добавлено обязательное правило использования `episodic-memory:search-conversations` при старте сессии (`.claude/rules/in-memoria.md`)
 - **Official Documentation**: добавлена таблица ссылок на docs.anthropic.com в `CLAUDE.md` с требованием изучения перед работой с подсистемами Claude Code
 - **Documentation meta-rules**: добавлена секция Official Documentation Requirement в `.claude/rules/documentation.md` со ссылками на Memory, Skills, Hooks, Settings, Plugins
 - **MCP rules**: добавлена ссылка на официальную MCP документацию в `.claude/rules/mcp.md`

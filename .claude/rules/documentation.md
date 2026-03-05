@@ -94,9 +94,11 @@ Every rules file should follow:
 | Test fixtures/conventions/organization | `.claude/rules/testing.md` |
 | MCP server structure/tools/DI | `.claude/rules/mcp.md` |
 | In-Memoria tool usage/reliability | `.claude/rules/in-memoria.md` |
+| Episodic memory (cross-session context) | `.claude/rules/in-memoria.md` (секция Episodic Memory) |
 | These meta-rules | `.claude/rules/documentation.md` |
 | Personal preferences | `CLAUDE.local.md` |
 | Session learnings, gotchas | Auto memory (`MEMORY.md`) |
+| History across sessions | Episodic Memory plugin (`episodic-memory:search-conversations`) |
 
 ## Updating rules
 
