@@ -126,6 +126,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
         set_ref: str | int,
         version_id: int,
         ctx: Context,
+        template: str = "classic_60",
         set_svc: DjSetService = Depends(get_set_service),
         features_svc: AudioFeaturesService = Depends(get_features_service),
     ) -> SetReviewResult:
@@ -137,6 +138,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
         Args:
             set_ref: DJ set ref (int, "42", or "local:42").
             version_id: Set version to review.
+            template: Template to compare energy arc against (default: classic_60).
         """
         from app.services.transition_scoring_unified import (
             UnifiedTransitionScoringService,
@@ -208,15 +210,28 @@ def register_curation_tools(mcp: FastMCP) -> None:
                 )
         var_score = variety_score(track_data_list) if track_data_list else 0.0
 
+        # Energy arc adherence: compare actual LUFS curve to template
+        track_lufs = [
+            feat_map[item.track_id].lufs_i
+            for item in items
+            if item.track_id in feat_map
+        ]
+        arc_score = svc.compute_energy_arc_adherence(track_lufs, template)
+
         suggestions: list[str] = []
         if weak:
             suggestions.append(f"{len(weak)} weak transitions (score < 0.4)")
         if var_score < 0.7:
             suggestions.append("Low variety — consider diversifying mood/key sequences")
+        if arc_score < 0.5:
+            suggestions.append(
+                f"Energy arc adherence is low ({arc_score:.1%}) — "
+                f"set does not follow {template} template energy curve"
+            )
 
         return SetReviewResult(
             overall_score=round(avg_score, 3),
-            energy_arc_adherence=0.0,  # TODO: compute against template arc
+            energy_arc_adherence=arc_score,
             variety_score=round(var_score, 3),
             weak_transitions=weak,
             suggestions=suggestions,

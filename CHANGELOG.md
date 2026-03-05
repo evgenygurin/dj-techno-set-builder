@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Energy arc adherence**: `SetCurationService.compute_energy_arc_adherence()` — compares actual set LUFS curve against template energy arc via linear interpolation, returns [0,1] adherence score. `review_set` MCP tool now computes real energy_arc_adherence (was hardcoded 0.0). Added optional `template` parameter to `review_set`. 15 unit tests.
+
+### Fixed
+
+- **DB data cleanup**: removed 5 orphan features, 3 duplicate provider_track_ids, 3 duplicate tracks from dev.db
+- **Hookify rule**: `warn-sql-check-schema` — reminds to verify column names against `db-schema.md` before SQL queries
+
 - **DB schema dump**: `scripts/dump_db_schema.py` + `make db-schema` — auto-generates `.claude/rules/db-schema.md` with all tables, columns, types, PKs, FKs, row counts from live SQLite DB. Path-scoped to `app/models/**`, `app/repositories/**`, `app/mcp/tools/**`, `migrations/**`.
 - Документация: добавлен раздел про MCP/OpenAI контекст и рекомендованный базовый набор MCP-серверов (безопасность/принципы доступа) в `docs/data-inventory.md`.
 - **Claude Code project config**: `.claude/settings.json` with codegen-bridge marketplace (`github:evgenygurin/codegen-bridge`) + plugin auto-install for team

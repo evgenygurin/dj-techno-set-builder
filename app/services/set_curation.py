@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.utils.audio.mood_classifier import TrackMood, classify_track
-from app.utils.audio.set_templates import SetSlot, TemplateName, get_template
+from app.utils.audio.set_templates import SetSlot, SetTemplate, TemplateName, get_template
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +151,68 @@ class SetCurationService:
                 used_ids.add(best_tid)
 
         return selected
+
+    def compute_energy_arc_adherence(
+        self,
+        track_lufs_values: list[float],
+        template_name: str = "classic_60",
+    ) -> float:
+        """Compare actual energy curve against template expected curve.
+
+        Computes how well the ordered LUFS values of a set follow the
+        energy arc defined by a template's slots.
+
+        Args:
+            track_lufs_values: LUFS values for tracks in set order.
+            template_name: Template to compare against.
+
+        Returns:
+            Adherence score [0.0, 1.0] where 1.0 = perfect match.
+        """
+        n = len(track_lufs_values)
+        if n < 2:
+            return 0.0
+
+        template = get_template(TemplateName(template_name))
+        if not template.slots:
+            return 1.0  # FULL_LIBRARY — no arc to adhere to
+
+        total_error = 0.0
+        for i, lufs in enumerate(track_lufs_values):
+            pos = i / (n - 1)
+            expected_lufs = self._interpolate_template_energy(template, pos)
+            # Normalize error: 8 dB covers full techno LUFS range (-14 to -6)
+            error = min(1.0, abs(lufs - expected_lufs) / 8.0)
+            total_error += error
+
+        return round(max(0.0, 1.0 - total_error / n), 3)
+
+    @staticmethod
+    def _interpolate_template_energy(template: SetTemplate, pos: float) -> float:
+        """Interpolate expected energy (LUFS) at a normalized position.
+
+        Finds the two template slots bracketing the position and
+        linearly interpolates the energy_target between them.
+        """
+        slots = template.slots
+        # Edge cases: clamp to first/last slot
+        if pos <= slots[0].position:
+            return slots[0].energy_target
+        if pos >= slots[-1].position:
+            return slots[-1].energy_target
+
+        # Find bracketing slots
+        for j in range(len(slots) - 1):
+            if slots[j].position <= pos <= slots[j + 1].position:
+                span = slots[j + 1].position - slots[j].position
+                if span == 0:
+                    return slots[j].energy_target
+                t = (pos - slots[j].position) / span
+                return slots[j].energy_target + t * (
+                    slots[j + 1].energy_target - slots[j].energy_target
+                )
+
+        return slots[-1].energy_target  # fallback
 
     def _score_candidate_for_slot(
         self,
