@@ -118,3 +118,8 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 filterwarnings = ["error", "ignore::DeprecationWarning", "ignore::ResourceWarning"]
+
+# ── Bandit ────────────────────────────────────────────────────────────────────
+
+[tool.bandit]
+exclude_dirs = ["tests", "scripts", "migrations"]
