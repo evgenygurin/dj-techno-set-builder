@@ -308,9 +308,11 @@ feat/BPM-xxx-big-feature
 
 Запускай до 3 Codegen агентов параллельно если задачи **независимы**:
 
-> **Rate limit**: орг-лимит Codegen — 2M input tokens/min. При запуске >3 opus-агентов
-> одновременно все получают `rate_limit_error` и завершаются без результата.
-> Для research-задач используй sonnet (дешевле по токенам).
+> **Rate limit**: орг-лимит Codegen — 2M input tokens/min.
+> - **1 Opus + 3 Sonnet = rate limit!** Opus упадёт на 429, Sonnet выживут.
+> - **Безопасно**: до 3 Sonnet параллельно ИЛИ 1 Opus один.
+> - **Opus**: только для сложных задач (рефакторинг, архитектура), запускать ОДНОГО.
+> - **Sonnet 4.5**: для lint, docs, Makefile, config — быстрее и дешевле.
 
 ### Матрица решений
 
