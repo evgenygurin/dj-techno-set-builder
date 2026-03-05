@@ -21,6 +21,8 @@ Workflow skills in `.claude/skills/` (read when working on that domain):
 ## Workflow
 
 - **Linear**: branches and PR titles must start with the Linear issue ID (e.g. `BPM-123: ...`). See `docs/linear.md`.
+- **Session handoff**: при передаче работы — commit, push, prompt для новой сессии. Протокол в `.claude/rules/documentation.md`.
+- **`.mcp.json`**: `${VAR}` в `args` НЕ раскрывается без shell — всегда `sh -c` обёртка. После правки — перезапуск сессии.
 
 ## Commands
 
@@ -75,7 +77,7 @@ MCP Gateway (FastMCP 3.0)
 
 External MCP servers (.mcp.json):
   ├── dj-techno (HTTP :9100) — project FastMCP gateway
-  ├── sqlite-db (stdio, npx) — direct SQL access to dev.db via ${DJ_DB_PATH}
+  ├── sqlite-db (stdio, sh -c npx) — direct SQL access to dev.db via $DJ_DB_PATH
   └── in-memoria (stdio, sh) — codebase intelligence (13 tools)
 ```
 

@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **sqlite-db MCP server**: `${DJ_DB_PATH}` in `args` array was not expanded by npx (no shell). Wrapped in `sh -c` with explicit `env` block, matching the `in-memoria` pattern. Removed spurious empty `${DJ_DB_PATH}` file created by the literal path.
 - **ORM Schema Consistency** (BPM-1): Fixed 5 critical default value mismatches between SQLAlchemy models and SQL DDL
   - Added `server_default` for boolean fields: `dj_beatgrid.is_variable_tempo`, `is_canonical`
   - Added `server_default` for status fields: `tracks.status`, `feature_extraction_runs.status`, `transition_runs.status`

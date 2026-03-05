@@ -5,12 +5,14 @@
       "url": "http://localhost:9100/mcp"
     },
     "sqlite-db": {
-      "command": "npx",
+      "command": "sh",
       "args": [
-        "-y",
-        "mcp-server-sqlite-npx",
-        "${DJ_DB_PATH}"
-      ]
+        "-c",
+        "npx -y mcp-server-sqlite-npx \"$DJ_DB_PATH\""
+      ],
+      "env": {
+        "DJ_DB_PATH": "${DJ_DB_PATH}"
+      }
     },
     "in-memoria": {
       "command": "sh",
