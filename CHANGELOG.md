@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Codegen Orchestration GHA**: `.github/workflows/codegen-orchestrator.yml` — dispatches Codegen cloud agents via `@codegen-sh` mentions in PR comments. Workflow extracts task from comment, creates agent run via Codegen API, posts status updates, and tracks run ID. Requires `CODEGEN_API_KEY` and `CODEGEN_ORG_ID` secrets.
+- **Codegen Orchestration docs**: `docs/codegen-orchestration.md` — comprehensive guide covering setup, usage, monitoring, troubleshooting, and integration with codegen-bridge plugin. Includes examples, API reference, and security considerations.
 - **DB schema dump**: `scripts/dump_db_schema.py` + `make db-schema` — auto-generates `.claude/rules/db-schema.md` with all tables, columns, types, PKs, FKs, row counts from live SQLite DB. Path-scoped to `app/models/**`, `app/repositories/**`, `app/mcp/tools/**`, `migrations/**`.
 - Документация: добавлен раздел про MCP/OpenAI контекст и рекомендованный базовый набор MCP-серверов (безопасность/принципы доступа) в `docs/data-inventory.md`.
 - **Claude Code project config**: `.claude/settings.json` with codegen-bridge marketplace (`github:evgenygurin/codegen-bridge`) + plugin auto-install for team
