@@ -1,4 +1,5 @@
 """Checkpoint system for workflow recovery."""
+
 import json
 from pathlib import Path
 

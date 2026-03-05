@@ -15,7 +15,7 @@ from pathlib import Path
 from sqlalchemy import text
 
 from app.config import settings
-from app.database import init_db, close_db, session_factory
+from app.database import close_db, init_db, session_factory
 
 PLAYLIST_ID = 2
 AUDIO_DIR = Path(settings.dj_library_path).expanduser().parent / "techno-develop-recs"
@@ -42,7 +42,9 @@ async def main() -> None:
 
     async with session_factory() as session:
         # ── All playlist tracks ──────────────────────────────
-        rows = (await session.execute(text("""
+        rows = (
+            await session.execute(
+                text("""
             SELECT
                 t.track_id, t.title, t.duration_ms,
                 ym.album_genre, ym.yandex_track_id
@@ -51,7 +53,10 @@ async def main() -> None:
             LEFT JOIN yandex_metadata ym ON ym.track_id = t.track_id
             WHERE pi.playlist_id = :pid
             ORDER BY pi.sort_index
-        """), {"pid": PLAYLIST_ID})).fetchall()
+        """),
+                {"pid": PLAYLIST_ID},
+            )
+        ).fetchall()
         total = len(rows)
 
         # ── Tier 0 filter ────────────────────────────────────
@@ -59,7 +64,7 @@ async def main() -> None:
         tier0_reject_dur = 0
         tier0_kept_ids = set()
         for r in rows:
-            track_id, title, dur, genre, ym_id = r
+            track_id, _title, dur, genre, _ym_id = r
             if genre not in ALLOWED_GENRES:
                 tier0_reject_genre += 1
             elif dur and (dur < MIN_DURATION_MS or dur > MAX_DURATION_MS):
@@ -68,27 +73,41 @@ async def main() -> None:
                 tier0_kept_ids.add(track_id)
 
         # ── Already analyzed ─────────────────────────────────
-        analyzed_rows = (await session.execute(text("""
+        analyzed_rows = (
+            await session.execute(
+                text("""
             SELECT taf.track_id
             FROM track_audio_features_computed taf
             JOIN dj_playlist_items pi ON taf.track_id = pi.track_id
             WHERE pi.playlist_id = :pid
-        """), {"pid": PLAYLIST_ID})).fetchall()
+        """),
+                {"pid": PLAYLIST_ID},
+            )
+        ).fetchall()
         analyzed_ids = {r[0] for r in analyzed_rows}
 
         # ── Feature runs stats ───────────────────────────────
-        run_stats = (await session.execute(text("""
+        run_stats = (
+            await session.execute(
+                text("""
             SELECT fr.status, COUNT(*)
             FROM feature_extraction_runs fr
             GROUP BY fr.status
-        """))).fetchall()
+        """)
+            )
+        ).fetchall()
 
         # ── Sections count ───────────────────────────────────
-        sections_count = (await session.execute(text("""
+        sections_count = (
+            await session.execute(
+                text("""
             SELECT COUNT(*) FROM track_sections ts
             JOIN dj_playlist_items pi ON ts.track_id = pi.track_id
             WHERE pi.playlist_id = :pid
-        """), {"pid": PLAYLIST_ID})).scalar()
+        """),
+                {"pid": PLAYLIST_ID},
+            )
+        ).scalar()
 
     # ── File availability for remaining ──────────────────────
     remaining_ids = tier0_kept_ids - analyzed_ids
@@ -133,7 +152,7 @@ async def main() -> None:
     print(f"  No file match:           {file_no_match:>5}")
     print()
     print(f"{'─' * 60}")
-    print(f"DB STATE:")
+    print("DB STATE:")
     for status, cnt in run_stats:
         print(f"  Runs [{status}]:  {cnt:>8}")
     print(f"  Sections (playlist):     {sections_count:>5}")

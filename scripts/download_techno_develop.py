@@ -18,13 +18,16 @@ from sqlalchemy import select, text
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # fmt: on
 
-from app.config import settings  # noqa: E402
-from app.database import close_db, engine, init_db  # noqa: E402
-from app.database import session_factory  # noqa: E402
-from app.models.catalog import Track  # noqa: E402
-from app.models.dj import DjLibraryItem  # noqa: E402
-from app.models.ingestion import ProviderTrackId  # noqa: E402
-from app.services.yandex_music_client import YandexMusicClient  # noqa: E402
+from app.config import settings
+from app.database import (
+    close_db,
+    init_db,
+    session_factory,
+)
+from app.models.catalog import Track
+from app.models.dj import DjLibraryItem
+from app.models.ingestion import ProviderTrackId
+from app.services.yandex_music_client import YandexMusicClient
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
@@ -75,9 +78,7 @@ async def main() -> None:
             ym_id = str(track_data.get("id", track_data.get("trackId")))
             title = track_data.get("title", "untitled")
             dur_ms = track_data.get("durationMs", 0)
-            artists = ", ".join(
-                a.get("name", "?") for a in track_data.get("artists", [])
-            )
+            artists = ", ".join(a.get("name", "?") for a in track_data.get("artists", []))
 
             # Check if already in DB
             existing = await session.execute(
@@ -90,9 +91,7 @@ async def main() -> None:
             if existing_tid:
                 # Check if file exists
                 lib_row = await session.execute(
-                    select(DjLibraryItem).where(
-                        DjLibraryItem.track_id == existing_tid
-                    )
+                    select(DjLibraryItem).where(DjLibraryItem.track_id == existing_tid)
                 )
                 if lib_row.scalar_one_or_none():
                     skip += 1
@@ -159,7 +158,13 @@ async def main() -> None:
                 await session.commit()
                 log.info(
                     "[%d/%d] ok=%d skip=%d fail=%d | %s — %s",
-                    i + 1, len(ym_tracks), ok, skip, fail, artists, title,
+                    i + 1,
+                    len(ym_tracks),
+                    ok,
+                    skip,
+                    fail,
+                    artists,
+                    title,
                 )
 
             await asyncio.sleep(1)  # rate limit

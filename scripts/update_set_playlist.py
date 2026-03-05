@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+
 import httpx
 
 from app.config import settings
@@ -19,15 +20,15 @@ YM_KIND = 1275
 
 # Version 14 tracks (sort_index → ym_track_id, ym_album_id) from SQL + YM API
 NEW_TRACKS = [
-    ("68923354", "11472170"),   # 0  Virtual Reality
-    ("56871112", "12088901"),   # 1  Just Gonna Be Me
-    ("43670809", "9995498"),    # 2  Luminophor
-    ("29341200", "3527622"),    # 3  Destination  [PINNED]
+    ("68923354", "11472170"),  # 0  Virtual Reality
+    ("56871112", "12088901"),  # 1  Just Gonna Be Me
+    ("43670809", "9995498"),  # 2  Luminophor
+    ("29341200", "3527622"),  # 3  Destination  [PINNED]
     ("136644397", "35626916"),  # 4  Mothership
-    ("3913276", "440075"),      # 5  Verbatim
-    ("20045777", "2261719"),    # 6  Box
+    ("3913276", "440075"),  # 5  Verbatim
+    ("20045777", "2261719"),  # 6  Box
     ("118279416", "27769222"),  # 7  Shadowed Descent
-    ("54991810", "7981779"),    # 8  In Front of Falsehood III
+    ("54991810", "7981779"),  # 8  In Front of Falsehood III
     ("135569227", "35156925"),  # 9  Fractal Collapse  [PINNED]
     ("139205497", "36647201"),  # 10 The Moment
     ("144954571", "39094980"),  # 11 Pryme
@@ -40,14 +41,12 @@ NEW_TRACKS = [
 async def fetch_playlist(http: httpx.AsyncClient, headers: dict) -> tuple[int, list[dict]]:
     """Return (revision, tracks). Retries on 429."""
     for attempt in range(8):
-        resp = await http.get(
-            f"{YM_BASE}/users/{YM_USER_ID}/playlists/{YM_KIND}", headers=headers
-        )
+        resp = await http.get(f"{YM_BASE}/users/{YM_USER_ID}/playlists/{YM_KIND}", headers=headers)
         if resp.status_code == 200:
             pl = resp.json()["result"]
             return pl["revision"], pl["tracks"]
         if resp.status_code == 429:
-            wait = 2 ** attempt
+            wait = 2**attempt
             logger.warning("GET 429 rate-limit, waiting %ds (attempt %d)", wait, attempt + 1)
             await asyncio.sleep(wait)
         else:
@@ -64,8 +63,9 @@ async def delete_one(
     aid: str,
 ) -> int | None:
     """Delete track at idx. Return new revision or None on failure."""
-    diff = json.dumps([{"op": "delete", "from": idx, "to": idx + 1,
-                        "tracks": [{"id": tid, "albumId": aid}]}])
+    diff = json.dumps(
+        [{"op": "delete", "from": idx, "to": idx + 1, "tracks": [{"id": tid, "albumId": aid}]}]
+    )
     for attempt in range(5):
         resp = await http.post(
             f"{YM_BASE}/users/{YM_USER_ID}/playlists/{YM_KIND}/change",
@@ -75,7 +75,7 @@ async def delete_one(
         if resp.status_code == 200:
             return resp.json()["result"]["revision"]
         if resp.status_code == 429:
-            wait = 2 ** attempt
+            wait = 2**attempt
             logger.warning("429 rate-limit, waiting %ds", wait)
             await asyncio.sleep(wait)
         else:
@@ -103,7 +103,7 @@ async def insert_tracks(
             logger.info("Inserted %d tracks → revision=%d", len(NEW_TRACKS), new_rev)
             return True
         if resp.status_code == 429:
-            wait = 2 ** attempt
+            wait = 2**attempt
             logger.warning("429 rate-limit, waiting %ds", wait)
             await asyncio.sleep(wait)
         else:

@@ -7,6 +7,7 @@ Idempotent: skips already-analyzed tracks.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import sys
@@ -20,7 +21,7 @@ from sqlalchemy import text
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # fmt: on
 
-from app.database import close_db, init_db, session_factory  # noqa: E402
+from app.database import close_db, init_db, session_factory
 
 # Worker script for subprocess isolation
 WORKER_SCRIPT = Path(__file__).parent / "_analyze_worker.py"
@@ -44,7 +45,7 @@ CONCURRENCY = 4
 
 def _call_worker(audio_path: str, track_id: int) -> dict:
     """Spawn worker subprocess, wait, return parsed JSON."""
-    import subprocess  # noqa: PLC0415
+    import subprocess
 
     cmd = [sys.executable, str(WORKER_SCRIPT), audio_path, str(track_id)]
     proc = subprocess.run(cmd, capture_output=True, timeout=180)
@@ -77,7 +78,8 @@ async def get_tracks_needing_analysis() -> list[tuple[int, str, str]]:
         await session.execute(text("PRAGMA journal_mode=WAL"))
         await session.execute(text("PRAGMA busy_timeout=30000"))
 
-        result = await session.execute(text("""
+        result = await session.execute(
+            text("""
             SELECT pi.track_id, t.title, dli.file_path
             FROM dj_playlist_items pi
             JOIN tracks t ON t.track_id = pi.track_id
@@ -86,7 +88,9 @@ async def get_tracks_needing_analysis() -> list[tuple[int, str, str]]:
             WHERE pi.playlist_id = :pid
               AND taf.track_id IS NULL
             ORDER BY pi.sort_index
-        """), {"pid": PLAYLIST_ID})
+        """),
+            {"pid": PLAYLIST_ID},
+        )
         return [(row[0], row[1], row[2]) for row in result.fetchall()]
 
 
@@ -117,7 +121,9 @@ async def main() -> None:
 
     logger.info(
         "Available: %d | No file: %d | iCloud pending: %d",
-        len(available), no_file, icloud_pending,
+        len(available),
+        no_file,
+        icloud_pending,
     )
 
     if not available:
@@ -153,8 +159,12 @@ async def main() -> None:
 
             logger.info(
                 "[%d] OK %s — BPM=%.1f key=%d LUFS=%.1f%s (run %d)",
-                track_id, title, result["bpm"], result["key_code"],
-                result["lufs_i"], " [atonal]" if result["is_atonal"] else "",
+                track_id,
+                title,
+                result["bpm"],
+                result["key_code"],
+                result["lufs_i"],
+                " [atonal]" if result["is_atonal"] else "",
                 result["run_id"],
             )
             async with lock:
@@ -170,19 +180,22 @@ async def main() -> None:
             eta = remaining / rate if rate > 0 else 0
             logger.info(
                 "[%d/%d %.0f%%] %d OK | %d rejected | %d failed | %.1f tr/min | ETA %.0f min",
-                processed, total, 100 * processed / total,
-                completed, rejected, failed,
-                rate * 60, eta / 60,
+                processed,
+                total,
+                100 * processed / total,
+                completed,
+                rejected,
+                failed,
+                rate * 60,
+                eta / 60,
             )
 
     logger.info("Starting analysis: %d tracks, concurrency=%d", total, CONCURRENCY)
     progress_task = asyncio.create_task(report_progress())
     await asyncio.gather(*(process_one(tid, title, fp) for tid, title, fp in available))
     progress_task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await progress_task
-    except asyncio.CancelledError:
-        pass
 
     elapsed = time.monotonic() - start
     print(f"\n{'=' * 60}")

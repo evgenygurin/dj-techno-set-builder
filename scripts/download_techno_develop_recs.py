@@ -58,10 +58,10 @@ async def get_playlist_track_ids(playlist_id: int) -> list[int]:
 
 
 def _sanitize_filename(title: str, max_len: int = 50) -> str:
-    safe = re.sub(r'[/\\:*?"<>|]', '', title)
-    safe = safe.replace(' ', '_')
-    safe = re.sub(r'_+', '_', safe)
-    safe = safe.lower()[:max_len].rstrip('_')
+    safe = re.sub(r'[/\\:*?"<>|]', "", title)
+    safe = safe.replace(" ", "_")
+    safe = re.sub(r"_+", "_", safe)
+    safe = safe.lower()[:max_len].rstrip("_")
     return safe or "untitled"
 
 
@@ -85,9 +85,9 @@ async def download_single_track(
                     return (True, 0)  # skip
 
                 # Get track metadata
-                track = (await session.execute(
-                    select(Track).where(Track.track_id == track_id)
-                )).scalar_one_or_none()
+                track = (
+                    await session.execute(select(Track).where(Track.track_id == track_id))
+                ).scalar_one_or_none()
                 if not track:
                     logger.warning("Track %d not in DB", track_id)
                     return (False, 0)
@@ -133,8 +133,14 @@ async def download_single_track(
         except Exception as e:
             err_msg = str(e)
             if "database is locked" in err_msg and attempt < MAX_RETRIES:
-                delay = 2 ** attempt
-                logger.info("Track %d: DB locked, retry %d/%d in %ds", track_id, attempt, MAX_RETRIES, delay)
+                delay = 2**attempt
+                logger.info(
+                    "Track %d: DB locked, retry %d/%d in %ds",
+                    track_id,
+                    attempt,
+                    MAX_RETRIES,
+                    delay,
+                )
                 await asyncio.sleep(delay)
             else:
                 logger.error("Track %d failed (attempt %d): %s", track_id, attempt, e)
@@ -188,8 +194,13 @@ async def main() -> None:
                 eta = (len(track_ids) - i) / rate if rate > 0 else 0
                 logger.info(
                     "Progress: %d/%d (%.0f%%) | +%d dl, %d skip, %d fail | ETA: %.0f min",
-                    i, len(track_ids), 100 * i / len(track_ids),
-                    total_dl, total_skip, total_fail, eta / 60,
+                    i,
+                    len(track_ids),
+                    100 * i / len(track_ids),
+                    total_dl,
+                    total_skip,
+                    total_fail,
+                    eta / 60,
                 )
     finally:
         await ym_client.close()

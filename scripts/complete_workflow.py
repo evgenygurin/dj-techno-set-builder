@@ -1,4 +1,5 @@
 """Complete workflow orchestrator for professional techno set creation."""
+
 import argparse
 import asyncio
 import logging
@@ -13,6 +14,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
 
 class WorkflowOrchestrator:
     """Orchestrates complete techno set creation workflow."""
@@ -87,11 +89,14 @@ class WorkflowOrchestrator:
         logger.info(f"✓ Stage 1: Found {len(track_ids)} tracks in playlist")
 
         # Save checkpoint
-        self.checkpoint.save(stage_name, {
-            "playlist_name": self.playlist_name,
-            "track_ids": track_ids,
-            "track_count": len(track_ids),
-        })
+        self.checkpoint.save(
+            stage_name,
+            {
+                "playlist_name": self.playlist_name,
+                "track_ids": track_ids,
+                "track_count": len(track_ids),
+            },
+        )
 
         return track_ids
 
@@ -617,13 +622,15 @@ class WorkflowOrchestrator:
                 audio_path = self.tracks_dir / filename
 
                 track_paths.append(str(audio_path))
-                track_data.append({
-                    "track_id": track.track_id,
-                    "title": track.title,
-                    "duration_ms": track.duration_ms,
-                    "file_path": str(audio_path),
-                    "sort_index": item.sort_index,
-                })
+                track_data.append(
+                    {
+                        "track_id": track.track_id,
+                        "title": track.title,
+                        "duration_ms": track.duration_ms,
+                        "file_path": str(audio_path),
+                        "sort_index": item.sort_index,
+                    }
+                )
 
             # Export to M3U
             m3u_path = self.set_dir / f"{self.set_name}.m3u"
@@ -665,17 +672,17 @@ class WorkflowOrchestrator:
         import re
 
         # Remove special characters: / \ : * ? " < > |
-        safe = re.sub(r'[/\\:*?"<>|]', '', title)
+        safe = re.sub(r'[/\\:*?"<>|]', "", title)
         # Replace spaces with underscores
-        safe = safe.replace(' ', '_')
+        safe = safe.replace(" ", "_")
         # Replace multiple underscores with single
-        safe = re.sub(r'_+', '_', safe)
+        safe = re.sub(r"_+", "_", safe)
         # Lowercase
         safe = safe.lower()
         # Truncate to max_len
         safe = safe[:max_len]
         # Remove trailing underscores
-        safe = safe.rstrip('_')
+        safe = safe.rstrip("_")
         return safe or "untitled"
 
     async def run(self) -> None:
@@ -710,11 +717,8 @@ class WorkflowOrchestrator:
 
             # Stage 3: Download tracks
             download_stats = await self.stage_3_download_tracks(track_ids)
-            total_mb = download_stats['total_bytes'] / 1024 / 1024  # type: ignore[operator]
-            logger.info(
-                f"Downloaded {download_stats['downloaded']} tracks "
-                f"({total_mb:.1f} MB)"
-            )
+            total_mb = download_stats["total_bytes"] / 1024 / 1024  # type: ignore[operator]
+            logger.info(f"Downloaded {download_stats['downloaded']} tracks ({total_mb:.1f} MB)")
 
             # Stage 4: Quick analysis
             analysis_stats = await self.stage_4_quick_analysis(track_ids)
@@ -745,6 +749,7 @@ class WorkflowOrchestrator:
             logger.removeHandler(file_handler)
             file_handler.close()
 
+
 async def async_main() -> None:
     """Async CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -769,9 +774,11 @@ async def async_main() -> None:
     )
     await orchestrator.run()
 
+
 def main() -> None:
     """CLI entry point."""
     asyncio.run(async_main())
+
 
 if __name__ == "__main__":
     main()

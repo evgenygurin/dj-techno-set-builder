@@ -150,8 +150,12 @@ async def main() -> None:
         print(f"✗ Failed: {failed_count}")
 
         if imported_ids:
-            print(f"\nLocal track IDs: {imported_ids[:5]}..." if len(imported_ids) > 5 else f"\nLocal track IDs: {imported_ids}")
-            print(f"\nYou can now download MP3 files using:")
+            print(
+                f"\nLocal track IDs: {imported_ids[:5]}..."
+                if len(imported_ids) > 5
+                else f"\nLocal track IDs: {imported_ids}"
+            )
+            print("\nYou can now download MP3 files using:")
             print(f"  dj_download_tracks with track_ids={imported_ids}")
 
     await close_db()
