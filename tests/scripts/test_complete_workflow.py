@@ -1,4 +1,5 @@
 """Integration tests for complete workflow."""
+
 import pytest
 
 from scripts.complete_workflow import WorkflowOrchestrator

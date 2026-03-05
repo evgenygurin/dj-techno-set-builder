@@ -16,10 +16,10 @@ DC_PROD  := $(DC) -f compose.yaml -f compose.prod.yaml
 
 # ── Phony ────────────────────────────────────────────────────────────────────
 .PHONY: help install dev clean \
-        lint ruff ruff-fix format mypy check \
+        lint ruff ruff-fix fix format mypy check \
         test test-v test-k test-file coverage \
         run run-prod kill \
-        db db-upgrade db-downgrade db-revision db-history db-current db-reset \
+        db db-upgrade db-downgrade db-revision db-history db-current db-reset db-schema \
         docker-local docker-dev docker-prod docker-down docker-logs docker-ps docker-shell docker-test \
         mcp-dev mcp-inspect mcp-list mcp-call mcp-install-desktop mcp-install-code \
         all ci
@@ -43,7 +43,8 @@ help:
 	@echo "  ─────────────────────────────────────"
 	@echo "  lint           Все проверки (ruff check + format check + mypy)"
 	@echo "  ruff           Ruff check"
-	@echo "  ruff-fix       Ruff check --fix"
+	@echo "  ruff-fix       Ruff check --fix + ruff format"
+	@echo "  fix            То же что ruff-fix (алиас для удобства)"
 	@echo "  format         Ruff format (применить)"
 	@echo "  mypy           Проверка типов (strict)"
 	@echo "  check          lint + test (полная проверка)"
@@ -123,15 +124,26 @@ clean:
 # Проверка кода
 # ═════════════════════════════════════════════════════════════════════════════
 
-lint: ruff mypy
+lint:
+	@echo "Running ruff check..."
+	@$(UV) run ruff check $(APP) $(TESTS)
+	@echo "Running ruff format --check..."
 	@$(UV) run ruff format --check $(APP) $(TESTS)
+	@echo "Running mypy..."
+	@$(UV) run mypy $(APP)
+	@echo "✓ All lint checks passed"
 
 ruff:
 	$(UV) run ruff check $(APP) $(TESTS)
 
 ruff-fix:
-	$(UV) run ruff check --fix $(APP) $(TESTS)
-	$(UV) run ruff format $(APP) $(TESTS)
+	@echo "Running ruff check --fix..."
+	@$(UV) run ruff check --fix $(APP) $(TESTS)
+	@echo "Running ruff format..."
+	@$(UV) run ruff format $(APP) $(TESTS)
+	@echo "✓ Auto-fix complete"
+
+fix: ruff-fix
 
 format:
 	$(UV) run ruff format $(APP) $(TESTS)
