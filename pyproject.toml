@@ -120,3 +120,8 @@ testpaths = ["tests"]
 filterwarnings = ["error", "ignore::DeprecationWarning", "ignore::ResourceWarning"]
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
 addopts = "-m 'not slow'"
+
+# ── Bandit ────────────────────────────────────────────────────────────────────
+
+[tool.bandit]
+exclude_dirs = ["tests", "scripts", "migrations"]
