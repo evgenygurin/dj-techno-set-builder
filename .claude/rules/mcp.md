@@ -5,6 +5,8 @@ paths:
 
 # MCP Server (FastMCP 3.0)
 
+> **Official docs**: https://docs.anthropic.com/en/docs/claude-code/mcp — ИЗУЧИ перед правкой `.mcp.json` или добавлением MCP серверов.
+
 ## Structure
 
 ```text

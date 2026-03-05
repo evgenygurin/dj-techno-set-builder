@@ -14,8 +14,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **In-Memoria MCP server**: added to `.mcp.json` as project-level stdio server with `SURREAL_SYNC_DATA=true`
 - **Documentation rule**: mandatory CHANGELOG + docs update after every change (`.claude/rules/documentation.md`)
 
+### Changed
+
+- **Official Documentation**: добавлена таблица ссылок на docs.anthropic.com в `CLAUDE.md` с требованием изучения перед работой с подсистемами Claude Code
+- **Documentation meta-rules**: добавлена секция Official Documentation Requirement в `.claude/rules/documentation.md` со ссылками на Memory, Skills, Hooks, Settings, Plugins
+- **MCP rules**: добавлена ссылка на официальную MCP документацию в `.claude/rules/mcp.md`
+- **`.env.example`**: добавлен `DJ_DB_PATH` для sqlite-db MCP сервера
+
 ### Fixed
 
+- **sqlite-db MCP server (VSCode)**: `${VAR}` в `env` блоке `.mcp.json` не раскрывается в VSCode extension (known bug). Заменено на sourcing `.env` из `sh -c` команды: `. .env && npx ...`. Удалён мусорный файл `${DJ_DB_PATH}`.
 - **sqlite-db MCP server**: `${DJ_DB_PATH}` in `args` array was not expanded by npx (no shell). Wrapped in `sh -c` with explicit `env` block, matching the `in-memoria` pattern. Removed spurious empty `${DJ_DB_PATH}` file created by the literal path.
 - **ORM Schema Consistency** (BPM-1): Fixed 5 critical default value mismatches between SQLAlchemy models and SQL DDL
   - Added `server_default` for boolean fields: `dj_beatgrid.is_variable_tempo`, `is_canonical`

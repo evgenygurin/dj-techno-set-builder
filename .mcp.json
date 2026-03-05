@@ -8,11 +8,8 @@
       "command": "sh",
       "args": [
         "-c",
-        "npx -y mcp-server-sqlite-npx \"$DJ_DB_PATH\""
-      ],
-      "env": {
-        "DJ_DB_PATH": "${DJ_DB_PATH}"
-      }
+        ". /Users/laptop/dev/dj-techno-set-builder/.env && npx -y mcp-server-sqlite-npx \"$DJ_DB_PATH\""
+      ]
     },
     "in-memoria": {
       "command": "sh",

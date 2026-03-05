@@ -2,6 +2,21 @@
 
 Rules for maintaining the `.claude/rules/` documentation system.
 
+## Official Documentation Requirement
+
+**СТРОГО**: перед созданием/изменением rules, skills, hooks, settings — ИЗУЧИ официальную документацию:
+
+| Тема | Official URL |
+|------|-------------|
+| Memory & CLAUDE.md | https://docs.anthropic.com/en/docs/claude-code/memory |
+| Skills | https://docs.anthropic.com/en/docs/claude-code/skills |
+| Hooks | https://docs.anthropic.com/en/docs/claude-code/hooks |
+| Settings | https://docs.anthropic.com/en/docs/claude-code/settings |
+| Plugins | https://docs.anthropic.com/en/docs/claude-code/plugins |
+
+Offline-копии доступны через скилл `working-with-claude-code` (`references/*.md`).
+Не угадывай формат/структуру — сверяйся с docs.
+
 ## File hierarchy (load order)
 
 | Level | File | Loaded | Purpose |
@@ -157,7 +172,7 @@ After EVERY feature/fix/config change, BEFORE committing:
 
 ## Keeping CLAUDE.md minimal
 
-Root `CLAUDE.md` should stay under 80 lines. It contains:
+Root `CLAUDE.md` should stay under 130 lines. It contains:
 
 - Commands (install, test, lint, run, migrate, MCP CLI)
 - Makefile shortcuts
@@ -165,6 +180,8 @@ Root `CLAUDE.md` should stay under 80 lines. It contains:
 - DI pattern (1 line)
 - App factory (1 line)
 - Versioned routes (3 lines)
+- Official Documentation table (~15 lines)
+- Plugins & Settings table (~5 lines)
 - Lint & type rules (3 lines)
 
 Everything else goes in `.claude/rules/` files.

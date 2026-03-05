@@ -22,7 +22,7 @@ Workflow skills in `.claude/skills/` (read when working on that domain):
 
 - **Linear**: branches and PR titles must start with the Linear issue ID (e.g. `BPM-123: ...`). See `docs/linear.md`.
 - **Session handoff**: при передаче работы — commit, push, prompt для новой сессии. Протокол в `.claude/rules/documentation.md`.
-- **`.mcp.json`**: `${VAR}` в `args` НЕ раскрывается без shell — всегда `sh -c` обёртка. После правки — перезапуск сессии.
+- **`.mcp.json`**: `${VAR}` в `args` и `env` блоке НЕ раскрывается в VSCode extension — sourсить `.env` из `sh -c`. После правки — перезапуск сессии.
 
 ## Commands
 
@@ -94,6 +94,26 @@ External MCP servers (.mcp.json):
 | `.claude/settings.json` | Project (team) | Yes | Marketplaces, plugins |
 | `.claude/settings.local.json` | Personal | No | Env vars (`DJ_DB_PATH`), outputStyle, permissions |
 | `.mcp.json` | Project (team) | Yes | MCP servers (dj-techno, sqlite-db, in-memoria) |
+
+## Official Documentation (ОБЯЗАТЕЛЬНО к изучению)
+
+**СТРОГОЕ ТРЕБОВАНИЕ**: Перед работой с любой подсистемой Claude Code — ИЗУЧИ соответствующий раздел
+официальной документации. Используй скилл `working-with-claude-code` для доступа к offline-копиям.
+
+| Тема | URL | Когда изучать |
+|------|-----|---------------|
+| Settings & Config | https://docs.anthropic.com/en/docs/claude-code/settings | Перед правкой settings.json, env, permissions |
+| MCP Servers | https://docs.anthropic.com/en/docs/claude-code/mcp | Перед правкой .mcp.json, добавлением MCP |
+| Hooks | https://docs.anthropic.com/en/docs/claude-code/hooks | Перед созданием/правкой hooks |
+| Hooks Guide | https://docs.anthropic.com/en/docs/claude-code/hooks-guide | Примеры и best practices для hooks |
+| Plugins | https://docs.anthropic.com/en/docs/claude-code/plugins | Перед работой с плагинами |
+| Plugins Reference | https://docs.anthropic.com/en/docs/claude-code/plugins-reference | API, схемы, манифесты плагинов |
+| Skills | https://docs.anthropic.com/en/docs/claude-code/skills | Перед созданием/правкой .claude/skills/ |
+| Memory (CLAUDE.md) | https://docs.anthropic.com/en/docs/claude-code/memory | Перед правкой CLAUDE.md, rules/, imports |
+| Sub-agents | https://docs.anthropic.com/en/docs/claude-code/sub-agents | Перед использованием Agent tool |
+| CLI Reference | https://docs.anthropic.com/en/docs/claude-code/cli-reference | Команды claude CLI |
+| Output Styles | https://docs.anthropic.com/en/docs/claude-code/output-styles | Перед настройкой outputStyle |
+| Troubleshooting | https://docs.anthropic.com/en/docs/claude-code/troubleshooting | При проблемах с Claude Code |
 
 ## Lint & Type Rules
 
