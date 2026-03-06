@@ -4,7 +4,11 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import sentry_sdk
+try:
+    import sentry_sdk
+except ImportError:
+    sentry_sdk = None
+
 from fastapi import FastAPI
 
 from app.config import settings
@@ -18,6 +22,10 @@ def _init_sentry() -> None:
     MUST be called before importing FastMCP so that the OTEL TracerProvider
     is set up before FastMCP creates its tracer.
     """
+    if sentry_sdk is None:
+        logger.debug("Sentry SDK not installed, skipping init")
+        return
+
     if not settings.sentry_dsn:
         logger.debug("Sentry DSN not set, skipping init")
         return
