@@ -1,0 +1,14 @@
+name: Minimal Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/ci-startup-failure
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo test
+        run: echo "Workflow validation successful"
