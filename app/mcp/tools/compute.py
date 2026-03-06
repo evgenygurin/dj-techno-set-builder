@@ -65,18 +65,34 @@ def register_compute_tools(mcp: FastMCP) -> None:
 
         # Run analysis pipeline (imports are heavy — lazy load)
         try:
-            from app.utils.audio import load_audio
-            from app.utils.audio.pipeline import run_full_analysis
+            from app.utils.audio.pipeline import extract_all_features
 
-            audio_data = load_audio(file_path)
-            features = run_full_analysis(audio_data)
+            features = extract_all_features(file_path)
+
+            # Convert dataclass to dict (numpy arrays need special handling)
+            features_dict = {
+                "bpm": features.bpm.bpm,
+                "bpm_confidence": features.bpm.confidence,
+                "key": features.key.key,
+                "scale": features.key.scale,
+                "key_code": features.key.key_code,
+                "key_confidence": features.key.confidence,
+                "lufs_i": features.loudness.lufs_i,
+                "lufs_s_mean": features.loudness.lufs_s_mean,
+                "energy_sub": features.band_energy.sub,
+                "energy_low": features.band_energy.low,
+                "energy_mid": features.band_energy.mid,
+                "energy_high": features.band_energy.high,
+                "spectral_centroid": features.spectral.centroid_mean_hz,
+                "spectral_rolloff": features.spectral.rolloff_85_hz,
+            }
 
             # Return computed features as JSON (agent calls save_features to persist)
             return json.dumps(
                 {
                     "track_ref": track_ref,
                     "audio_path": file_path,
-                    "features": features.to_dict(),
+                    "features": features_dict,
                     "hint": "Call save_features(track_ref, features_json) to persist",
                 },
                 ensure_ascii=False,
