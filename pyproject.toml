@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-settings>=2.7",
     "alembic>=1.14",
     "typing_extensions>=4.13",
+    "rich>=13.0",
 ]
 
 [project.optional-dependencies]

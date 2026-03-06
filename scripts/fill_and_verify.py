@@ -31,6 +31,16 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
+from rich.table import Table
 from sqlalchemy import select, text
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -73,55 +83,15 @@ LRA_MAX = 25.0      # LU — loudness range too wide
 HP_RATIO_MAX = 8.0   # harmonic/percussive RMS ratio; unbounded (avg=2.2, >8 = extreme melodic)
 HNR_MIN = -30.0     # extremely noisy signal
 
-# ANSI colors
-C = "\033[0m"
-B = "\033[1m"
-D = "\033[2m"
-G = "\033[32m"
-R = "\033[31m"
-Y = "\033[33m"
-CY = "\033[36m"
-M = "\033[35m"
-BG_G = "\033[42;30m"
-BG_R = "\033[41;37m"
-BG_Y = "\033[43;30m"
+# Rich console (all output to stderr)
+console = Console(stderr=True)
 
 
 # ── Output helpers ───────────────────────────────────────────────────────────
 
 
-def out(msg: str = "") -> None:
-    sys.stderr.write(msg + "\n")
-    sys.stderr.flush()
-
-
 def phase_header(num: int, title: str) -> None:
-    out(f"\n{CY}{B}{'─' * 60}{C}")
-    out(f"{CY}{B}  Phase {num}: {title}{C}")
-    out(f"{CY}{'─' * 60}{C}")
-
-
-def progress_bar(current: int, total: int, width: int = 30, label: str = "") -> str:
-    """Render a dynamic progress bar string."""
-    if total == 0:
-        return ""
-    frac = current / total
-    filled = int(width * frac)
-    bar = f"{'█' * filled}{'░' * (width - filled)}"
-    pct = f"{frac * 100:5.1f}%"
-    return f"  {bar} {pct}  {current}/{total}  {label}"
-
-
-def progress_write(text: str) -> None:
-    """Overwrite current line (carriage return, no newline)."""
-    sys.stderr.write(f"\r\033[K{text}")
-    sys.stderr.flush()
-
-
-def progress_finish(text: str) -> None:
-    """Finish progress line and move to next line."""
-    sys.stderr.write(f"\r\033[K{text}\n")
-    sys.stderr.flush()
+    console.print(Panel(f"Phase {num}: {title}", style="bold cyan", expand=True))
 
 
 def sanitize(title: str, max_len: int = 50) -> str:
@@ -164,7 +134,7 @@ class YmApi:
             resp = await c.get(url, headers={"Authorization": f"OAuth {self.token}"})
             if resp.status_code == 429:
                 wait = 2 ** (attempt + 1)
-                out(f"  {Y}429 -> backoff {wait}s{C}")
+                console.print(f"  [yellow]429 -> backoff {wait}s[/]")
                 await asyncio.sleep(wait)
                 continue
             resp.raise_for_status()
@@ -178,7 +148,7 @@ class YmApi:
             resp = await c.post(url, headers={"Authorization": f"OAuth {self.token}"}, data=data)
             if resp.status_code == 429:
                 wait = 2 ** (attempt + 1)
-                out(f"  {Y}429 -> backoff {wait}s{C}")
+                console.print(f"  [yellow]429 -> backoff {wait}s[/]")
                 await asyncio.sleep(wait)
                 continue
             resp.raise_for_status()
@@ -402,14 +372,15 @@ async def get_or_create_deleted_playlist(
 
     # List user playlists and look for existing
     data = await api.get(f"{YM_BASE}/users/{USER_ID}/playlists/list")
-    playlists = data.get("result", data) if isinstance(data.get("result"), list) else data.get("result", [])
+    result = data.get("result", data)
+    playlists = result if isinstance(result, list) else data.get("result", [])
     if isinstance(playlists, dict):
         playlists = playlists.get("playlists", playlists.get("result", []))
 
     for pl in playlists:
         if pl.get("title", "") == deleted_name:
             kind = str(pl["kind"])
-            out(f"  {D}Found '{deleted_name}' playlist: kind={kind}{C}")
+            console.print(f"  [dim]Found '{deleted_name}' playlist: kind={kind}[/]")
             return kind
 
     # Create new playlist
@@ -419,7 +390,7 @@ async def get_or_create_deleted_playlist(
     )
     result = data.get("result", data)
     kind = str(result["kind"])
-    out(f"  {G}Created '{deleted_name}' playlist: kind={kind}{C}")
+    console.print(f"  [green]Created '{deleted_name}' playlist: kind={kind}[/]")
     return kind
 
 
@@ -435,15 +406,18 @@ async def add_to_deleted_playlist(
     # Skip tracks already in deleted playlist
     to_add = [c for c in candidates if c.ym_id not in existing_ids]
     if not to_add:
-        out(f"  {D}All failed tracks already in deleted playlist{C}")
+        console.print("  [dim]All failed tracks already in deleted playlist[/]")
         return
 
     add_tracks = [{"id": c.ym_id, "albumId": c.album_id} for c in to_add]
     try:
         new_rev = await add_to_playlist(api, deleted_kind, revision, add_tracks)
-        out(f"  {Y}Moved {len(to_add)} failed tracks to deleted playlist (rev={new_rev}){C}")
+        console.print(
+            f"  [yellow]Moved {len(to_add)} failed tracks to deleted playlist "
+            f"(rev={new_rev})[/]"
+        )
     except httpx.HTTPStatusError as e:
-        out(f"  {R}Failed to add to deleted playlist: {e}{C}")
+        console.print(f"  [red]Failed to add to deleted playlist: {e}[/]")
 
 
 async def get_disliked_ids(api: YmApi) -> set[str]:
@@ -455,7 +429,7 @@ async def get_disliked_ids(api: YmApi) -> set[str]:
         tracks = lib.get("tracks", [])
         return {str(t.get("id", "")) for t in tracks if t.get("id")}
     except Exception as e:
-        out(f"  {D}Could not fetch dislikes: {e}{C}")
+        console.print(f"  [dim]Could not fetch dislikes: {e}[/]")
         return set()
 
 
@@ -473,7 +447,7 @@ async def remove_disliked_from_playlist(
     if not to_remove:
         return 0
 
-    out(f"  {Y}Found {len(to_remove)} disliked tracks in playlist{C}")
+    console.print(f"  [yellow]Found {len(to_remove)} disliked tracks in playlist[/]")
 
     # Move to deleted playlist first
     candidates_for_deleted: list[Candidate] = []
@@ -488,14 +462,14 @@ async def remove_disliked_from_playlist(
     for idx, tid in reversed(to_remove):
         try:
             revision = await delete_from_playlist(api, kind, revision, idx)
-            out(f"  {R}-{C} Removed disliked track {tid} (idx={idx})")
+            console.print(f"  [red]-[/] Removed disliked track {tid} (idx={idx})")
         except httpx.HTTPStatusError:
             # Re-fetch after failure (indices may have shifted)
             revision, _, playlist_ids = await fetch_playlist(api, kind)
             for j, pid in enumerate(playlist_ids):
                 if pid == tid:
                     revision = await delete_from_playlist(api, kind, revision, j)
-                    out(f"  {R}-{C} Removed disliked track {tid} (re-indexed)")
+                    console.print(f"  [red]-[/] Removed disliked track {tid} (re-indexed)")
                     break
 
     return len(to_remove)
@@ -531,9 +505,8 @@ async def audit_playlist_tracks(
 
     # Check features for each track
     fail_indices: list[tuple[int, str]] = []  # (index, ym_id)
-    audit_total = len(to_check)
-    for audit_i, (idx, ym_id, track_id) in enumerate(to_check, 1):
-        progress_write(progress_bar(audit_i, audit_total, label=f"🔍 #{track_id}"))
+
+    for idx, ym_id, track_id in to_check:
         async with session_factory() as session:
             row = await session.execute(
                 select(TrackAudioFeaturesComputed).where(
@@ -556,10 +529,10 @@ async def audit_playlist_tracks(
                 # Check iCloud stub
                 st = Path(file_path).stat()
                 if hasattr(st, "st_blocks") and st.st_blocks * 512 < st.st_size * 0.9:
-                    out(f"  {D}skip audit {ym_id}: iCloud stub{C}")
+                    console.print(f"  [dim]skip audit {ym_id}: iCloud stub[/]")
                     continue
 
-                out(f"  {D}Analyzing unverified track #{track_id}...{C}")
+                console.print(f"  [dim]Analyzing unverified track #{track_id}...[/]")
                 try:
                     from app.utils.audio.pipeline import extract_all_features
                     loop = asyncio.get_event_loop()
@@ -582,7 +555,7 @@ async def audit_playlist_tracks(
 
                     reasons = check_audio(feats)
                 except Exception as e:
-                    out(f"  {R}audit analysis error #{track_id}: {e!s:.60}{C}")
+                    console.print(f"  [red]audit analysis error #{track_id}: {e!s:.60}[/]")
                     continue
             else:
                 continue  # no file, skip
@@ -591,15 +564,9 @@ async def audit_playlist_tracks(
 
         if reasons:
             fail_indices.append((idx, ym_id))
-            progress_finish(progress_bar(
-                audit_i, audit_total,
-                label=f"{R}FAIL{C} #{track_id}: {', '.join(reasons)}",
-            ))
+            console.print(f"  [red]FAIL[/] #{track_id}: {', '.join(reasons)}")
         else:
-            progress_finish(progress_bar(
-                audit_i, audit_total,
-                label=f"{G}OK{C} #{track_id}",
-            ))
+            console.print(f"  [green]OK[/] #{track_id}")
 
     if not fail_indices:
         return 0
@@ -618,14 +585,14 @@ async def audit_playlist_tracks(
         try:
             revision = await delete_from_playlist(api, kind, revision, idx)
             removed += 1
-            out(f"  {R}-{C} Removed audit-failed track {ym_id}")
+            console.print(f"  [red]-[/] Removed audit-failed track {ym_id}")
         except httpx.HTTPStatusError:
             revision, _, current_ids = await fetch_playlist(api, kind)
             for j, pid in enumerate(current_ids):
                 if pid == ym_id:
                     revision = await delete_from_playlist(api, kind, revision, j)
                     removed += 1
-                    out(f"  {R}-{C} Removed audit-failed track {ym_id} (re-indexed)")
+                    console.print(f"  [red]-[/] Removed audit-failed track {ym_id} (re-indexed)")
                     break
 
     return removed
@@ -649,16 +616,16 @@ async def get_similar_candidates(api: YmApi, seed_id: str,
 
         dur = tr.get("durationMs", 0)
         if dur < MIN_DURATION_MS:
-            out(f"  {D}skip {track_label(tr)} [short {dur // 1000}s]{C}")
+            console.print(f"  [dim]skip {track_label(tr)} [short {dur // 1000}s][/]")
             continue
 
         if not is_techno(tr):
-            out(f"  {D}skip {track_label(tr)} [not techno]{C}")
+            console.print(f"  [dim]skip {track_label(tr)} [not techno][/]")
             continue
 
         bad = has_bad_version(tr)
         if bad:
-            out(f"  {D}skip {track_label(tr)} [{bad}]{C}")
+            console.print(f"  [dim]skip {track_label(tr)} [{bad}][/]")
             continue
 
         albums = tr.get("albums", [])
@@ -760,7 +727,10 @@ async def download_candidate(candidate: Candidate, ym_client: YandexMusicClient)
                     candidate.ym_id, str(dest), prefer_bitrate=320
                 )
             except Exception as e:
-                out(f"  {R}download fail: {candidate.artists} -- {candidate.title}: {e!s:.60}{C}")
+                console.print(
+                    f"  [red]download fail: {candidate.artists} -- "
+                    f"{candidate.title}: {e!s:.60}[/]"
+                )
                 return False
         else:
             file_size = dest.stat().st_size
@@ -816,7 +786,7 @@ async def analyze_candidate(candidate: Candidate, sem: asyncio.Semaphore) -> boo
         try:
             feats = await loop.run_in_executor(None, _extract_sync, str(candidate.file_path))
         except Exception as e:
-            out(f"  {R}analysis fail: {candidate.title}: {e!s:.60}{C}")
+            console.print(f"  [red]analysis fail: {candidate.title}: {e!s:.60}[/]")
             candidate.audio_ok = False
             candidate.fail_reasons = [f"analysis error: {e!s:.40}"]
             return False
@@ -851,7 +821,9 @@ async def main() -> None:
     parser.add_argument("--target", type=int, default=0, help="Target track count (0 = unlimited)")
     parser.add_argument("--batch", type=int, default=5, help="Candidates per seed")
     parser.add_argument("--workers", type=int, default=4, help="Parallel analysis workers")
-    parser.add_argument("--max-rounds", type=int, default=0, help="Max seed rounds (0 = unlimited)")
+    parser.add_argument(
+        "--max-rounds", type=int, default=0, help="Max seed rounds (0 = unlimited)"
+    )
     args = parser.parse_args()
 
     if not settings.yandex_music_token:
@@ -861,10 +833,9 @@ async def main() -> None:
     LIBRARY_PATH.mkdir(parents=True, exist_ok=True)
 
     # Lower process priority
-    try:
+    import contextlib
+    with contextlib.suppress(OSError):
         os.nice(10)
-    except OSError:
-        pass
 
     api = YmApi(settings.yandex_music_token)
     ym_client = YandexMusicClient(token=settings.yandex_music_token)
@@ -874,11 +845,15 @@ async def main() -> None:
     total_added = 0
     total_rejected = 0
 
-    out(f"{B}{'=' * 60}{C}")
-    out(f"{B}  Fill & Verify Pipeline{C}")
     target_str = str(args.target) if args.target else "∞"
-    out(f"{B}  Playlist: {USER_ID}/{args.kind}  Target: {target_str}  Workers: {args.workers}{C}")
-    out(f"{B}{'=' * 60}{C}")
+    console.print(Panel.fit(
+        f"[bold]Fill & Verify Pipeline[/]\n"
+        f"Playlist: {USER_ID}/{args.kind}  Target: {target_str}  Workers: {args.workers}",
+        title="🎧 DJ Techno",
+        border_style="bold blue",
+    ))
+
+    start_time = time.monotonic()
 
     # Get source playlist name and find/create deleted playlist
     pl_data = await api.get(f"{YM_BASE}/users/{USER_ID}/playlists/{args.kind}")
@@ -890,17 +865,20 @@ async def main() -> None:
     disliked_ids = await get_disliked_ids(api)
     if disliked_ids:
         seen_ids.update(disliked_ids)
-        out(f"  {D}Loaded {len(disliked_ids)} disliked tracks into blocklist{C}")
+        console.print(f"  [dim]Loaded {len(disliked_ids)} disliked tracks into blocklist[/]")
 
     shutdown = False
 
     def _handle_sigint(*_: object) -> None:
         nonlocal shutdown
         if shutdown:
-            out(f"\n  {R}{B}Force quit{C}")
+            console.print("\n  [bold red]Force quit[/]")
             raise SystemExit(1)
         shutdown = True
-        out(f"\n  {Y}{B}Shutting down after current round... (Ctrl+C again to force){C}")
+        console.print(
+            "\n  [bold yellow]Shutting down after current round... "
+            "(Ctrl+C again to force)[/]"
+        )
 
     import signal
     signal.signal(signal.SIGINT, _handle_sigint)
@@ -910,7 +888,7 @@ async def main() -> None:
         while not shutdown:
             round_num += 1
             if args.max_rounds and round_num > args.max_rounds:
-                out(f"\n  {Y}Max rounds ({args.max_rounds}) reached{C}")
+                console.print(f"\n  [yellow]Max rounds ({args.max_rounds}) reached[/]")
                 break
             # ── Fetch current state ──────────────────────────────────────
             revision, track_count, playlist_ids = await fetch_playlist(api, args.kind)
@@ -930,15 +908,20 @@ async def main() -> None:
                 if audit_removed:
                     revision, track_count, playlist_ids = await fetch_playlist(api, args.kind)
                     total_rejected += audit_removed
-                    out(f"  {Y}Audit removed {audit_removed} tracks{C}")
+                    console.print(f"  [yellow]Audit removed {audit_removed} tracks[/]")
 
-            out(f"\n{CY}{B}{'=' * 60}{C}")
-            out(f"{CY}{B}  Round {round_num}  |  {track_count}/{target_str} tracks  |  "
-                f"rev={revision}  |  +{total_added} -{total_rejected}{C}")
-            out(f"{CY}{'=' * 60}{C}")
+            # Round header
+            table = Table.grid(padding=(0, 2))
+            table.add_row(
+                f"Round {round_num}",
+                f"{track_count}/{target_str} tracks",
+                f"rev={revision}",
+                f"+{total_added} -{total_rejected}",
+            )
+            console.print(Panel(table, style="bold cyan", expand=True))
 
             if args.target and track_count >= args.target:
-                out(f"\n  {G}{B}Target reached! {track_count} tracks{C}")
+                console.print(f"\n  [bold green]Target reached! {track_count} tracks[/]")
                 break
 
             # ── Pick seed ────────────────────────────────────────────────
@@ -949,15 +932,15 @@ async def main() -> None:
             seed_id = random.choice(available_seeds)
             seed_used.add(seed_id)
 
-            out(f"\n  {D}Seed: {seed_id}{C}")
+            console.print(f"\n  [dim]Seed: {seed_id}[/]")
 
             # ── Phase 1: Get similar + metadata pre-filter ───────────────
             phase_header(1, "Similar tracks + metadata filter")
             candidates = await get_similar_candidates(api, seed_id, seen_ids, args.batch)
-            out(f"  {CY}Candidates after metadata filter: {len(candidates)}{C}")
+            console.print(f"  [cyan]Candidates after metadata filter: {len(candidates)}[/]")
 
             if not candidates:
-                out(f"  {Y}No candidates, next seed...{C}")
+                console.print("  [yellow]No candidates, next seed...[/]")
                 continue
 
             # ── Phase 2: Import to DB ────────────────────────────────────
@@ -965,9 +948,9 @@ async def main() -> None:
             for cand in candidates:
                 await import_candidate(cand)
                 if cand.track_id:
-                    out(f"  {G}+{C} #{cand.track_id} {cand.artists} -- {cand.title}")
+                    console.print(f"  [green]+[/] #{cand.track_id} {cand.artists} -- {cand.title}")
                 else:
-                    out(f"  {R}!{C} Failed to import: {cand.artists} -- {cand.title}")
+                    console.print(f"  [red]![/] Failed to import: {cand.artists} -- {cand.title}")
 
             candidates = [c for c in candidates if c.track_id > 0]
 
@@ -975,17 +958,28 @@ async def main() -> None:
             phase_header(3, "Download MP3 files")
             download_ok: list[Candidate] = []
             dl_total = len(candidates)
-            for dl_i, cand in enumerate(candidates, 1):
-                label = f"{D}{cand.artists} -- {cand.title}{C}"
-                progress_write(progress_bar(dl_i - 1, dl_total, label=f"⬇ {label}"))
-                ok = await download_candidate(cand, ym_client)
-                if ok:
-                    download_ok.append(cand)
-                    sz = cand.file_path.stat().st_size // 1024 if cand.file_path else 0
-                    progress_finish(progress_bar(dl_i, dl_total, label=f"{G}+{C} {sz}KB {cand.title}"))
-                else:
-                    progress_finish(progress_bar(dl_i, dl_total, label=f"{R}!{C} {cand.title}"))
-                await asyncio.sleep(REQUEST_DELAY)
+
+            with Progress(
+                SpinnerColumn(),
+                BarColumn(),
+                "[progress.percentage]{task.percentage:>3.0f}%",
+                TextColumn("[bold]{task.description}"),
+                TimeElapsedColumn(),
+                console=console,
+            ) as progress:
+                task = progress.add_task("Downloading...", total=dl_total)
+                for cand in candidates:
+                    desc = f"⬇ {cand.title[:40]}"
+                    progress.update(task, description=desc)
+                    ok = await download_candidate(cand, ym_client)
+                    progress.advance(task)
+                    if ok:
+                        download_ok.append(cand)
+                        sz = cand.file_path.stat().st_size // 1024 if cand.file_path else 0
+                        console.print(f"  [green]✓[/] {sz}KB {cand.title}")
+                    else:
+                        console.print(f"  [red]✗[/] {cand.title}")
+                    await asyncio.sleep(REQUEST_DELAY)
 
             # ── Phase 4: Audio analysis (parallel, streaming output) ────
             phase_header(4, f"Audio analysis ({args.workers} workers)")
@@ -994,53 +988,69 @@ async def main() -> None:
             an_total = len(download_ok)
             an_done = 0
 
-            async def _analyze_and_report(cand: Candidate) -> None:
-                nonlocal total_rejected, an_done
-                progress_write(progress_bar(an_done, an_total, label=f"♫ {D}{cand.title}{C}"))
-                await analyze_candidate(cand, sem)
-                an_done += 1
-                if cand.audio_ok:
-                    bpm_s = "?"
-                    lufs_s = "?"
-                    mood_str = ""
-                    async with session_factory() as session:
-                        row = await session.execute(
-                            select(TrackAudioFeaturesComputed).where(
-                                TrackAudioFeaturesComputed.track_id == cand.track_id
-                            )
-                        )
-                        feat = row.scalars().first()
-                        if feat:
-                            bpm_s = f"{feat.bpm:.0f}"
-                            lufs_s = f"{feat.lufs_i:.1f}"
-                            try:
-                                from app.utils.audio.mood_classifier import classify_track
-                                mc = classify_track(
-                                    bpm=feat.bpm,
-                                    lufs_i=feat.lufs_i,
-                                    kick_prominence=feat.kick_prominence or 0.5,
-                                    spectral_centroid_mean=feat.centroid_mean_hz or 2000,
-                                    onset_rate=feat.onset_rate_mean or 4.0,
-                                    hp_ratio=feat.hp_ratio or 0.5,
-                                )
-                                mood_str = f" [{mc.mood.value}]"
-                            except Exception:
-                                pass
-                    passed.append(cand)
-                    progress_finish(progress_bar(
-                        an_done, an_total,
-                        label=f"{G}PASS{C} {cand.title} {D}BPM={bpm_s} LUFS={lufs_s}{mood_str}{C}",
-                    ))
-                else:
-                    failed.append(cand)
-                    progress_finish(progress_bar(
-                        an_done, an_total,
-                        label=f"{R}FAIL{C} {cand.title} {D}{', '.join(cand.fail_reasons)}{C}",
-                    ))
-                    total_rejected += 1
+            # Use Progress context for display
+            with Progress(
+                SpinnerColumn(),
+                BarColumn(),
+                "[progress.percentage]{task.percentage:>3.0f}%",
+                TextColumn("[bold]{task.description}"),
+                TimeElapsedColumn(),
+                console=console,
+            ) as progress:
+                analysis_task = progress.add_task("Analyzing...", total=an_total)
 
-            tasks = [_analyze_and_report(cand) for cand in download_ok]
-            await asyncio.gather(*tasks)
+                async def _analyze_and_report(
+                    cand: Candidate,
+                    task: int = analysis_task,
+                    passed_list: list[Candidate] = passed,
+                    failed_list: list[Candidate] = failed,
+                ) -> None:
+                    nonlocal total_rejected, an_done
+                    await analyze_candidate(cand, sem)
+                    an_done += 1
+                    progress.advance(task)
+                    if cand.audio_ok:
+                        bpm_s = "?"
+                        lufs_s = "?"
+                        mood_str = ""
+                        async with session_factory() as session:
+                            row = await session.execute(
+                                select(TrackAudioFeaturesComputed).where(
+                                    TrackAudioFeaturesComputed.track_id == cand.track_id
+                                )
+                            )
+                            feat = row.scalars().first()
+                            if feat:
+                                bpm_s = f"{feat.bpm:.0f}"
+                                lufs_s = f"{feat.lufs_i:.1f}"
+                                try:
+                                    from app.utils.audio.mood_classifier import classify_track
+                                    mc = classify_track(
+                                        bpm=feat.bpm,
+                                        lufs_i=feat.lufs_i,
+                                        kick_prominence=feat.kick_prominence or 0.5,
+                                        spectral_centroid_mean=feat.centroid_mean_hz or 2000,
+                                        onset_rate=feat.onset_rate_mean or 4.0,
+                                        hp_ratio=feat.hp_ratio or 0.5,
+                                    )
+                                    mood_str = f" [{mc.mood.value}]"
+                                except Exception:
+                                    pass
+                        passed_list.append(cand)
+                        progress.console.print(
+                            f"  [green]PASS[/] {cand.title} "
+                            f"[dim]BPM={bpm_s} LUFS={lufs_s}{mood_str}[/]"
+                        )
+                    else:
+                        failed_list.append(cand)
+                        progress.console.print(
+                            f"  [red]FAIL[/] {cand.title} "
+                            f"[dim]{', '.join(cand.fail_reasons)}[/]"
+                        )
+                        total_rejected += 1
+
+                tasks = [_analyze_and_report(cand) for cand in download_ok]
+                await asyncio.gather(*tasks)
 
             # ── Phase 4b: Move failed to deleted playlist ──────────────
             if failed:
@@ -1058,24 +1068,41 @@ async def main() -> None:
                 try:
                     revision = await add_to_playlist(api, args.kind, revision, add_tracks)
                     total_added += len(batch_to_add)
-                    out(f"  {G}{B}Added {len(batch_to_add)} tracks! rev={revision}{C}")
+                    console.print(
+                        f"  [bold green]Added {len(batch_to_add)} tracks! "
+                        f"rev={revision}[/]"
+                    )
                     for c in batch_to_add:
-                        out(f"  {G}+{C} {c.artists} -- {c.title}")
+                        console.print(f"  [green]+[/] {c.artists} -- {c.title}")
                 except httpx.HTTPStatusError as e:
-                    out(f"  {R}Failed to add: {e}{C}")
+                    console.print(f"  [red]Failed to add: {e}[/]")
             else:
-                out(f"\n  {Y}No tracks passed verification this round{C}")
+                console.print("\n  [yellow]No tracks passed verification this round[/]")
 
         # ── Final summary ────────────────────────────────────────────────
+        elapsed = time.monotonic() - start_time
+        elapsed_str = f"{int(elapsed // 60)}m {int(elapsed % 60)}s"
+
         try:
             revision, track_count, _ = await fetch_playlist(api, args.kind)
         except Exception:
             track_count = "?"
             revision = "?"
-        out(f"\n{B}{'=' * 60}{C}")
-        out(f"{G}{B}  DONE: {track_count}/{target_str} tracks  |  rev={revision}{C}")
-        out(f"{G}{B}  Added: {total_added}  |  Rejected: {total_rejected}  |  Rounds: {round_num}{C}")
-        out(f"{B}{'=' * 60}{C}")
+
+        summary_table = Table.grid(padding=(0, 2))
+        summary_table.add_row("[bold]Tracks:[/]", f"{track_count}/{target_str}")
+        summary_table.add_row("[bold]Revision:[/]", str(revision))
+        summary_table.add_row("[bold]Added:[/]", f"[green]{total_added}[/]")
+        summary_table.add_row("[bold]Rejected:[/]", f"[red]{total_rejected}[/]")
+        summary_table.add_row("[bold]Rounds:[/]", str(round_num))
+        summary_table.add_row("[bold]Duration:[/]", elapsed_str)
+
+        console.print(Panel(
+            summary_table,
+            title="✓ DONE",
+            border_style="bold green",
+            expand=True,
+        ))
 
     finally:
         await api.close()
