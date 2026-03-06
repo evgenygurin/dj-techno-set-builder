@@ -13,14 +13,15 @@ dependencies = [
     "pydantic-settings>=2.7",
     "alembic>=1.14",
     "typing_extensions>=4.13",
+    # Core audio dependencies - required by _types.py and core modules
+    "numpy>=1.26",
+    "scipy>=1.12",
+    "soundfile>=0.13",
 ]
 
 [project.optional-dependencies]
 audio = [
     "essentia>=2.1b6.dev1389",
-    "soundfile>=0.13",
-    "scipy>=1.12",
-    "numpy>=1.26",
     "librosa>=0.10",
 ]
 ml = [
@@ -81,7 +82,7 @@ module = ["aiosqlite.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["essentia.*", "soundfile.*", "scipy.*", "numpy", "numpy.*"]
+module = ["essentia.*", "soundfile.*", "scipy.*", "numpy", "numpy.*", "librosa", "librosa.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -144,6 +145,14 @@ disable_error_code = ["attr-defined"]
 [[tool.mypy.overrides]]
 module = ["app.mcp.tools.set"]
 disable_error_code = ["arg-type"]
+
+[[tool.mypy.overrides]]
+module = ["app.mcp.tools.download"]
+disable_error_code = ["assignment"]
+
+[[tool.mypy.overrides]]
+module = ["app.utils.audio.mfcc"]
+ignore_missing_imports = true
 
 # ── Pytest ────────────────────────────────────────────────────────────────────
 

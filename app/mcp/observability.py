@@ -11,7 +11,6 @@ import logging
 from typing import TYPE_CHECKING
 
 import httpx
-import sentry_sdk
 from fastmcp.server.middleware.error_handling import (
     ErrorHandlingMiddleware,
     RetryMiddleware,
@@ -34,7 +33,13 @@ def _sentry_error_callback(
     context: MiddlewareContext,
 ) -> None:
     """Forward unhandled MCP errors to Sentry."""
-    sentry_sdk.capture_exception(error)
+    try:
+        import sentry_sdk
+
+        sentry_sdk.capture_exception(error)
+    except ImportError:
+        logger.warning("sentry_sdk not available, skipping error capture")
+
     logger.error(
         "MCP tool error captured by Sentry",
         extra={

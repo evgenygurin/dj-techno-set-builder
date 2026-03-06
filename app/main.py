@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-import logging
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+# Apply Python 3.13 compatibility patches BEFORE any other imports
+from app._compat import apply_python313_compatibility
 
-import sentry_sdk
-from fastapi import FastAPI
+apply_python313_compatibility()
 
-from app.config import settings
+import logging  # noqa: E402
+from collections.abc import AsyncIterator  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
+
+from fastapi import FastAPI  # noqa: E402
+
+from app.config import settings  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +26,13 @@ def _init_sentry() -> None:
         logger.debug("Sentry DSN not set, skipping init")
         return
 
-    from sentry_sdk.integrations import Integration
-    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations import Integration
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+    except ImportError:
+        logger.warning("sentry_sdk not available, skipping Sentry initialization")
+        return
 
     integrations: list[Integration] = [FastApiIntegration()]
 
