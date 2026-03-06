@@ -19,10 +19,7 @@ class TestComputeEnergyArcAdherence:
         template = get_template(TemplateName.CLASSIC_60)
         n = len(template.slots)
         # Sample the template at exact track positions (not slot positions)
-        lufs_values = [
-            svc._interpolate_template_energy(template, i / (n - 1))
-            for i in range(n)
-        ]
+        lufs_values = [svc._interpolate_template_energy(template, i / (n - 1)) for i in range(n)]
         score = svc.compute_energy_arc_adherence(lufs_values, "classic_60")
         assert score >= 0.99, f"Perfect interpolated match should score >= 0.99, got {score}"
 
@@ -32,10 +29,7 @@ class TestComputeEnergyArcAdherence:
         n = len(template.slots)
 
         # Good match: sampled from template
-        good_lufs = [
-            svc._interpolate_template_energy(template, i / (n - 1))
-            for i in range(n)
-        ]
+        good_lufs = [svc._interpolate_template_energy(template, i / (n - 1)) for i in range(n)]
         good_score = svc.compute_energy_arc_adherence(good_lufs, "classic_60")
 
         # Flat: constant energy, no arc
@@ -154,8 +148,7 @@ class TestComputeEnergyArcAdherenceWithGaps:
         template = get_template(TemplateName.CLASSIC_60)
         n = len(template.slots)
         lufs_values: list[float | None] = [
-            svc._interpolate_template_energy(template, i / (n - 1))
-            for i in range(n)
+            svc._interpolate_template_energy(template, i / (n - 1)) for i in range(n)
         ]
         base_score = svc.compute_energy_arc_adherence(
             [v for v in lufs_values if v is not None], "classic_60"
@@ -173,15 +166,12 @@ class TestComputeEnergyArcAdherenceWithGaps:
         template = get_template(TemplateName.CLASSIC_60)
         n = 10
         lufs_values: list[float | None] = [
-            svc._interpolate_template_energy(template, i / (n - 1))
-            for i in range(n)
+            svc._interpolate_template_energy(template, i / (n - 1)) for i in range(n)
         ]
         all_valid_score = svc.compute_energy_arc_adherence_with_gaps(lufs_values, "classic_60")
 
         # Replace half the values with None
-        mixed: list[float | None] = [
-            None if i % 2 == 0 else lufs_values[i] for i in range(n)
-        ]
+        mixed: list[float | None] = [None if i % 2 == 0 else lufs_values[i] for i in range(n)]
         mixed_score = svc.compute_energy_arc_adherence_with_gaps(mixed, "classic_60")
 
         assert mixed_score < all_valid_score, (
@@ -194,8 +184,7 @@ class TestComputeEnergyArcAdherenceWithGaps:
         template = get_template(TemplateName.CLASSIC_60)
         n = 10
         lufs_values: list[float | None] = [
-            svc._interpolate_template_energy(template, i / (n - 1))
-            for i in range(n)
+            svc._interpolate_template_energy(template, i / (n - 1)) for i in range(n)
         ]
         all_valid_score = svc.compute_energy_arc_adherence_with_gaps(lufs_values, "classic_60")
 

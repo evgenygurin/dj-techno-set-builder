@@ -188,8 +188,9 @@ def test_nn_anchored_spread_no_consecutive_pinned():
     tracks = _make_tracks(20)
     matrix = _make_matrix(tracks)
 
-    pinned_ids = frozenset([tracks[0].track_id, tracks[5].track_id,
-                            tracks[10].track_id, tracks[15].track_id])
+    pinned_ids = frozenset(
+        [tracks[0].track_id, tracks[5].track_id, tracks[10].track_id, tracks[15].track_id]
+    )
     pinned_indices = {0, 5, 10, 15}
 
     config = GAConfig(population_size=20, generations=0, seed=42)
