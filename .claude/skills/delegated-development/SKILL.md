@@ -194,3 +194,36 @@ Diff OK + tests pass?
 4. **Linear ID** — включай BPM-xxx для автоматического трекинга
 5. **Scope control** — "Do NOT modify files outside [scope]" в каждом промпте
 6. **Branch control** — всегда "Create branch X from Y" + "Create PR to Y"
+
+---
+
+## Richness Rule: промпт ДОЛЖЕН содержать полный контекст
+
+**Codegen agents НЕ имеют доступа к вашей сессии.** Они видят ТОЛЬКО клонированный репозиторий + ваш промпт.
+
+### ОБЯЗАТЕЛЬНО включать в промпт
+
+| Элемент | Почему | Пример |
+|---------|--------|--------|
+| **Ветка** (from + to) | Агент создаёт PR не туда | `Create branch X from chore/..., PR to chore/...` |
+| **Текущий код** (ключевые фрагменты) | Агент не знает что уже написано | Вставить 20-50 строк текущих хелперов/паттернов |
+| **Паттерны вывода** | Агент изобретёт свои | Показать текущий формат: `progress_bar()`, `phase_header()` |
+| **Бизнес-логика** (что НЕ трогать) | Агент сломает логику | `Do NOT modify: check_audio, analyze_candidate, ...` |
+| **Acceptance criteria** (конкретные) | Агент не знает definition of done | `[ ] No ANSI codes remain`, `[ ] ruff check passes` |
+| **Архитектура** (фазы, потоки) | Агент не видит runtime | `Phase 1->2->3->4->4b->5, parallel in Phase 4` |
+
+### Минимальная длина промпта
+
+- Задача 1 файл, <100 строк изменений: >= 200 слов
+- Задача 1-3 файла: >= 500 слов
+- Задача >3 файлов: декомпозируй на subtasks
+
+### Антипаттерн (из реального опыта)
+
+```text
+# ПЛОХО — агент получает 30% нужного контекста, промпт ~30 слов
+"Improve terminal UI of scripts/fill_and_verify.py using rich library"
+
+# ХОРОШО — агент получает 100% контекста, промпт ~800 слов
+## Task + ## Branch + ## Current code + ## Architecture + ## Requirements + ## Constraints
+```

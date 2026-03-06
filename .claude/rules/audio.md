@@ -44,6 +44,14 @@ paths:
 
 **Pipeline** wraps unexpected errors in `AudioAnalysisError`, letting known errors (`AudioValidationError`, `FileNotFoundError`) bubble up unchanged.
 
+### Phase 2 optional modules (beats, mfcc)
+
+`beats` and `mfcc` in `pipeline.py` are wrapped in `try/except ImportError` — graceful failure:
+- If essentia/scipy not installed → `beats = None`, all rhythm features unavailable
+- If librosa not installed → `mfcc = None`
+- **Gotcha**: `hp_ratio` from `BeatsResult` is **UNBOUNDED** (harmonic_rms / percussive_rms). NOT 0-1! Techno average = 2.2, range 0.66-17.25. Filter threshold: 8.0
+- **Gotcha**: `kick_prominence`, `pulse_clarity`, `onset_rate_mean` also from `beats` — will be None without essentia
+
 ## Dependencies
 
 Audio analysis requires the `audio` extra: `uv sync --extra audio` (essentia, soundfile, scipy, numpy, librosa). Stem separation requires the `ml` extra: `uv sync --extra ml` (demucs, torch).
@@ -131,6 +139,27 @@ class TrackFeatures:
 **iCloud-стабы**: если файл ещё не скачан из iCloud (blocks < 90% size), пропустить копирование, в M3U указать путь к исходному файлу в `library/`.
 
 **Директория**: `~/Library/Mobile Documents/com~apple~CloudDocs/dj-techno-set-builder/generated-sets/{sanitized_set_name}/`
+
+## Techno audio criteria (reference)
+
+Used in `scripts/fill_and_verify.py` and `mood_classifier`:
+
+| Parameter | Min | Max | Source |
+|-----------|-----|-----|--------|
+| BPM | 120 | 155 | `bpm.bpm` |
+| LUFS | -20 | -4 | `loudness.lufs_i` |
+| Energy mean | 0.05 | — | `band_energy.mid` |
+| Onset rate | 1.0 | — | `beats.onset_rate_mean` |
+| Kick prominence | 0.05 | — | `beats.kick_prominence` |
+| Pulse clarity | 0.02 | — | `beats.pulse_clarity` |
+| HP ratio | — | 8.0 | `beats.hp_ratio` (unbounded!) |
+| Centroid | 300 Hz | 10000 Hz | `spectral.centroid_mean_hz` |
+| Flatness | — | 0.5 | `spectral.flatness_mean` |
+| Tempo confidence | 0.3 | — | `bpm.confidence` |
+| BPM stability | 0.3 | — | `bpm.stability` |
+| Crest factor | — | 30 dB | `loudness.crest_factor_db` |
+| LRA | — | 25 LU | `loudness.lra_lu` |
+| HNR | -30 dB | — | `spectral.hnr_mean_db` |
 
 ## TrackAnalysisService
 
