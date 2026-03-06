@@ -123,6 +123,9 @@ in-memoria-vectors.db
 !.claude/settings.json
 !.claude/rules/
 !.claude/skills/
+!.claude/agents/
+!.claude/commands/
+!.claude/CLAUDE.md
 
 dev.db-shm
 dev.db-wal

@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Skills restructured**: 4 project skills переведены в официальный формат `.claude/skills/<name>/SKILL.md` с YAML frontmatter (`name`, `description`) — теперь model-invoked автоматически по контексту
 - **`/delegate` slash command**: `.claude/commands/delegate.md` — запуск Codegen cloud агента из чата
+- **Sub-agents**: `.claude/agents/` — 3 специализированных субагента: `db-analyst` (SQL-запросы к dev.db), `code-investigator` (read-only исследование кодовой базы), `dj-workflow` (построение и оптимизация DJ-сетов)
+- **PostToolUse hooks**: авто-форматирование Python через `ruff format` после Write/Edit + регенерация `db-schema.md` при изменении моделей
 
 ### Changed
 
@@ -17,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Hooks**: убран `NotebookEdit` из matcher (нет `file_path` в tool_input), убран `2>/dev/null` для видимости ошибок
 - **Skills discovery**: старые плоские `.md` файлы в `.claude/skills/` были невидимы для Claude Code; исправлено переносом в `SKILL.md` в директориях
 - **Rules loading**: создан `.claude/CLAUDE.md` с `@`-импортами для всех `.claude/rules/*.md` — соответствует официальной документации Claude Code Memory
 
