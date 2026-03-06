@@ -10,25 +10,21 @@ No real DB or live YM API calls.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
-
-import pytest
-
 # The script inserts repo root into sys.path; replicate that for import.
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from scripts.fill_and_verify import (  # noqa: E402
+from scripts.fill_and_verify import (
     Candidate,
-    is_disliked,
-    is_liked,
     get_disliked_ids,
     get_liked_ids,
+    is_disliked,
+    is_liked,
     verify_no_disliked_in_main,
 )
-
 
 # ── is_disliked / is_liked ──────────────────────────────────────────────────
 
@@ -88,27 +84,31 @@ class _FakeYmApi:
 
 class TestGetDislikedIds:
     async def test_returns_int_set(self) -> None:
-        api = _FakeYmApi({
-            "dislikes/tracks": {
-                "result": {
-                    "library": {
-                        "tracks": [
-                            {"id": "111"},
-                            {"id": "222"},
-                            {"id": "333"},
-                        ],
+        api = _FakeYmApi(
+            {
+                "dislikes/tracks": {
+                    "result": {
+                        "library": {
+                            "tracks": [
+                                {"id": "111"},
+                                {"id": "222"},
+                                {"id": "333"},
+                            ],
+                        },
                     },
                 },
-            },
-        })
+            }
+        )
         result = await get_disliked_ids(api)  # type: ignore[arg-type]
         assert result == {111, 222, 333}
         assert all(isinstance(x, int) for x in result)
 
     async def test_empty_when_no_dislikes(self) -> None:
-        api = _FakeYmApi({
-            "dislikes/tracks": {"result": {"library": {"tracks": []}}},
-        })
+        api = _FakeYmApi(
+            {
+                "dislikes/tracks": {"result": {"library": {"tracks": []}}},
+            }
+        )
         result = await get_disliked_ids(api)  # type: ignore[arg-type]
         assert result == set()
 
@@ -119,38 +119,44 @@ class TestGetDislikedIds:
         assert result == set()
 
     async def test_skips_entries_without_id(self) -> None:
-        api = _FakeYmApi({
-            "dislikes/tracks": {
-                "result": {
-                    "library": {
-                        "tracks": [{"id": "111"}, {}, {"id": "222"}],
+        api = _FakeYmApi(
+            {
+                "dislikes/tracks": {
+                    "result": {
+                        "library": {
+                            "tracks": [{"id": "111"}, {}, {"id": "222"}],
+                        },
                     },
                 },
-            },
-        })
+            }
+        )
         result = await get_disliked_ids(api)  # type: ignore[arg-type]
         assert result == {111, 222}
 
 
 class TestGetLikedIds:
     async def test_returns_int_set(self) -> None:
-        api = _FakeYmApi({
-            "likes/tracks": {
-                "result": {
-                    "library": {
-                        "tracks": [{"id": "10"}, {"id": "20"}],
+        api = _FakeYmApi(
+            {
+                "likes/tracks": {
+                    "result": {
+                        "library": {
+                            "tracks": [{"id": "10"}, {"id": "20"}],
+                        },
                     },
                 },
-            },
-        })
+            }
+        )
         result = await get_liked_ids(api)  # type: ignore[arg-type]
         assert result == {10, 20}
         assert all(isinstance(x, int) for x in result)
 
     async def test_empty_when_no_likes(self) -> None:
-        api = _FakeYmApi({
-            "likes/tracks": {"result": {"library": {"tracks": []}}},
-        })
+        api = _FakeYmApi(
+            {
+                "likes/tracks": {"result": {"library": {"tracks": []}}},
+            }
+        )
         result = await get_liked_ids(api)  # type: ignore[arg-type]
         assert result == set()
 
@@ -175,9 +181,9 @@ class TestVerifyNoDislikedInMain:
         mock_fetch = AsyncMock(
             side_effect=[
                 # First call: playlist with the leaked track
-                (10, 3, ["100", "76796973", "200"]),
+                (10, 3, ["100", "76796973", "200"], {}),
                 # Re-fetch after delete (for potential re-index)
-                (11, 2, ["100", "200"]),
+                (11, 2, ["100", "200"], {}),
             ],
         )
         mock_delete = AsyncMock(return_value=11)
@@ -190,7 +196,10 @@ class TestVerifyNoDislikedInMain:
         ):
             api = AsyncMock()
             removed = await verify_no_disliked_in_main(
-                api, "1280", "9999", disliked_ids,
+                api,
+                "1280",
+                "9999",
+                disliked_ids,
             )
 
         assert removed == 1
@@ -204,12 +213,15 @@ class TestVerifyNoDislikedInMain:
         """No action when main playlist has no disliked tracks."""
         disliked_ids = {76796973}
 
-        mock_fetch = AsyncMock(return_value=(10, 2, ["100", "200"]))
+        mock_fetch = AsyncMock(return_value=(10, 2, ["100", "200"], {}))
 
         with patch("scripts.fill_and_verify.fetch_playlist", mock_fetch):
             api = AsyncMock()
             removed = await verify_no_disliked_in_main(
-                api, "1280", "9999", disliked_ids,
+                api,
+                "1280",
+                "9999",
+                disliked_ids,
             )
 
         assert removed == 0
@@ -220,8 +232,8 @@ class TestVerifyNoDislikedInMain:
 
         mock_fetch = AsyncMock(
             side_effect=[
-                (10, 4, ["100", "111", "200", "222"]),
-                (12, 2, ["100", "200"]),
+                (10, 4, ["100", "111", "200", "222"], {}),
+                (12, 2, ["100", "200"], {}),
             ],
         )
         mock_delete = AsyncMock(side_effect=[11, 12])
@@ -234,19 +246,25 @@ class TestVerifyNoDislikedInMain:
         ):
             api = AsyncMock()
             removed = await verify_no_disliked_in_main(
-                api, "1280", "9999", disliked_ids,
+                api,
+                "1280",
+                "9999",
+                disliked_ids,
             )
 
         assert removed == 2
 
     async def test_empty_disliked_set_noop(self) -> None:
         """Empty disliked set → nothing to remove."""
-        mock_fetch = AsyncMock(return_value=(10, 2, ["100", "200"]))
+        mock_fetch = AsyncMock(return_value=(10, 2, ["100", "200"], {}))
 
         with patch("scripts.fill_and_verify.fetch_playlist", mock_fetch):
             api = AsyncMock()
             removed = await verify_no_disliked_in_main(
-                api, "1280", "9999", set(),
+                api,
+                "1280",
+                "9999",
+                set(),
             )
 
         assert removed == 0
@@ -263,8 +281,13 @@ class TestFeedbackGateLogic:
         disliked = {42}
         liked: set[int] = set()
         cand = Candidate(
-            ym_id="42", album_id="1", title="Test", artists="A",
-            duration_ms=300_000, raw={}, audio_ok=True,
+            ym_id="42",
+            album_id="1",
+            title="Test",
+            artists="A",
+            duration_ms=300_000,
+            raw={},
+            audio_ok=True,
         )
         ym_int = int(cand.ym_id)
 
@@ -278,8 +301,13 @@ class TestFeedbackGateLogic:
         disliked: set[int] = set()
         liked = {99}
         cand = Candidate(
-            ym_id="99", album_id="1", title="Liked Track", artists="B",
-            duration_ms=300_000, raw={}, audio_ok=False,
+            ym_id="99",
+            album_id="1",
+            title="Liked Track",
+            artists="B",
+            duration_ms=300_000,
+            raw={},
+            audio_ok=False,
             fail_reasons=["BPM=180.0"],
         )
         ym_int = int(cand.ym_id)

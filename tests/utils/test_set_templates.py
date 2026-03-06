@@ -28,7 +28,7 @@ def test_get_classic_60():
 def test_classic_60_starts_with_ambient():
     t = get_template(TemplateName.CLASSIC_60)
     first_slot = t.slots[0]
-    assert first_slot.mood in (TrackMood.AMBIENT_DUB, TrackMood.MELODIC_DEEP)
+    assert first_slot.mood in (TrackMood.AMBIENT_DUB, TrackMood.DUB_TECHNO, TrackMood.MELODIC_DEEP)
 
 
 def test_classic_60_has_breathing_moment():

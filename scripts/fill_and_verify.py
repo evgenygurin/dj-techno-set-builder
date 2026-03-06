@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import concurrent.futures
+import contextlib
 import hashlib
 import json
 import os
@@ -43,7 +44,7 @@ import re
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -398,7 +399,7 @@ def _pick_weighted_seed(
 ) -> str:
     """Pick a seed track weighted by age (older = higher probability).
 
-    Weight = max(1, age_in_hours).  A track added 7 days ago is ~168×
+    Weight = max(1, age_in_hours).  A track added 7 days ago is ~168x
     more likely to be picked than one added <1 hour ago.  This favours
     tracks that survived manual curation (older = user kept them).
     """
@@ -406,7 +407,7 @@ def _pick_weighted_seed(
         msg = "No candidates for seed selection"
         raise ValueError(msg)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     weights: list[float] = []
     for tid in candidates:
         ts_str = timestamps.get(tid)
@@ -1069,7 +1070,10 @@ async def main() -> None:
     parser.add_argument("--target", type=int, default=0, help="Target track count (0 = unlimited)")
     parser.add_argument("--batch", type=int, default=5, help="Candidates per seed")
     parser.add_argument("--workers", type=int, default=4, help="Parallel analysis workers")
-    parser.add_argument("--max-rounds", type=int, default=0, help="Max seed rounds (0 = unlimited)")
+    parser.add_argument(
+        "--max-rounds", type=int, default=0,
+        help="Max seed rounds (0 = unlimited)",
+    )
     parser.add_argument(
         "--no-skip-existing", action="store_true", default=False,
         help="Allow tracks already in DB to enter pipeline (by default they are skipped)",
@@ -1087,10 +1091,8 @@ async def main() -> None:
     LIBRARY_PATH.mkdir(parents=True, exist_ok=True)
 
     # Lower process priority
-    try:
+    with contextlib.suppress(OSError):
         os.nice(10)
-    except OSError:
-        pass
 
     api = YmApi(settings.yandex_music_token)
     ym_client = YandexMusicClient(token=settings.yandex_music_token)
@@ -1123,7 +1125,11 @@ async def main() -> None:
     out(f"{B}{'=' * 60}{C}")
     out(f"{B}  Fill & Verify Pipeline{C}")
     target_str = str(args.target) if args.target else "∞"
-    skip_label = f"  Skip existing: {len(db_ym_ids)} DB tracks" if skip_existing else "  Skip existing: OFF"
+    skip_label = (
+        f"  Skip existing: {len(db_ym_ids)} DB tracks"
+        if skip_existing
+        else "  Skip existing: OFF"
+    )
     out(f"{B}  Playlist: {USER_ID}/{args.kind}  Target: {target_str}  Workers: {args.workers}{C}")
     out(f"{B}{skip_label}{C}")
     out(f"{B}{'=' * 60}{C}")
@@ -1179,7 +1185,9 @@ async def main() -> None:
                 api, args.kind, deleted_kind, disliked_ids=disliked_ids,
             )
             if removed:
-                revision, track_count, playlist_ids, track_ts = await fetch_playlist(api, args.kind)
+                revision, track_count, playlist_ids, track_ts = (
+                    await fetch_playlist(api, args.kind)
+                )
                 total_rejected += removed
 
             # ── Verify no disliked leaked into main ───────────────────
@@ -1188,7 +1196,9 @@ async def main() -> None:
                     api, args.kind, deleted_kind, disliked_ids,
                 )
                 if leaked:
-                    revision, track_count, playlist_ids, track_ts = await fetch_playlist(api, args.kind)
+                    revision, track_count, playlist_ids, track_ts = (
+                        await fetch_playlist(api, args.kind)
+                    )
                     total_rejected += leaked
                     out(f"  {Y}verify_no_disliked_in_main cleaned {leaked} tracks{C}")
 
@@ -1198,7 +1208,9 @@ async def main() -> None:
                     api, args.kind, deleted_kind, liked_ids=liked_ids,
                 )
                 if audit_removed:
-                    revision, track_count, playlist_ids, track_ts = await fetch_playlist(api, args.kind)
+                    revision, track_count, playlist_ids, track_ts = (
+                        await fetch_playlist(api, args.kind)
+                    )
                     total_rejected += audit_removed
                     out(f"  {Y}Audit removed {audit_removed} tracks{C}")
 
@@ -1252,7 +1264,9 @@ async def main() -> None:
                 if ok:
                     download_ok.append(cand)
                     sz = cand.file_path.stat().st_size // 1024 if cand.file_path else 0
-                    progress_finish(progress_bar(dl_i, dl_total, label=f"{G}+{C} {sz}KB {cand.title}"))
+                    progress_finish(progress_bar(
+                        dl_i, dl_total, label=f"{G}+{C} {sz}KB {cand.title}",
+                    ))
                 else:
                     progress_finish(progress_bar(dl_i, dl_total, label=f"{R}!{C} {cand.title}"))
                 await asyncio.sleep(REQUEST_DELAY)
@@ -1265,9 +1279,13 @@ async def main() -> None:
             an_total = len(download_ok)
             an_done = 0
 
-            async def _analyze_and_report(cand: Candidate) -> None:
+            async def _analyze_and_report(
+                cand: Candidate,
+                _total: int = an_total,
+                _out: list[Candidate] = analyzed,
+            ) -> None:
                 nonlocal an_done
-                progress_write(progress_bar(an_done, an_total, label=f"♫ {D}{cand.title}{C}"))
+                progress_write(progress_bar(an_done, _total, label=f"♫ {D}{cand.title}{C}"))
                 try:
                     await analyze_candidate(cand, sem)
                 except Exception as e:
@@ -1277,20 +1295,20 @@ async def main() -> None:
                 an_done += 1
                 if cand.audio_ok:
                     progress_finish(progress_bar(
-                        an_done, an_total,
+                        an_done, _total,
                         label=f"{G}PASS{C} {cand.title}",
                     ))
                 elif cand.audio_ok is False:
                     progress_finish(progress_bar(
-                        an_done, an_total,
+                        an_done, _total,
                         label=f"{R}FAIL{C} {cand.title} {D}{', '.join(cand.fail_reasons)}{C}",
                     ))
                 else:
                     progress_finish(progress_bar(
-                        an_done, an_total,
+                        an_done, _total,
                         label=f"{Y}NO-FEAT{C} {cand.title}",
                     ))
-                analyzed.append(cand)
+                _out.append(cand)
 
             tasks = [_analyze_and_report(cand) for cand in download_ok]
             # return_exceptions=True prevents one BaseException (CancelledError,
@@ -1395,7 +1413,10 @@ async def main() -> None:
             revision = "?"
         out(f"\n{B}{'=' * 60}{C}")
         out(f"{G}{B}  DONE: {track_count}/{target_str} tracks  |  rev={revision}{C}")
-        out(f"{G}{B}  Added: {total_added}  |  Rejected: {total_rejected}  |  Rounds: {round_num}{C}")
+        out(
+            f"{G}{B}  Added: {total_added}  |  Rejected: {total_rejected}"
+            f"  |  Rounds: {round_num}{C}"
+        )
         out(f"{B}{'=' * 60}{C}")
 
     except Exception as fatal_err:

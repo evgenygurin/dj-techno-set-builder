@@ -123,9 +123,7 @@ def clean_album(album: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in album.items() if k in _ALBUM_FIELDS}
 
 
-def clean_playlist(
-    playlist: dict[str, Any], *, include_tracks: bool = False
-) -> dict[str, Any]:
+def clean_playlist(playlist: dict[str, Any], *, include_tracks: bool = False) -> dict[str, Any]:
     """Keep only DJ-relevant fields from Playlist.
 
     For playlist lists we strip ``tracks`` to avoid huge payloads.
@@ -289,7 +287,8 @@ def clean_response_body(body: dict[str, Any]) -> dict[str, Any]:
 
     # ── Playlist-level cleaning: strip cover, og, colors, etc. ──
     if "kind" in result and "uid" in result:
-        body["result"] = clean_playlist(result, include_tracks=isinstance(result.get("tracks"), list))
+        has_tracks = isinstance(result.get("tracks"), list)
+        body["result"] = clean_playlist(result, include_tracks=has_tracks)
         return body
 
     body["result"] = result
