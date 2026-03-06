@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
 """Fill YM playlist with fully verified techno tracks.
 
-For each seed track in the playlist:
+Filtering policy (priority order):
+1. MUST BLOCK:  YM disliked (absolute blocklist, pre-scoring)
+2. MUST PASS:   YM liked (bypass audio gate)
+3. STRONG NEG:  missing audio features
+4. SOFT SCORE:  not compilation, recency, kick_prominence, bpm_stability, LUFS
+5. NOT YET:     mood classification (beat coverage <50%), hard year cuts (destroy 51% kept)
+
+Pipeline per seed:
 1. Get similar tracks from YM API
 2. Pre-filter by metadata (genre=techno, duration>=4:15, no remixes/edits)
 3. Import candidates to local DB
 4. Download MP3 files
 5. Run full audio analysis (BPM, LUFS, energy, onset, kick, spectral)
-6. Filter by audio criteria — add ONLY tracks that pass
-7. Delete any tracks that fail from the playlist
+6. Apply feedback gate: block disliked, bypass audio gate for liked
+7. Audio gate for remaining candidates
+8. Add passing tracks to playlist; move rejected to '{source} deleted'
 
-IMPORTANT SEMANTICS:
-The script creates a '{source_name} deleted' playlist that contains TWO types of rejections:
-1. USER FEEDBACK: Tracks marked as disliked in YM are moved first (before audio analysis)
-2. AUDIO FAILURES: Tracks failing BPM/LUFS/energy criteria are moved after analysis
-
-This means the deleted playlist is a MIXED BUCKET, not a pure audio-quality signal.
-For pure filtering analysis, separate these concerns or analyze pre-existing playlists.
+Feedback signals (liked/disliked) are fetched once at pipeline start.
+Feature extraction runs for ALL candidates — including disliked — so the DB
+always has audio data for future training/analysis.  The feedback gate is
+applied AFTER extraction, keeping the 'deleted' playlist a clean negative
+sample (user-rejected only) separate from audio failures.
 
 Usage:
     uv run python scripts/fill_and_verify.py
@@ -362,6 +368,19 @@ def check_audio_from_db(f: Any) -> list[str]:
     return reasons
 
 
+# ── Feedback gate helpers ──────────────────────────────────────────────────
+
+
+def is_disliked(ym_id: int, disliked_ids: set[int]) -> bool:
+    """Return True if the track was explicitly disliked by the user (absolute blocklist)."""
+    return int(ym_id) in disliked_ids
+
+
+def is_liked(ym_id: int, liked_ids: set[int]) -> bool:
+    """Return True if the track was explicitly liked — bypasses audio gate."""
+    return int(ym_id) in liked_ids
+
+
 # ── Playlist operations ─────────────────────────────────────────────────────
 
 
@@ -434,15 +453,7 @@ async def get_or_create_deleted_playlist(
 async def add_to_deleted_playlist(
     api: YmApi, deleted_kind: str, candidates: list[Candidate],
 ) -> None:
-    """Add failed candidates to the 'deleted' playlist.
-    
-    Note: This function conflates two types of rejections:
-    1. User feedback rejections (disliked tracks)  
-    2. Audio analysis rejections (failed criteria)
-    
-    Both end up in the same deleted playlist, making it a mixed bucket
-    rather than a pure 'audio-failed' collection.
-    """
+    """Add rejected candidates to the 'deleted' playlist."""
     if not candidates:
         return
 
@@ -462,35 +473,49 @@ async def add_to_deleted_playlist(
         out(f"  {R}Failed to add to deleted playlist: {e}{C}")
 
 
-async def get_disliked_ids(api: YmApi) -> set[str]:
-    """Fetch user's disliked track IDs."""
+async def get_disliked_ids(api: YmApi) -> set[int]:
+    """Fetch user's disliked track IDs (as ints for gate functions)."""
     try:
         data = await api.get(f"{YM_BASE}/users/{USER_ID}/dislikes/tracks")
         result = data.get("result", data)
         lib = result.get("library", result)
         tracks = lib.get("tracks", [])
-        return {str(t.get("id", "")) for t in tracks if t.get("id")}
+        return {int(t["id"]) for t in tracks if t.get("id")}
     except Exception as e:
         out(f"  {D}Could not fetch dislikes: {e}{C}")
         return set()
 
 
+async def get_liked_ids(api: YmApi) -> set[int]:
+    """Fetch user's liked track IDs (as ints for gate functions)."""
+    try:
+        data = await api.get(f"{YM_BASE}/users/{USER_ID}/likes/tracks")
+        result = data.get("result", data)
+        lib = result.get("library", result)
+        tracks = lib.get("tracks", [])
+        return {int(t["id"]) for t in tracks if t.get("id")}
+    except Exception as e:
+        out(f"  {D}Could not fetch likes: {e}{C}")
+        return set()
+
+
 async def remove_disliked_from_playlist(
     api: YmApi, kind: str, deleted_kind: str,
+    disliked_ids: set[int] | None = None,
 ) -> int:
     """Remove disliked tracks from playlist, move to deleted. Returns count removed.
-    
-    This is USER FEEDBACK rejection, not audio analysis failure.
-    Disliked tracks are moved to the deleted playlist before any audio audit,
-    meaning the deleted playlist contains user preference signals mixed with
-    technical audio quality signals.
+
+    Accepts pre-fetched *disliked_ids* (``set[int]``) so the caller can reuse
+    the set across the session.  Falls back to a fresh API call when ``None``.
     """
-    disliked = await get_disliked_ids(api)
+    disliked = disliked_ids if disliked_ids is not None else await get_disliked_ids(api)
     if not disliked:
         return 0
 
     revision, _, playlist_ids = await fetch_playlist(api, kind)
-    to_remove = [(i, tid) for i, tid in enumerate(playlist_ids) if tid in disliked]
+    to_remove = [
+        (i, tid) for i, tid in enumerate(playlist_ids) if is_disliked(int(tid), disliked)
+    ]
 
     if not to_remove:
         return 0
@@ -523,18 +548,62 @@ async def remove_disliked_from_playlist(
     return len(to_remove)
 
 
+async def verify_no_disliked_in_main(
+    api: YmApi, kind: str, deleted_kind: str,
+    disliked_ids: set[int],
+) -> int:
+    """Ensure no disliked track remains in the main playlist.
+
+    Specifically catches track 76796973 (Rhythm Dancer) and any other
+    disliked IDs that leaked into the main playlist (kind *kind*).
+    Returns the number of tracks removed.
+    """
+    revision, _, playlist_ids = await fetch_playlist(api, kind)
+    leaked = [
+        (i, tid) for i, tid in enumerate(playlist_ids) if is_disliked(int(tid), disliked_ids)
+    ]
+    if not leaked:
+        return 0
+
+    out(f"  {Y}verify_no_disliked_in_main: found {len(leaked)} disliked tracks still in main{C}")
+
+    # Move to deleted playlist
+    cands = [
+        Candidate(ym_id=tid, album_id="", title=f"leaked:{tid}",
+                  artists="", duration_ms=0, raw={})
+        for _, tid in leaked
+    ]
+    await add_to_deleted_playlist(api, deleted_kind, cands)
+
+    # Delete from main (reverse order)
+    removed = 0
+    for idx, tid in reversed(leaked):
+        try:
+            revision = await delete_from_playlist(api, kind, revision, idx)
+            removed += 1
+            out(f"  {R}-{C} verify: removed disliked track {tid} from main")
+        except httpx.HTTPStatusError:
+            revision, _, current_ids = await fetch_playlist(api, kind)
+            for j, pid in enumerate(current_ids):
+                if pid == tid:
+                    revision = await delete_from_playlist(api, kind, revision, j)
+                    removed += 1
+                    out(f"  {R}-{C} verify: removed disliked track {tid} (re-indexed)")
+                    break
+
+    return removed
+
+
 async def audit_playlist_tracks(
     api: YmApi, kind: str, deleted_kind: str,
+    liked_ids: set[int] | None = None,
 ) -> int:
     """Check ALL playlist tracks against audio criteria. Remove failures.
 
+    Liked tracks (in *liked_ids*) bypass the audio gate entirely.
     This is AUDIO ANALYSIS rejection based on BPM, LUFS, energy, etc.
     For tracks without features in DB — downloads + analyzes them first.
-    
-    Note: Tracks failing audio criteria are moved to the same deleted playlist
-    as user-disliked tracks, creating a mixed signal. Pure audio-failed tracks
-    would be more useful for understanding technical filtering thresholds.
-    
+
     Returns count of removed tracks.
     """
     revision, _, playlist_ids = await fetch_playlist(api, kind)
@@ -558,9 +627,18 @@ async def audit_playlist_tracks(
         return 0
 
     # Check features for each track
+    _liked = liked_ids or set()
     fail_indices: list[tuple[int, str]] = []  # (index, ym_id)
     audit_total = len(to_check)
     for audit_i, (idx, ym_id, track_id) in enumerate(to_check, 1):
+        # Liked tracks bypass the audio gate entirely
+        if is_liked(int(ym_id), _liked):
+            progress_finish(progress_bar(
+                audit_i, audit_total,
+                label=f"{G}LIKED{C} #{track_id} — bypass audio gate",
+            ))
+            continue
+
         progress_write(progress_bar(audit_i, audit_total, label=f"🔍 #{track_id}"))
         async with session_factory() as session:
             row = await session.execute(
@@ -914,11 +992,14 @@ async def main() -> None:
     source_name = pl_result.get("title", f"Playlist {args.kind}")
     deleted_kind = await get_or_create_deleted_playlist(api, source_name)
 
-    # Pre-load disliked tracks into seen_ids to never re-add them
+    # Fetch feedback signals once — reused across the whole session
     disliked_ids = await get_disliked_ids(api)
-    if disliked_ids:
-        seen_ids.update(disliked_ids)
-        out(f"  {D}Loaded {len(disliked_ids)} disliked tracks into blocklist{C}")
+    liked_ids = await get_liked_ids(api)
+    out(f"  {D}Feedback: {len(disliked_ids)} disliked, {len(liked_ids)} liked{C}")
+
+    # NOTE: disliked IDs are NOT added to seen_ids so that similar-track
+    # discovery still works and features are extracted for every candidate.
+    # The feedback gate is applied AFTER feature extraction.
 
     shutdown = False
 
@@ -944,16 +1025,28 @@ async def main() -> None:
             revision, track_count, playlist_ids = await fetch_playlist(api, args.kind)
             seen_ids.update(playlist_ids)
 
-            # ── Remove disliked tracks ─────────────────────────────────
-            removed = await remove_disliked_from_playlist(api, args.kind, deleted_kind)
+            # ── Remove disliked tracks from main playlist ──────────────
+            removed = await remove_disliked_from_playlist(
+                api, args.kind, deleted_kind, disliked_ids=disliked_ids,
+            )
             if removed:
                 revision, track_count, playlist_ids = await fetch_playlist(api, args.kind)
                 total_rejected += removed
 
+            # ── Verify no disliked leaked into main ───────────────────
+            if round_num == 1:
+                leaked = await verify_no_disliked_in_main(
+                    api, args.kind, deleted_kind, disliked_ids,
+                )
+                if leaked:
+                    revision, track_count, playlist_ids = await fetch_playlist(api, args.kind)
+                    total_rejected += leaked
+                    out(f"  {Y}verify_no_disliked_in_main cleaned {leaked} tracks{C}")
+
             # ── Audit: verify all playlist tracks pass criteria ────────
             if round_num == 1:  # full audit on first round only
                 audit_removed = await audit_playlist_tracks(
-                    api, args.kind, deleted_kind,
+                    api, args.kind, deleted_kind, liked_ids=liked_ids,
                 )
                 if audit_removed:
                     revision, track_count, playlist_ids = await fetch_playlist(api, args.kind)
@@ -1016,18 +1109,56 @@ async def main() -> None:
                 await asyncio.sleep(REQUEST_DELAY)
 
             # ── Phase 4: Audio analysis (parallel, streaming output) ────
+            # Feature extraction runs for ALL candidates — including disliked
+            # ones — so the DB always has audio data for training/analysis.
             phase_header(4, f"Audio analysis ({args.workers} workers)")
-            passed: list[Candidate] = []
-            failed: list[Candidate] = []
+            analyzed: list[Candidate] = []
             an_total = len(download_ok)
             an_done = 0
 
             async def _analyze_and_report(cand: Candidate) -> None:
-                nonlocal total_rejected, an_done
+                nonlocal an_done
                 progress_write(progress_bar(an_done, an_total, label=f"♫ {D}{cand.title}{C}"))
                 await analyze_candidate(cand, sem)
                 an_done += 1
                 if cand.audio_ok:
+                    progress_finish(progress_bar(
+                        an_done, an_total,
+                        label=f"{G}PASS{C} {cand.title}",
+                    ))
+                elif cand.audio_ok is False:
+                    progress_finish(progress_bar(
+                        an_done, an_total,
+                        label=f"{R}FAIL{C} {cand.title} {D}{', '.join(cand.fail_reasons)}{C}",
+                    ))
+                else:
+                    progress_finish(progress_bar(
+                        an_done, an_total,
+                        label=f"{Y}NO-FEAT{C} {cand.title}",
+                    ))
+                analyzed.append(cand)
+
+            tasks = [_analyze_and_report(cand) for cand in download_ok]
+            await asyncio.gather(*tasks)
+
+            # ── Phase 4b: Feedback gate (AFTER feature extraction) ─────
+            # Priority: disliked → hard block; liked → bypass audio gate
+            phase_header(4, "Feedback gate")
+            passed: list[Candidate] = []
+            failed: list[Candidate] = []
+            blocked: list[Candidate] = []
+
+            for cand in analyzed:
+                ym_int = int(cand.ym_id)
+                if is_disliked(ym_int, disliked_ids):
+                    blocked.append(cand)
+                    out(f"  {R}BLOCK{C} {cand.artists} -- {cand.title} {D}(disliked){C}")
+                    total_rejected += 1
+                elif is_liked(ym_int, liked_ids):
+                    passed.append(cand)
+                    out(f"  {G}LIKED{C} {cand.artists} -- {cand.title} {D}(bypass audio gate){C}")
+                elif cand.audio_ok:
+                    # Fetch details for log line
                     bpm_s = "?"
                     lufs_s = "?"
                     mood_str = ""
@@ -1055,24 +1186,19 @@ async def main() -> None:
                             except Exception:
                                 pass
                     passed.append(cand)
-                    progress_finish(progress_bar(
-                        an_done, an_total,
-                        label=f"{G}PASS{C} {cand.title} {D}BPM={bpm_s} LUFS={lufs_s}{mood_str}{C}",
-                    ))
+                    out(f"  {G}PASS{C} {cand.artists} -- {cand.title}"
+                        f" {D}BPM={bpm_s} LUFS={lufs_s}{mood_str}{C}")
                 else:
                     failed.append(cand)
-                    progress_finish(progress_bar(
-                        an_done, an_total,
-                        label=f"{R}FAIL{C} {cand.title} {D}{', '.join(cand.fail_reasons)}{C}",
-                    ))
+                    out(f"  {R}FAIL{C} {cand.artists} -- {cand.title}"
+                        f" {D}{', '.join(cand.fail_reasons)}{C}")
                     total_rejected += 1
 
-            tasks = [_analyze_and_report(cand) for cand in download_ok]
-            await asyncio.gather(*tasks)
-
-            # ── Phase 4b: Move failed to deleted playlist ──────────────
+            # Move audio-failed and blocked to deleted playlist (separate reasons)
             if failed:
                 await add_to_deleted_playlist(api, deleted_kind, failed)
+            if blocked:
+                await add_to_deleted_playlist(api, deleted_kind, blocked)
 
             # ── Phase 5: Add passed to playlist ──────────────────────────
             if passed:
