@@ -7,6 +7,7 @@ These helpers add LibraryStats + PaginationInfo automatically.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
 
 
 async def wrap_list(
-    entities: list[BaseModel],
+    entities: Sequence[BaseModel],
     total: int,
     offset: int,
     limit: int,

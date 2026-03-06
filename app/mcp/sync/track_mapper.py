@@ -42,7 +42,8 @@ class DbTrackMapper:
             )
         )
         result = await self._session.execute(stmt)
-        return dict(result.all())
+        rows = result.all()
+        return {row[0]: row[1] for row in rows}
 
     async def platform_to_local(
         self, platform_ids: list[str], platform: str
@@ -69,7 +70,8 @@ class DbTrackMapper:
             )
         )
         result = await self._session.execute(stmt)
-        found = dict(result.all())
+        rows = result.all()
+        found: dict[str, int] = {row[0]: row[1] for row in rows}
 
         # Ensure all input IDs are in output
         return {pid: found.get(pid) for pid in platform_ids}
