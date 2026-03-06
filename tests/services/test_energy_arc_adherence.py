@@ -144,3 +144,78 @@ class TestInterpolateTemplateEnergy:
         template = get_template(TemplateName.WARM_UP_30)
         result = svc._interpolate_template_energy(template, 1.5)
         assert result == template.slots[-1].energy_target
+
+
+class TestComputeEnergyArcAdherenceWithGaps:
+    """Tests for energy arc adherence with None gaps."""
+
+    def test_all_valid_matches_base_method(self, svc: SetCurationService):
+        """All valid values should produce same result as compute_energy_arc_adherence."""
+        template = get_template(TemplateName.CLASSIC_60)
+        n = len(template.slots)
+        lufs_values: list[float | None] = [
+            svc._interpolate_template_energy(template, i / (n - 1))
+            for i in range(n)
+        ]
+        base_score = svc.compute_energy_arc_adherence(
+            [v for v in lufs_values if v is not None], "classic_60"
+        )
+        gaps_score = svc.compute_energy_arc_adherence_with_gaps(lufs_values, "classic_60")
+        assert gaps_score == pytest.approx(base_score, abs=0.001)
+
+    def test_all_none_returns_zero(self, svc: SetCurationService):
+        """All None values should return 0.0 (every position penalized with 1.0)."""
+        score = svc.compute_energy_arc_adherence_with_gaps([None] * 10, "classic_60")
+        assert score == 0.0
+
+    def test_mixed_none_and_valid(self, svc: SetCurationService):
+        """Mix of None and valid values should score lower than all-valid."""
+        template = get_template(TemplateName.CLASSIC_60)
+        n = 10
+        lufs_values: list[float | None] = [
+            svc._interpolate_template_energy(template, i / (n - 1))
+            for i in range(n)
+        ]
+        all_valid_score = svc.compute_energy_arc_adherence_with_gaps(lufs_values, "classic_60")
+
+        # Replace half the values with None
+        mixed: list[float | None] = [
+            None if i % 2 == 0 else lufs_values[i] for i in range(n)
+        ]
+        mixed_score = svc.compute_energy_arc_adherence_with_gaps(mixed, "classic_60")
+
+        assert mixed_score < all_valid_score, (
+            f"Mixed ({mixed_score}) should be lower than all-valid ({all_valid_score})"
+        )
+        assert 0.0 <= mixed_score <= 1.0
+
+    def test_single_none_in_middle(self, svc: SetCurationService):
+        """One None among valid values should slightly lower the score."""
+        template = get_template(TemplateName.CLASSIC_60)
+        n = 10
+        lufs_values: list[float | None] = [
+            svc._interpolate_template_energy(template, i / (n - 1))
+            for i in range(n)
+        ]
+        all_valid_score = svc.compute_energy_arc_adherence_with_gaps(lufs_values, "classic_60")
+
+        with_gap: list[float | None] = list(lufs_values)
+        with_gap[5] = None
+        gap_score = svc.compute_energy_arc_adherence_with_gaps(with_gap, "classic_60")
+
+        assert gap_score < all_valid_score
+        assert gap_score > 0.0
+
+    def test_empty_list_returns_zero(self, svc: SetCurationService):
+        """Empty list returns 0.0."""
+        assert svc.compute_energy_arc_adherence_with_gaps([], "classic_60") == 0.0
+
+    def test_single_element_returns_zero(self, svc: SetCurationService):
+        """Single element (None) returns 0.0 — less than 2 tracks."""
+        assert svc.compute_energy_arc_adherence_with_gaps([None], "classic_60") == 0.0
+
+    def test_full_library_template_with_gaps(self, svc: SetCurationService):
+        """FULL_LIBRARY has no slots, always returns 1.0 regardless of gaps."""
+        values: list[float | None] = [-9.0, None, -8.0, None, -10.0]
+        score = svc.compute_energy_arc_adherence_with_gaps(values, "full_library")
+        assert score == 1.0

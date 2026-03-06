@@ -16,12 +16,10 @@ Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
 - `git.md` — Linear integration, domain scopes, branching model
 
 Workflow skills in `.claude/skills/` (read when working on that domain):
-- `delegated-development.md` — `/delegate` command, Codegen orchestration, vertical management system
+- `delegated-development.md` — `/delegate` command, Codegen orchestration, vertical management, quality gates
 - `dj-set-workflow.md` — декларативный гайд: build → score → deliver → YM sync
 - `mcp-tool-dev.md` — разработка MCP-инструментов: DI, staged pattern, тесты, чеклист
 - `audio-analysis.md` — аудио пайплайн, scoring, cheat_sheet, iCloud стабы, M3U8
-- `delegated-development.md` — вертикальное управление: Architect → Codegen agents, quality gates, шаблоны промптов
-- `delegated-development.md` — вертикальное управление Codegen агентами, Linear, parallel ops
 
 ## Workflow
 

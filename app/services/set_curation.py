@@ -28,6 +28,13 @@ class CandidateTrack:
 class SetCurationService:
     """Classify tracks by mood and select candidates for set templates."""
 
+    TECHNO_LUFS_RANGE_DB = 8.0  # Full dynamic range for techno (-14 to -6 LUFS)
+
+    @staticmethod
+    def _normalize_lufs_error(actual: float, expected: float) -> float:
+        """Return normalized LUFS error in [0.0, 1.0]."""
+        return min(1.0, abs(actual - expected) / SetCurationService.TECHNO_LUFS_RANGE_DB)
+
     def classify_features(
         self,
         features: list[Any],
@@ -181,8 +188,7 @@ class SetCurationService:
         for i, lufs in enumerate(track_lufs_values):
             pos = i / (n - 1)
             expected_lufs = self._interpolate_template_energy(template, pos)
-            # Normalize error: 8 dB covers full techno LUFS range (-14 to -6)
-            error = min(1.0, abs(lufs - expected_lufs) / 8.0)
+            error = self._normalize_lufs_error(lufs, expected_lufs)
             total_error += error
 
         return round(max(0.0, 1.0 - total_error / n), 3)
@@ -222,7 +228,7 @@ class SetCurationService:
 
             if lufs is not None:
                 # Track has features - compute normal error
-                error = min(1.0, abs(lufs - expected_lufs) / 8.0)
+                error = self._normalize_lufs_error(lufs, expected_lufs)
                 total_error += error
                 valid_tracks += 1
             else:
@@ -286,8 +292,7 @@ class SetCurationService:
             mood_score = 0.0
 
         # Energy fit
-        energy_diff = abs(lufs - slot.energy_target)
-        energy_score = max(0.0, 1.0 - energy_diff / 8.0)
+        energy_score = max(0.0, 1.0 - self._normalize_lufs_error(lufs, slot.energy_target))
 
         # BPM fit
         bpm_low, bpm_high = slot.bpm_range
