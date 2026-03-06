@@ -69,10 +69,7 @@ jobs:
           enable-cache: true
 
       - name: Sync dependencies
-        run: uv sync --frozen --group dev
-
-      - name: Install lightweight audio deps
-        run: uv pip install numpy scipy soundfile
+        run: uv sync --frozen --group dev --extra audio
 
       - name: Run tests with coverage
         run: uv run pytest -v --cov=app tests --cov-report=term --cov-report=xml
