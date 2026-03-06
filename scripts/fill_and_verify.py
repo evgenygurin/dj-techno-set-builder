@@ -10,6 +10,14 @@ For each seed track in the playlist:
 6. Filter by audio criteria — add ONLY tracks that pass
 7. Delete any tracks that fail from the playlist
 
+IMPORTANT SEMANTICS:
+The script creates a '{source_name} deleted' playlist that contains TWO types of rejections:
+1. USER FEEDBACK: Tracks marked as disliked in YM are moved first (before audio analysis)
+2. AUDIO FAILURES: Tracks failing BPM/LUFS/energy criteria are moved after analysis
+
+This means the deleted playlist is a MIXED BUCKET, not a pure audio-quality signal.
+For pure filtering analysis, separate these concerns or analyze pre-existing playlists.
+
 Usage:
     uv run python scripts/fill_and_verify.py
     uv run python scripts/fill_and_verify.py --target 150 --workers 4 --batch 5
@@ -426,7 +434,15 @@ async def get_or_create_deleted_playlist(
 async def add_to_deleted_playlist(
     api: YmApi, deleted_kind: str, candidates: list[Candidate],
 ) -> None:
-    """Add failed candidates to the 'deleted' playlist."""
+    """Add failed candidates to the 'deleted' playlist.
+    
+    Note: This function conflates two types of rejections:
+    1. User feedback rejections (disliked tracks)  
+    2. Audio analysis rejections (failed criteria)
+    
+    Both end up in the same deleted playlist, making it a mixed bucket
+    rather than a pure 'audio-failed' collection.
+    """
     if not candidates:
         return
 
@@ -462,7 +478,13 @@ async def get_disliked_ids(api: YmApi) -> set[str]:
 async def remove_disliked_from_playlist(
     api: YmApi, kind: str, deleted_kind: str,
 ) -> int:
-    """Remove disliked tracks from playlist, move to deleted. Returns count removed."""
+    """Remove disliked tracks from playlist, move to deleted. Returns count removed.
+    
+    This is USER FEEDBACK rejection, not audio analysis failure.
+    Disliked tracks are moved to the deleted playlist before any audio audit,
+    meaning the deleted playlist contains user preference signals mixed with
+    technical audio quality signals.
+    """
     disliked = await get_disliked_ids(api)
     if not disliked:
         return 0
@@ -506,7 +528,13 @@ async def audit_playlist_tracks(
 ) -> int:
     """Check ALL playlist tracks against audio criteria. Remove failures.
 
+    This is AUDIO ANALYSIS rejection based on BPM, LUFS, energy, etc.
     For tracks without features in DB — downloads + analyzes them first.
+    
+    Note: Tracks failing audio criteria are moved to the same deleted playlist
+    as user-disliked tracks, creating a mixed signal. Pure audio-failed tracks
+    would be more useful for understanding technical filtering thresholds.
+    
     Returns count of removed tracks.
     """
     revision, _, playlist_ids = await fetch_playlist(api, kind)

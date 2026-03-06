@@ -87,9 +87,9 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         if key_codes:
             filters.append(TrackAudioFeaturesComputed.key_code.in_(key_codes))
         if energy_min is not None:
-            filters.append(TrackAudioFeaturesComputed.lufs_i >= energy_min)
+            filters.append(TrackAudioFeaturesComputed.energy_mean >= energy_min)
         if energy_max is not None:
-            filters.append(TrackAudioFeaturesComputed.lufs_i <= energy_max)
+            filters.append(TrackAudioFeaturesComputed.energy_mean <= energy_max)
 
         return await self.list(offset=offset, limit=limit, filters=filters)
 
