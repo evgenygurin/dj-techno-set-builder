@@ -260,10 +260,10 @@ def _score_driving(
 ) -> float:
     """Score for Driving Techno: standard 4/4, moderate energy, balanced."""
     score = 0.0
-    score += 0.30 * _gaussian(bpm, 129.0, 5.0)  # 124-134 BPM
-    score += 0.25 * _gaussian(lufs_i, -9.0, 2.0)  # moderate loudness
-    score += 0.25 * _gaussian(kick_prominence, 0.58, 0.15)  # solid kick
-    score += 0.20 * _gaussian(energy_std, 0.15, 0.10)  # steady
+    score += 0.30 * _gaussian(bpm, 129.0, 3.0)  # 126-132 BPM (narrower)
+    score += 0.25 * _gaussian(lufs_i, -9.0, 1.5)  # moderate loudness (narrower)
+    score += 0.25 * _gaussian(kick_prominence, 0.58, 0.10)  # solid kick (narrower)
+    score += 0.20 * _gaussian(energy_std, 0.15, 0.06)  # steady (narrower)
     return score
 
 
@@ -359,7 +359,7 @@ def _score_industrial(
 ) -> float:
     """Score for Industrial Techno: harsh, noisy, busy, bright."""
     score = 0.0
-    score += 0.30 * _ramp_up(centroid_mean_hz, 3500.0, 5500.0)  # harsh, bright
+    score += 0.30 * _ramp_up(centroid_mean_hz, 3200.0, 5000.0)  # harsh, bright
     score += 0.25 * _ramp_up(onset_rate, 8.0, 12.0)  # busy
     score += 0.20 * _ramp_up(flatness_mean, 0.35, 0.60)  # noisy
     score += 0.15 * _gaussian(bpm, 135.0, 5.0)  # 130-140 BPM
