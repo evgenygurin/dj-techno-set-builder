@@ -1,6 +1,7 @@
 ---
 name: Audio Analysis and Set Delivery
 description: Гайд по аудио анализу, scoring переходов и доставке сетов в этом проекте. Используй когда: работаешь с audio features, BPM, Camelot keys, scoring переходов, GA set builder, iCloud стабами, M3U8 экспортом, cheat_sheet генерацией. Триггеры: audio features, TrackFeatures, scoring, Camelot, cheat_sheet, M3U8, iCloud, app/utils/audio/.
+allowed-tools: Read, Grep, Glob
 ---
 
 # Audio Analysis and Set Delivery
