@@ -106,6 +106,21 @@ When implementing non-trivial changes, verify all relevant items:
 5. `uv run pytest -v` passes (or at least touched subset, then full suite when possible).
 6. If DB shape changed: update Alembic migration and keep `schema_v6.sql`/docs in sync when requested.
 
+## Branch Setup (ALWAYS first step)
+
+Before reading or writing any file, verify you are on the correct branch:
+
+```bash
+git checkout <target-branch>          # switch to the PR branch
+git pull origin <target-branch>       # get latest remote state
+git log --oneline -5                  # confirm expected commits are present
+```
+
+If a file the task references is not found after checkout:
+- Do NOT assume it doesn't exist
+- Run `git log --all -- path/to/file` to check if it exists on another branch
+- Do NOT create a replacement file — report the blocker explicitly
+
 ## Delegated Execution Guardrail (required)
 
 When an agent is delegated a Linear/dev task, it must execute implementation work with available repo tools and may not stop with a generic "tool unavailable" response.
