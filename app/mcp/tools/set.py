@@ -356,9 +356,7 @@ def register_set_tools(mcp: FastMCP) -> None:
             )
         return result
 
-    @mcp.tool(
-        tags={"set", "setbuilder"}, annotations={"readOnlyHint": True}, timeout=120
-    )
+    @mcp.tool(tags={"set", "setbuilder"}, annotations={"readOnlyHint": True}, timeout=120)
     async def get_set_cheat_sheet(
         set_ref: str | int,
         version_id: int | None = None,
@@ -423,14 +421,10 @@ def register_set_tools(mcp: FastMCP) -> None:
             version_id = max(v.set_version_id for v in versions.items)
 
         # 1. Get tracks
-        tracks = await _get_set_tracks_impl(
-            set_id, version_id, session, features_svc, track_svc
-        )
+        tracks = await _get_set_tracks_impl(set_id, version_id, session, features_svc, track_svc)
 
         # 2. Score transitions
-        scores = await _score_version(
-            set_id, version_id, svc, features_svc, track_svc
-        )
+        scores = await _score_version(set_id, version_id, svc, features_svc, track_svc)
         summary = _build_transition_summary(scores)
 
         # 3. Build text cheat sheet

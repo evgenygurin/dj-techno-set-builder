@@ -732,9 +732,7 @@ class GeneticSetGenerator:
             child_set = set(child.tolist())
             missing = [p for p in self._pinned_indices if p not in child_set]
             if missing:
-                replaceable = [
-                    pos for pos in range(n) if child[pos] not in self._pinned_indices
-                ]
+                replaceable = [pos for pos in range(n) if child[pos] not in self._pinned_indices]
                 self._rng.shuffle(replaceable)
                 for i, pinned_idx in enumerate(missing):
                     if i < len(replaceable):

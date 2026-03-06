@@ -1,4 +1,5 @@
 """Tests for YM API response cleaners."""
+
 from __future__ import annotations
 
 from app.mcp.yandex_music.response_filters import clean_response_body

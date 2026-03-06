@@ -7,45 +7,67 @@ in fixtures to avoid event loop issues).
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from unittest.mock import patch
 
 import pytest
-from fastmcp import FastMCP
 from sqlalchemy.ext.asyncio import async_sessionmaker
+
+# Check if FastMCP is available (Python 3.13 compatibility)
+try:
+    from fastmcp import FastMCP
+
+    MCP_AVAILABLE = True
+except ImportError:
+    MCP_AVAILABLE = False
+    FastMCP = None
+
+# Skip all MCP tests if FastMCP is not available
+pytestmark = pytest.mark.skipif(
+    not MCP_AVAILABLE,
+    reason="FastMCP not available (likely Python 3.13 TypeForm compatibility issue)",
+)
 
 
 @pytest.fixture
-def workflow_mcp() -> FastMCP:
+def workflow_mcp():
     """DJ Workflows MCP server (12 hand-written tools + prompts + resources)."""
+    if not MCP_AVAILABLE:
+        pytest.skip("FastMCP not available")
     from app.mcp.tools import create_workflow_mcp
 
     return create_workflow_mcp()
 
 
 @pytest.fixture
-def gateway_mcp() -> FastMCP:
+def gateway_mcp():
     """Full DJ Set Builder gateway (YM + DJ namespaces + transforms)."""
+    if not MCP_AVAILABLE:
+        pytest.skip("FastMCP not available")
     from app.mcp.gateway import create_dj_mcp
 
     return create_dj_mcp()
 
 
 @pytest.fixture
-def ym_mcp() -> FastMCP:
+def ym_mcp():
     """Yandex Music MCP sub-server (~30 OpenAPI-generated tools)."""
+    if not MCP_AVAILABLE:
+        pytest.skip("FastMCP not available")
     from app.mcp.yandex_music import create_yandex_music_mcp
 
     return create_yandex_music_mcp()
 
 
 @pytest.fixture
-async def workflow_mcp_with_db(engine) -> AsyncIterator[FastMCP]:
+async def workflow_mcp_with_db(engine):
     """DJ Workflows MCP server wired to test DB.
 
     Patches ``app.database.session_factory`` (used by ``get_session``)
     so every MCP tool call uses the same in-memory SQLite engine.
     """
+    if not MCP_AVAILABLE:
+        pytest.skip("FastMCP not available")
+
     from app.mcp.tools import create_workflow_mcp
 
     factory = async_sessionmaker(engine, expire_on_commit=False)
