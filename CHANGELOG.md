@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Skills restructured**: 4 project skills переведены в официальный формат `.claude/skills/<name>/SKILL.md` с YAML frontmatter (`name`, `description`) — теперь model-invoked автоматически по контексту
+- **`/delegate` slash command**: `.claude/commands/delegate.md` — запуск Codegen cloud агента из чата
+
+### Changed
+
+- **CLAUDE.md**: секция Workflow skills обновлена — указывает на директории (`dj-set-workflow/`, `mcp-tool-dev/`, `audio-analysis/`, `delegated-development/`); добавлена секция Slash commands
+
+### Fixed
+
+- **Skills discovery**: старые плоские `.md` файлы в `.claude/skills/` были невидимы для Claude Code; исправлено переносом в `SKILL.md` в директориях
+- **Rules loading**: создан `.claude/CLAUDE.md` с `@`-импортами для всех `.claude/rules/*.md` — соответствует официальной документации Claude Code Memory
+
 - **Energy arc adherence**: `SetCurationService.compute_energy_arc_adherence()` — energy arc scoring for DJ sets
 - **Delegated Development skill v2**: vertical AI agent management with Codegen Bridge
 - **`/delegate` command docs**: comprehensive guide for Codegen delegation from Claude Code

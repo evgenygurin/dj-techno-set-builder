@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 // Всегда думай по-русски и отвечай по-русски, если только явно не просят другое.
 
-Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
+Detailed rules for each layer are in `.claude/rules/` (загружаются через `@`-импорты в `.claude/CLAUDE.md`):
 - `api.md` — routers, schemas, services, error handling
 - `database.md` — models, repositories, migrations, SQLite compat
 - `audio.md` — audio utils, transition scoring, set generation
@@ -15,11 +15,14 @@ Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
 - `documentation.md` — meta-rules for maintaining this documentation system
 - `git.md` — Linear integration, domain scopes, branching model
 
-Workflow skills in `.claude/skills/` (read when working on that domain):
-- `delegated-development.md` — `/delegate` command, Codegen orchestration, vertical management, quality gates
-- `dj-set-workflow.md` — декларативный гайд: build → score → deliver → YM sync
-- `mcp-tool-dev.md` — разработка MCP-инструментов: DI, staged pattern, тесты, чеклист
-- `audio-analysis.md` — аудио пайплайн, scoring, cheat_sheet, iCloud стабы, M3U8
+Workflow skills in `.claude/skills/` (model-invoked автоматически по контексту):
+- `delegated-development/` — Codegen orchestration, vertical management, quality gates
+- `dj-set-workflow/` — декларативный гайд: build → score → deliver → YM sync
+- `mcp-tool-dev/` — разработка MCP-инструментов: DI, staged pattern, тесты, чеклист
+- `audio-analysis/` — аудио пайплайн, scoring, cheat_sheet, iCloud стабы, M3U8
+
+Slash commands в `.claude/commands/`:
+- `/delegate <задача>` — запустить Codegen cloud agent
 
 ## Workflow
 
