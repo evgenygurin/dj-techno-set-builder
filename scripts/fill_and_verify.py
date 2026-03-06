@@ -27,12 +27,14 @@ sample (user-rejected only) separate from audio failures.
 Usage:
     uv run python scripts/fill_and_verify.py
     uv run python scripts/fill_and_verify.py --target 150 --workers 4 --batch 5
+    uv run python scripts/fill_and_verify.py --no-skip-existing  # re-process tracks already in DB
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import concurrent.futures
 import hashlib
 import json
 import os
@@ -41,6 +43,7 @@ import re
 import sys
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -61,11 +64,14 @@ from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
+_process_pool: concurrent.futures.ProcessPoolExecutor | None = None
+
 YM_BASE = "https://api.music.yandex.net"
 USER_ID = settings.yandex_music_user_id or "250905515"
 LIBRARY_PATH = Path(settings.dj_library_path).expanduser()
 REQUEST_DELAY = 1.5
 MAX_RETRIES = 4
+ANALYSIS_TIMEOUT_S = 180  # 3 min per track — essentia can hang on corrupt audio
 
 # Metadata pre-filter
 BAD_VERSION_WORDS = {"radio", "edit", "short", "remix", "live", "acoustic", "instrumental"}
@@ -381,23 +387,69 @@ def is_liked(ym_id: int, liked_ids: set[int]) -> bool:
     return int(ym_id) in liked_ids
 
 
+# ── Seed selection ──────────────────────────────────────────────────────────
+
+_SEED_MIN_WEIGHT = 1.0  # floor weight for freshly-added tracks
+
+
+def _pick_weighted_seed(
+    candidates: list[str],
+    timestamps: dict[str, str],
+) -> str:
+    """Pick a seed track weighted by age (older = higher probability).
+
+    Weight = max(1, age_in_hours).  A track added 7 days ago is ~168×
+    more likely to be picked than one added <1 hour ago.  This favours
+    tracks that survived manual curation (older = user kept them).
+    """
+    if not candidates:
+        msg = "No candidates for seed selection"
+        raise ValueError(msg)
+
+    now = datetime.now(timezone.utc)
+    weights: list[float] = []
+    for tid in candidates:
+        ts_str = timestamps.get(tid)
+        if ts_str:
+            try:
+                added = datetime.fromisoformat(ts_str)
+                age_hours = (now - added).total_seconds() / 3600.0
+                weights.append(max(_SEED_MIN_WEIGHT, age_hours))
+            except (ValueError, TypeError):
+                weights.append(_SEED_MIN_WEIGHT)
+        else:
+            weights.append(_SEED_MIN_WEIGHT)
+
+    return random.choices(candidates, weights=weights, k=1)[0]
+
+
 # ── Playlist operations ─────────────────────────────────────────────────────
 
 
-async def fetch_playlist(api: YmApi, kind: str) -> tuple[int, int, list[str]]:
-    """Returns (revision, track_count, list_of_ym_ids)."""
+async def fetch_playlist(
+    api: YmApi, kind: str,
+) -> tuple[int, int, list[str], dict[str, str]]:
+    """Returns (revision, track_count, list_of_ym_ids, {id: timestamp_iso}).
+
+    ``timestamp`` is the ISO-8601 date when the track was added to the playlist.
+    Used for weighted seed selection (older tracks = higher weight).
+    """
     data = await api.get(f"{YM_BASE}/users/{USER_ID}/playlists/{kind}")
     result = data.get("result", data)
     revision = result.get("revision", 0)
     track_count = result.get("trackCount", 0)
     tracks = result.get("tracks", [])
     ids: list[str] = []
+    timestamps: dict[str, str] = {}
     for item in tracks:
         tr = item.get("track", item)
         tid = str(tr.get("id", ""))
         if tid:
             ids.append(tid)
-    return revision, track_count, ids
+            ts = item.get("timestamp", "")
+            if ts:
+                timestamps[tid] = ts
+    return revision, track_count, ids, timestamps
 
 
 async def add_to_playlist(api: YmApi, kind: str, revision: int,
@@ -421,31 +473,67 @@ async def delete_from_playlist(api: YmApi, kind: str, revision: int,
     return data.get("result", {}).get("revision", revision + 1)
 
 
+_PLAYLIST_MAP_PATH = Path(__file__).with_name(".playlist_map.json")
+
+
+def _load_playlist_map() -> dict[str, str]:
+    """Load {source_kind: deleted_kind} mapping from local JSON file."""
+    if _PLAYLIST_MAP_PATH.exists():
+        try:
+            return json.loads(_PLAYLIST_MAP_PATH.read_text())
+        except (json.JSONDecodeError, OSError):
+            return {}
+    return {}
+
+
+def _save_playlist_map(mapping: dict[str, str]) -> None:
+    """Persist {source_kind: deleted_kind} mapping."""
+    _PLAYLIST_MAP_PATH.write_text(json.dumps(mapping, indent=2) + "\n")
+
+
+async def _playlist_exists(api: YmApi, kind: str) -> bool:
+    """Check if a playlist with given kind exists (quick HEAD-like check)."""
+    try:
+        data = await api.get(f"{YM_BASE}/users/{USER_ID}/playlists/{kind}")
+        result = data.get("result", data)
+        return bool(result.get("kind"))
+    except Exception:
+        return False
+
+
 async def get_or_create_deleted_playlist(
-    api: YmApi, source_name: str,
+    api: YmApi, source_kind: str, source_name: str,
 ) -> str:
-    """Find or create a '{source_name} deleted' playlist. Returns kind."""
-    deleted_name = f"{source_name} deleted"
+    """Get deleted playlist kind by ID mapping, create if missing. Returns kind.
 
-    # List user playlists and look for existing
-    data = await api.get(f"{YM_BASE}/users/{USER_ID}/playlists/list")
-    playlists = data.get("result", data) if isinstance(data.get("result"), list) else data.get("result", [])
-    if isinstance(playlists, dict):
-        playlists = playlists.get("playlists", playlists.get("result", []))
+    Lookup order:
+    1. Local mapping file (.playlist_map.json) — by source_kind
+    2. CLI --deleted-kind override (handled by caller)
+    3. Create new playlist and save mapping
+    """
+    mapping = _load_playlist_map()
 
-    for pl in playlists:
-        if pl.get("title", "") == deleted_name:
-            kind = str(pl["kind"])
-            out(f"  {D}Found '{deleted_name}' playlist: kind={kind}{C}")
-            return kind
+    # Check saved mapping
+    saved_kind = mapping.get(source_kind)
+    if saved_kind:
+        if await _playlist_exists(api, saved_kind):
+            out(f"  {D}Deleted playlist: kind={saved_kind} (from mapping){C}")
+            return saved_kind
+        out(f"  {Y}Mapped deleted playlist kind={saved_kind} no longer exists{C}")
 
     # Create new playlist
+    deleted_name = f"{source_name} deleted"
     data = await api.post_form(
         f"{YM_BASE}/users/{USER_ID}/playlists/create",
         {"title": deleted_name, "visibility": "private"},
     )
     result = data.get("result", data)
     kind = str(result["kind"])
+
+    # Save mapping
+    mapping[source_kind] = kind
+    _save_playlist_map(mapping)
+
     out(f"  {G}Created '{deleted_name}' playlist: kind={kind}{C}")
     return kind
 
@@ -457,7 +545,7 @@ async def add_to_deleted_playlist(
     if not candidates:
         return
 
-    revision, _, existing_ids = await fetch_playlist(api, deleted_kind)
+    revision, _, existing_ids, _ = await fetch_playlist(api, deleted_kind)
 
     # Skip tracks already in deleted playlist
     to_add = [c for c in candidates if c.ym_id not in existing_ids]
@@ -465,7 +553,10 @@ async def add_to_deleted_playlist(
         out(f"  {D}All failed tracks already in deleted playlist{C}")
         return
 
-    add_tracks = [{"id": c.ym_id, "albumId": c.album_id} for c in to_add]
+    add_tracks = [
+        {"id": c.ym_id, "albumId": c.album_id} if c.album_id else {"id": c.ym_id}
+        for c in to_add
+    ]
     try:
         new_rev = await add_to_playlist(api, deleted_kind, revision, add_tracks)
         out(f"  {Y}Moved {len(to_add)} failed tracks to deleted playlist (rev={new_rev}){C}")
@@ -512,7 +603,7 @@ async def remove_disliked_from_playlist(
     if not disliked:
         return 0
 
-    revision, _, playlist_ids = await fetch_playlist(api, kind)
+    revision, _, playlist_ids, _ = await fetch_playlist(api, kind)
     to_remove = [
         (i, tid) for i, tid in enumerate(playlist_ids) if is_disliked(int(tid), disliked)
     ]
@@ -538,7 +629,7 @@ async def remove_disliked_from_playlist(
             out(f"  {R}-{C} Removed disliked track {tid} (idx={idx})")
         except httpx.HTTPStatusError:
             # Re-fetch after failure (indices may have shifted)
-            revision, _, playlist_ids = await fetch_playlist(api, kind)
+            revision, _, playlist_ids, _ = await fetch_playlist(api, kind)
             for j, pid in enumerate(playlist_ids):
                 if pid == tid:
                     revision = await delete_from_playlist(api, kind, revision, j)
@@ -558,7 +649,7 @@ async def verify_no_disliked_in_main(
     disliked IDs that leaked into the main playlist (kind *kind*).
     Returns the number of tracks removed.
     """
-    revision, _, playlist_ids = await fetch_playlist(api, kind)
+    revision, _, playlist_ids, _ = await fetch_playlist(api, kind)
     leaked = [
         (i, tid) for i, tid in enumerate(playlist_ids) if is_disliked(int(tid), disliked_ids)
     ]
@@ -583,7 +674,7 @@ async def verify_no_disliked_in_main(
             removed += 1
             out(f"  {R}-{C} verify: removed disliked track {tid} from main")
         except httpx.HTTPStatusError:
-            revision, _, current_ids = await fetch_playlist(api, kind)
+            revision, _, current_ids, _ = await fetch_playlist(api, kind)
             for j, pid in enumerate(current_ids):
                 if pid == tid:
                     revision = await delete_from_playlist(api, kind, revision, j)
@@ -606,7 +697,7 @@ async def audit_playlist_tracks(
 
     Returns count of removed tracks.
     """
-    revision, _, playlist_ids = await fetch_playlist(api, kind)
+    revision, _, playlist_ids, _ = await fetch_playlist(api, kind)
     if not playlist_ids:
         return 0
 
@@ -667,10 +758,12 @@ async def audit_playlist_tracks(
 
                 out(f"  {D}Analyzing unverified track #{track_id}...{C}")
                 try:
-                    from app.utils.audio.pipeline import extract_all_features
                     loop = asyncio.get_event_loop()
-                    feats = await loop.run_in_executor(
-                        None, extract_all_features, file_path,
+                    feats = await asyncio.wait_for(
+                        loop.run_in_executor(
+                            _process_pool, _extract_sync, file_path,
+                        ),
+                        timeout=ANALYSIS_TIMEOUT_S,
                     )
                     # Save to DB
                     async with session_factory() as session:
@@ -726,7 +819,7 @@ async def audit_playlist_tracks(
             removed += 1
             out(f"  {R}-{C} Removed audit-failed track {ym_id}")
         except httpx.HTTPStatusError:
-            revision, _, current_ids = await fetch_playlist(api, kind)
+            revision, _, current_ids, _ = await fetch_playlist(api, kind)
             for j, pid in enumerate(current_ids):
                 if pid == ym_id:
                     revision = await delete_from_playlist(api, kind, revision, j)
@@ -891,7 +984,11 @@ async def download_candidate(candidate: Candidate, ym_client: YandexMusicClient)
 
 
 def _extract_sync(audio_path: str) -> Any:
-    """CPU-heavy feature extraction (runs in thread pool)."""
+    """CPU-heavy feature extraction (runs in subprocess to isolate C-extension crashes).
+
+    Essentia/scipy/soundfile are C-extensions that can segfault on corrupt audio.
+    Running in a subprocess means a segfault kills only the worker, not the main script.
+    """
     from app.utils.audio.pipeline import extract_all_features
     return extract_all_features(audio_path)
 
@@ -917,10 +1014,25 @@ async def analyze_candidate(candidate: Candidate, sem: asyncio.Semaphore) -> boo
             return candidate.audio_ok
 
     # Extract features (CPU-heavy, parallel-limited)
+    # Use ProcessPoolExecutor to isolate C-extension segfaults (essentia/scipy/soundfile).
+    # A segfault in a subprocess kills only the worker, not the main script.
     async with sem:
         loop = asyncio.get_event_loop()
         try:
-            feats = await loop.run_in_executor(None, _extract_sync, str(candidate.file_path))
+            feats = await asyncio.wait_for(
+                loop.run_in_executor(_process_pool, _extract_sync, str(candidate.file_path)),
+                timeout=ANALYSIS_TIMEOUT_S,
+            )
+        except TimeoutError:
+            out(f"  {R}analysis timeout ({ANALYSIS_TIMEOUT_S}s): {candidate.title}{C}")
+            candidate.audio_ok = False
+            candidate.fail_reasons = [f"timeout after {ANALYSIS_TIMEOUT_S}s"]
+            return False
+        except concurrent.futures.BrokenExecutor:
+            out(f"  {R}analysis crash (C-extension segfault?): {candidate.title}{C}")
+            candidate.audio_ok = False
+            candidate.fail_reasons = ["worker crash (segfault?)"]
+            return False
         except Exception as e:
             out(f"  {R}analysis fail: {candidate.title}: {e!s:.60}{C}")
             candidate.audio_ok = False
@@ -958,6 +1070,14 @@ async def main() -> None:
     parser.add_argument("--batch", type=int, default=5, help="Candidates per seed")
     parser.add_argument("--workers", type=int, default=4, help="Parallel analysis workers")
     parser.add_argument("--max-rounds", type=int, default=0, help="Max seed rounds (0 = unlimited)")
+    parser.add_argument(
+        "--no-skip-existing", action="store_true", default=False,
+        help="Allow tracks already in DB to enter pipeline (by default they are skipped)",
+    )
+    parser.add_argument(
+        "--deleted-kind", default=None,
+        help="Kind ID for the 'deleted' playlist (skip name-based lookup)",
+    )
     args = parser.parse_args()
 
     if not settings.yandex_music_token:
@@ -975,22 +1095,50 @@ async def main() -> None:
     api = YmApi(settings.yandex_music_token)
     ym_client = YandexMusicClient(token=settings.yandex_music_token)
     sem = asyncio.Semaphore(args.workers)
+
+    # ProcessPoolExecutor isolates C-extension crashes (essentia segfaults)
+    # from the main process.  max_workers=workers so semaphore controls concurrency.
+    global _process_pool
+    _process_pool = concurrent.futures.ProcessPoolExecutor(max_workers=args.workers)
     seen_ids: set[str] = set()
     seed_used: set[str] = set()
     total_added = 0
     total_rejected = 0
 
+    # Pre-populate seen_ids with tracks already in DB (skip re-processing)
+    skip_existing = not args.no_skip_existing
+    db_ym_ids: set[str] = set()
+    if skip_existing:
+        async with session_factory() as session:
+            rows = await session.execute(
+                text(
+                    "SELECT pt.provider_track_id FROM provider_track_ids pt"
+                    " JOIN providers p ON p.provider_id = pt.provider_id"
+                    " WHERE p.provider_code = 'yandex'"
+                )
+            )
+            db_ym_ids = {row[0] for row in rows}
+            seen_ids.update(db_ym_ids)
+
     out(f"{B}{'=' * 60}{C}")
     out(f"{B}  Fill & Verify Pipeline{C}")
     target_str = str(args.target) if args.target else "∞"
+    skip_label = f"  Skip existing: {len(db_ym_ids)} DB tracks" if skip_existing else "  Skip existing: OFF"
     out(f"{B}  Playlist: {USER_ID}/{args.kind}  Target: {target_str}  Workers: {args.workers}{C}")
+    out(f"{B}{skip_label}{C}")
     out(f"{B}{'=' * 60}{C}")
 
     # Get source playlist name and find/create deleted playlist
     pl_data = await api.get(f"{YM_BASE}/users/{USER_ID}/playlists/{args.kind}")
     pl_result = pl_data.get("result", pl_data)
     source_name = pl_result.get("title", f"Playlist {args.kind}")
-    deleted_kind = await get_or_create_deleted_playlist(api, source_name)
+    if args.deleted_kind:
+        deleted_kind = args.deleted_kind
+        out(f"  {D}Using deleted playlist: kind={deleted_kind}{C}")
+    else:
+        deleted_kind = await get_or_create_deleted_playlist(
+            api, args.kind, source_name,
+        )
 
     # Fetch feedback signals once — reused across the whole session
     disliked_ids = await get_disliked_ids(api)
@@ -1014,15 +1162,16 @@ async def main() -> None:
     import signal
     signal.signal(signal.SIGINT, _handle_sigint)
 
+    completed_normally = False
+    round_num = 0
     try:
-        round_num = 0
         while not shutdown:
             round_num += 1
             if args.max_rounds and round_num > args.max_rounds:
                 out(f"\n  {Y}Max rounds ({args.max_rounds}) reached{C}")
                 break
             # ── Fetch current state ──────────────────────────────────────
-            revision, track_count, playlist_ids = await fetch_playlist(api, args.kind)
+            revision, track_count, playlist_ids, track_ts = await fetch_playlist(api, args.kind)
             seen_ids.update(playlist_ids)
 
             # ── Remove disliked tracks from main playlist ──────────────
@@ -1030,7 +1179,7 @@ async def main() -> None:
                 api, args.kind, deleted_kind, disliked_ids=disliked_ids,
             )
             if removed:
-                revision, track_count, playlist_ids = await fetch_playlist(api, args.kind)
+                revision, track_count, playlist_ids, track_ts = await fetch_playlist(api, args.kind)
                 total_rejected += removed
 
             # ── Verify no disliked leaked into main ───────────────────
@@ -1039,7 +1188,7 @@ async def main() -> None:
                     api, args.kind, deleted_kind, disliked_ids,
                 )
                 if leaked:
-                    revision, track_count, playlist_ids = await fetch_playlist(api, args.kind)
+                    revision, track_count, playlist_ids, track_ts = await fetch_playlist(api, args.kind)
                     total_rejected += leaked
                     out(f"  {Y}verify_no_disliked_in_main cleaned {leaked} tracks{C}")
 
@@ -1049,7 +1198,7 @@ async def main() -> None:
                     api, args.kind, deleted_kind, liked_ids=liked_ids,
                 )
                 if audit_removed:
-                    revision, track_count, playlist_ids = await fetch_playlist(api, args.kind)
+                    revision, track_count, playlist_ids, track_ts = await fetch_playlist(api, args.kind)
                     total_rejected += audit_removed
                     out(f"  {Y}Audit removed {audit_removed} tracks{C}")
 
@@ -1062,12 +1211,12 @@ async def main() -> None:
                 out(f"\n  {G}{B}Target reached! {track_count} tracks{C}")
                 break
 
-            # ── Pick seed ────────────────────────────────────────────────
+            # ── Pick seed (weighted by age — older = more likely curated) ─
             available_seeds = [tid for tid in playlist_ids if tid not in seed_used]
             if not available_seeds:
                 seed_used.clear()
                 available_seeds = playlist_ids
-            seed_id = random.choice(available_seeds)
+            seed_id = _pick_weighted_seed(available_seeds, track_ts)
             seed_used.add(seed_id)
 
             out(f"\n  {D}Seed: {seed_id}{C}")
@@ -1119,7 +1268,12 @@ async def main() -> None:
             async def _analyze_and_report(cand: Candidate) -> None:
                 nonlocal an_done
                 progress_write(progress_bar(an_done, an_total, label=f"♫ {D}{cand.title}{C}"))
-                await analyze_candidate(cand, sem)
+                try:
+                    await analyze_candidate(cand, sem)
+                except Exception as e:
+                    cand.audio_ok = False
+                    cand.fail_reasons = [f"crash: {e!s:.60}"]
+                    out(f"\n  {R}CRASH{C} {cand.title}: {e!s:.80}")
                 an_done += 1
                 if cand.audio_ok:
                     progress_finish(progress_bar(
@@ -1139,7 +1293,17 @@ async def main() -> None:
                 analyzed.append(cand)
 
             tasks = [_analyze_and_report(cand) for cand in download_ok]
-            await asyncio.gather(*tasks)
+            # return_exceptions=True prevents one BaseException (CancelledError,
+            # BrokenExecutor) from cancelling ALL other tasks.
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for i, res in enumerate(results):
+                if isinstance(res, BaseException):
+                    cand = download_ok[i]
+                    out(f"  {R}UNHANDLED{C} {cand.title}: {res!r}")
+                    if cand not in analyzed:
+                        cand.audio_ok = False
+                        cand.fail_reasons = [f"unhandled: {res!s:.60}"]
+                        analyzed.append(cand)
 
             # ── Phase 4b: Feedback gate (AFTER feature extraction) ─────
             # Priority: disliked → hard block; liked → bypass audio gate
@@ -1203,6 +1367,8 @@ async def main() -> None:
             # ── Phase 5: Add passed to playlist ──────────────────────────
             if passed:
                 phase_header(5, f"Add {len(passed)} verified tracks to playlist")
+                # Re-fetch revision — it may have drifted during deleted-playlist ops
+                revision, track_count, playlist_ids, _ = await fetch_playlist(api, args.kind)
                 batch_to_add = passed
                 if args.target:
                     remaining = args.target - track_count
@@ -1221,8 +1387,9 @@ async def main() -> None:
                 out(f"\n  {Y}No tracks passed verification this round{C}")
 
         # ── Final summary ────────────────────────────────────────────────
+        completed_normally = True
         try:
-            revision, track_count, _ = await fetch_playlist(api, args.kind)
+            revision, track_count, _, _ = await fetch_playlist(api, args.kind)
         except Exception:
             track_count = "?"
             revision = "?"
@@ -1231,11 +1398,50 @@ async def main() -> None:
         out(f"{G}{B}  Added: {total_added}  |  Rejected: {total_rejected}  |  Rounds: {round_num}{C}")
         out(f"{B}{'=' * 60}{C}")
 
+    except Exception as fatal_err:
+        out(f"\n  {R}{B}FATAL: {fatal_err}{C}")
+        import traceback
+        traceback.print_exc()
+
+    except BaseException as base_err:
+        # Catches SystemExit (double Ctrl+C), CancelledError, KeyboardInterrupt
+        out(f"\n  {R}{B}EXIT ({type(base_err).__name__}): {base_err}{C}")
+
     finally:
+        # Print crash summary ONLY if exit was abnormal
+        if not completed_normally:
+            try:
+                _, tc_final, _, _ = await fetch_playlist(api, args.kind)
+                out(f"\n{B}{'=' * 60}{C}")
+                out(f"{Y}{B}  CRASHED after {round_num} rounds  |  {tc_final} tracks  |  "
+                    f"+{total_added} -{total_rejected}{C}")
+                out(f"{B}{'=' * 60}{C}")
+            except Exception as summary_err:
+                # API also failed — print what we know without API data
+                out(f"\n{B}{'=' * 60}{C}")
+                out(f"{Y}{B}  CRASHED after {round_num} rounds  |  "
+                    f"+{total_added} -{total_rejected}  |  "
+                    f"(API unavailable: {summary_err!s:.40}){C}")
+                out(f"{B}{'=' * 60}{C}")
+
+        # Shutdown process pool (kill any hung C-extension workers)
+        if _process_pool is not None:
+            _process_pool.shutdown(wait=False, cancel_futures=True)
         await api.close()
         await ym_client.close()
         await close_db()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n\033[33m\033[1mInterrupted by user\033[0m", file=sys.stderr)
+        sys.exit(130)
+    except SystemExit:
+        raise  # re-raise to preserve exit code
+    except BaseException as exc:
+        print(f"\n\033[91m\033[1mFATAL ({type(exc).__name__}): {exc}\033[0m", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
