@@ -1,0 +1,2 @@
+# Ignore hash values in uv.lock - these are package checksums, not secrets
+uv.lock:*
