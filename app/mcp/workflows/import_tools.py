@@ -46,9 +46,7 @@ def register_import_tools(mcp: FastMCP) -> None:
 
         await ctx.report_progress(progress=0, total=100)
 
-        download_note = (
-            "\n5. Download MP3 files (download_files=True)" if download_files else ""
-        )
+        download_note = "\n5. Download MP3 files (download_files=True)" if download_files else ""
         await ctx.info(
             f"Import from '{source}' playlist {playlist_id} is not yet "
             "automated end-to-end.  Manual steps required:\n"
