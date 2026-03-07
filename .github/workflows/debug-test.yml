@@ -1,0 +1,77 @@
+name: Debug Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test/BPM-101-data-integrity-verification
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    name: Debug Environment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Environment info
+        run: |
+          echo "=== System Information ==="
+          uname -a
+          echo "Python version: $(python3 --version)"
+          echo "Shell: $SHELL"
+          echo "=== Environment Variables ==="
+          env | sort
+          echo "=== Working Directory ==="
+          pwd
+          ls -la
+
+      - name: Test PR title pattern
+        env:
+          TITLE_MANUAL: "BPM-101: comprehensive data integrity verification"
+        run: |
+          echo "=== PR Title Pattern Test ==="
+          echo "Manual title: '$TITLE_MANUAL'"
+          echo "Title length: ${#TITLE_MANUAL}"
+          printf '%s' "$TITLE_MANUAL" | hexdump -C
+          PATTERN='^[A-Z][A-Z0-9]*-[0-9]+: .+'
+          echo "Pattern: $PATTERN"
+          if [[ "$TITLE_MANUAL" =~ $PATTERN ]]; then
+            echo "✅ Manual title matches"
+          else
+            echo "❌ Manual title does not match"
+            exit 1
+          fi
+
+      - name: Setup Python and UV
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: false
+
+      - name: UV and Python debug
+        run: |
+          echo "=== UV and Python Information ==="
+          python --version
+          uv --version
+          which python
+          which uv
+
+      - name: Minimal lint test
+        run: |
+          echo "=== Minimal Dependencies ==="
+          uv venv --seed
+          source .venv/bin/activate
+          uv pip install ruff mypy
+          echo "=== File Check ==="
+          ls -la app/ | head -5
+          echo "=== Ruff Test ==="
+          ruff check app --select=F,E9,E999
