@@ -1,30 +1,16 @@
-name: PR Title Check
+name: PR Title
 
 on:
   pull_request:
-    types:
-      - opened
-      - edited
-      - synchronize
-      - reopened
-
-permissions:
-  contents: read
+    types: [opened, edited, synchronize]
 
 jobs:
-  validate-title:
-    name: Validate PR title format
+  check:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Validate title
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          echo "PR title: $PR_TITLE"
-          REQUIRED_PATTERN='^[A-Z][A-Z0-9]*-[0-9]+: .+'
-          if [[ ! "$PR_TITLE" =~ $REQUIRED_PATTERN ]]; then
-            echo "::error title=Invalid PR title::Expected format: TEAM-123: Short summary (example: BPM-123: Fix ORM defaults)."
+      - run: |
+          title="${{ github.event.pull_request.title }}"
+          if [[ ! "$title" =~ ^[A-Z][A-Z0-9]*-[0-9]+:\ .+ ]]; then
+            echo "Invalid PR title format. Expected: TEAM-123: Description"
             exit 1
           fi
-
