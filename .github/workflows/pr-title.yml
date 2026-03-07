@@ -21,8 +21,14 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
+          echo "=== DEBUG INFO ==="
           echo "PR title: '$PR_TITLE'"
+          echo "PR title length: ${#PR_TITLE}"
           echo "Pattern: '^[A-Z][A-Z0-9]*-[0-9]+: .+'"
+          echo "GitHub context - PR number: ${{ github.event.number }}"
+          echo "GitHub context - action: ${{ github.event.action }}"
+          echo "==================="
+          
           REQUIRED_PATTERN='^[A-Z][A-Z0-9]*-[0-9]+: .+'
           if [[ "$PR_TITLE" =~ $REQUIRED_PATTERN ]]; then
             echo "✅ PR title matches the required format"
