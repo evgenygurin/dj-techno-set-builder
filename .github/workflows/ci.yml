@@ -19,37 +19,21 @@ env:
   PYTHONUNBUFFERED: "1"
 
 jobs:
-  check-billing:
-    name: Check GitHub Actions Status
-    runs-on: ubuntu-latest
-    outputs:
-      can_run: ${{ steps.check.outputs.can_run }}
-    steps:
-      - name: Check if Actions can run
-        id: check
-        run: |
-          echo "Checking GitHub Actions availability..."
-          # This will always succeed if we can run actions at all
-          echo "can_run=true" >> $GITHUB_OUTPUT
-          echo "✅ GitHub Actions available"
-
   lint-and-types:
     name: Lint and Type Check
     runs-on: ubuntu-latest
-    needs: check-billing
-    if: needs.check-billing.outputs.can_run == 'true'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
@@ -68,20 +52,19 @@ jobs:
   tests:
     name: Tests
     runs-on: ubuntu-latest
-    needs: [check-billing, lint-and-types]
-    if: needs.check-billing.outputs.can_run == 'true'
+    needs: lint-and-types
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
@@ -96,21 +79,8 @@ jobs:
 
       - name: Upload coverage artifact
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-xml
           path: coverage.xml
 
-  # Fallback job for billing issues
-  billing-fallback:
-    name: CI Status (Billing Issue)
-    runs-on: ubuntu-latest
-    if: failure() && needs.check-billing.result == 'failure'
-    needs: check-billing
-    steps:
-      - name: Billing notice
-        run: |
-          echo "::warning title=GitHub Actions Billing Issue::The repository may have billing limitations."
-          echo "::warning::Please check GitHub billing settings and resolve any payment issues."
-          echo "::warning::Once billing is resolved, re-run this workflow."
-          exit 0
