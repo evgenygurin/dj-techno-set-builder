@@ -9,8 +9,69 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.database import get_session
-from app.main import create_app
 from app.models import Base
+
+# Temporarily disable MCP for tests due to typing_extensions conflict
+# from app.main import create_app
+
+
+def create_minimal_app():
+    """Create app without MCP for testing."""
+    from contextlib import asynccontextmanager
+
+    from fastapi import FastAPI
+
+    from app.database import close_database, init_database
+    from app.routers import (
+        albums,
+        artists,
+        audio,
+        bpms,
+        catalog,
+        dj_library_items,
+        dj_sets,
+        features,
+        health,
+        keys,
+        labels,
+        providers,
+        sync,
+        tracks,
+        transitions,
+    )
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        await init_database()
+        yield
+        await close_database()
+
+    app = FastAPI(
+        title="DJ Techno Set Builder",
+        version="0.1.0",
+        lifespan=lifespan,
+    )
+
+    # Health check (no version)
+    app.include_router(health.router)
+
+    # API routes (versioned)
+    app.include_router(albums.router, prefix="/api/v1")
+    app.include_router(artists.router, prefix="/api/v1")
+    app.include_router(audio.router, prefix="/api/v1")
+    app.include_router(bpms.router, prefix="/api/v1")
+    app.include_router(catalog.router, prefix="/api/v1")
+    app.include_router(dj_library_items.router, prefix="/api/v1")
+    app.include_router(dj_sets.router, prefix="/api/v1")
+    app.include_router(features.router, prefix="/api/v1")
+    app.include_router(keys.router, prefix="/api/v1")
+    app.include_router(labels.router, prefix="/api/v1")
+    app.include_router(providers.router, prefix="/api/v1")
+    app.include_router(sync.router, prefix="/api/v1")
+    app.include_router(tracks.router, prefix="/api/v1")
+    app.include_router(transitions.router, prefix="/api/v1")
+
+    return app
 
 
 @pytest.fixture
@@ -39,7 +100,7 @@ async def client(engine) -> AsyncIterator[AsyncClient]:
         async with factory() as sess:
             yield sess
 
-    application = create_app()
+    application = create_minimal_app()
     application.dependency_overrides[get_session] = _override_session
 
     transport = ASGITransport(app=application)

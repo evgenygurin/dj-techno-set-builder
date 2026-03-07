@@ -6,7 +6,6 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
-from app.clients.yandex_music import YandexMusicClient
 from app.errors import NotFoundError, ValidationError
 from app.mcp.dependencies import (
     get_playlist_service,
@@ -17,6 +16,7 @@ from app.mcp.dependencies import (
 from app.services.playlists import DjPlaylistService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
+from app.services.yandex_music_client import YandexMusicClient
 
 
 def register_sync_tools(mcp: FastMCP) -> None:
