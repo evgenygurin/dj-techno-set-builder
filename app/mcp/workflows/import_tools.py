@@ -9,11 +9,11 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.clients.yandex_music import YandexMusicClient
 from app.config import settings
 from app.mcp.dependencies import get_session, get_ym_client
 from app.mcp.types import ImportResult
 from app.services.download import DownloadResult, DownloadService
-from app.services.yandex_music_client import YandexMusicClient
 
 
 def register_import_tools(mcp: FastMCP) -> None:

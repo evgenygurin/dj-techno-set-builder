@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 try:
     import sentry_sdk
 except ImportError:
-    sentry_sdk = None  # type: ignore[assignment]
+    sentry_sdk = None
 
 from fastapi import FastAPI
 

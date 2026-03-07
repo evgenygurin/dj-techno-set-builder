@@ -10,12 +10,12 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.clients.yandex_music import YandexMusicClient
 from app.models.catalog import Track
 from app.models.ingestion import ProviderTrackId
 from app.models.providers import Provider
 from app.repositories.dj_library_items import DjLibraryItemRepository
 from app.repositories.tracks import TrackRepository
-from app.services.yandex_music_client import YandexMusicClient
 
 logger = logging.getLogger(__name__)
 
