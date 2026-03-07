@@ -4,10 +4,14 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import sentry_sdk
 from fastapi import FastAPI
 
 from app.config import settings
+
+try:
+    import sentry_sdk
+except ImportError:
+    sentry_sdk = None
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +22,10 @@ def _init_sentry() -> None:
     MUST be called before importing FastMCP so that the OTEL TracerProvider
     is set up before FastMCP creates its tracer.
     """
+    if sentry_sdk is None:
+        logger.debug("Sentry SDK not available, skipping init")
+        return
+
     if not settings.sentry_dsn:
         logger.debug("Sentry DSN not set, skipping init")
         return
@@ -47,13 +55,21 @@ def _init_sentry() -> None:
 # Initialize Sentry BEFORE importing FastMCP
 _init_sentry()
 
-from fastmcp.utilities.lifespan import combine_lifespans  # noqa: E402
+try:
+    from fastmcp.utilities.lifespan import combine_lifespans
+
+    fastmcp_available = True
+except ImportError:
+    fastmcp_available = False
+    combine_lifespans = None  # type: ignore[assignment]
 
 from app.database import close_db, init_db  # noqa: E402
 from app.errors import register_error_handlers  # noqa: E402
-from app.mcp import create_dj_mcp  # noqa: E402
 from app.middleware import apply_middleware  # noqa: E402
 from app.routers import register_routers  # noqa: E402
+
+if fastmcp_available:
+    from app.mcp import create_dj_mcp
 
 
 @asynccontextmanager
@@ -64,15 +80,22 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    mcp = create_dj_mcp()
-    mcp_app = mcp.http_app(path="/mcp")
+    if fastmcp_available:
+        mcp = create_dj_mcp()
+        mcp_app = mcp.http_app(path="/mcp")
 
-    application = FastAPI(
-        title=settings.app_name,
-        debug=settings.debug,
-        lifespan=combine_lifespans(lifespan, mcp_app.lifespan),
-    )
-    application.mount("/mcp", mcp_app)
+        application = FastAPI(
+            title=settings.app_name,
+            debug=settings.debug,
+            lifespan=combine_lifespans(lifespan, mcp_app.lifespan),
+        )
+        application.mount("/mcp", mcp_app)
+    else:
+        application = FastAPI(
+            title=settings.app_name,
+            debug=settings.debug,
+            lifespan=lifespan,
+        )
     apply_middleware(application)
     register_error_handlers(application)
     register_routers(application)

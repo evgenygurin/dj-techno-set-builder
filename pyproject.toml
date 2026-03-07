@@ -5,13 +5,14 @@ description = "DJ Techno Set Builder — automated set construction from track a
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "fastmcp>=3.0.0rc1",
+    "fastmcp==3.0.0rc1",
     "uvicorn[standard]>=0.34",
     "sqlalchemy[asyncio]>=2.0",
     "aiosqlite>=0.21",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
     "alembic>=1.14",
+    "typing-extensions>=4.13.0",
 ]
 
 [project.optional-dependencies]
@@ -85,7 +86,7 @@ module = ["aiosqlite.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["essentia.*", "soundfile.*", "scipy.*", "numpy", "numpy.*"]
+module = ["essentia.*", "soundfile.*", "scipy.*", "numpy", "numpy.*", "librosa", "librosa.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
