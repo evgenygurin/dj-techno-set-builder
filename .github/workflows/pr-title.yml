@@ -18,23 +18,8 @@ jobs:
 
     steps:
       - name: Validate title
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          echo "=== DEBUG INFO ==="
-          echo "PR title: '$PR_TITLE'"
-          echo "PR title length: ${#PR_TITLE}"
-          echo "Pattern: '^[A-Z][A-Z0-9]*-[0-9]+:[[:space:]].+'"
-          echo "GitHub context - PR number: ${{ github.event.number }}"
-          echo "GitHub context - action: ${{ github.event.action }}"
-          echo "==================="
-          
-          # Use more explicit regex pattern with proper space handling
-          if [[ "$PR_TITLE" =~ ^[A-Z][A-Z0-9]*-[0-9]+:[[:space:]].+ ]]; then
-            echo "✅ PR title matches the required format"
-          else
-            echo "❌ PR title does not match the required format"
-            echo "Expected format: TEAM-123: Short summary (example: BPM-123: Fix ORM defaults)"
-            echo "::error title=Invalid PR title::Expected format: TEAM-123: Short summary (example: BPM-123: Fix ORM defaults)."
-            exit 1
-          fi
+        uses: deepakputhraya/action-pr-title@master
+        with:
+          regex: '^[A-Z][A-Z0-9]*-[0-9]+: .+'
+          allowed_prefixes: 'BPM-,FEAT-,FIX-,DOC-,TEST-'
+          prefix_case_sensitive: true
