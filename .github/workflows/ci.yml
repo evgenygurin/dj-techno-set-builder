@@ -1,5 +1,5 @@
 name: CI
-# Force CI rebuild - clear cache
+
 on:
   push:
     branches:
@@ -35,7 +35,7 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Sync dependencies
         run: uv sync --frozen --group dev
@@ -66,7 +66,7 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Sync dependencies
         run: uv sync --frozen --group dev
