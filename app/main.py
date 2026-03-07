@@ -58,6 +58,7 @@ _init_sentry()
 # Try to import FastMCP utilities, gracefully handle TypeForm import issues
 try:
     from fastmcp.utilities.lifespan import combine_lifespans
+
     FASTMCP_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"FastMCP not available: {e}")
