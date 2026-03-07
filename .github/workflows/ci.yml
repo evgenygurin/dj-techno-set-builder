@@ -37,37 +37,17 @@ jobs:
         with:
           enable-cache: false
 
-      - name: Clean and sync dependencies
-        run: |
-          echo "Cleaning UV cache and syncing dependencies..."
-          uv cache clean
-          uv sync --frozen --group dev
-          echo "Dependencies synced successfully"
-
-      - name: Debug environment
-        run: |
-          echo "Python version: $(python --version)"
-          echo "UV version: $(uv --version)"
-          echo "Installed packages:"
-          uv pip list
+      - name: Sync dependencies
+        run: uv sync --frozen --group dev
 
       - name: Ruff check
-        run: |
-          echo "Running ruff check..."
-          uv run ruff check app tests --verbose
-          echo "Ruff check completed"
+        run: uv run ruff check app tests
 
       - name: Ruff format check
-        run: |
-          echo "Running ruff format check..."
-          uv run ruff format --check app tests
-          echo "Ruff format check completed"
+        run: uv run ruff format --check app tests
 
       - name: Mypy
-        run: |
-          echo "Running mypy..."
-          uv run mypy app
-          echo "Mypy check completed"
+        run: uv run mypy app
 
   tests:
     name: Tests
@@ -88,24 +68,14 @@ jobs:
         with:
           enable-cache: false
 
-      - name: Clean and sync dependencies
-        run: |
-          echo "Cleaning UV cache and syncing test dependencies..."
-          uv cache clean
-          uv sync --frozen --group dev
-          echo "Test dependencies synced successfully"
+      - name: Sync dependencies
+        run: uv sync --frozen --group dev
 
       - name: Install lightweight audio deps
-        run: |
-          echo "Installing audio dependencies..."
-          uv pip install numpy scipy soundfile
-          echo "Audio dependencies installed successfully"
+        run: uv pip install numpy scipy soundfile
 
       - name: Run tests with coverage
-        run: |
-          echo "Running tests with coverage..."
-          uv run pytest -v --cov=app tests --cov-report=term --cov-report=xml
-          echo "Tests completed successfully"
+        run: uv run pytest -v --cov=app tests --cov-report=term --cov-report=xml
 
       - name: Upload coverage artifact
         if: always()
