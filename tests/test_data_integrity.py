@@ -11,13 +11,10 @@ This module tests:
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Artist, Track, TrackArtist
-from app.models.dj import DjLibraryItem, DjPlaylist, DjPlaylistItem
+from app.models.catalog import Track
 from app.models.features import TrackAudioFeaturesComputed
-from app.models.runs import FeatureExtractionRun
 from app.models.sections import TrackSection
 from app.models.sets import DjSet, DjSetItem, DjSetVersion
-from app.models.transitions import Transition, TransitionCandidate
 
 
 class TestForeignKeyIntegrity:
@@ -27,7 +24,7 @@ class TestForeignKeyIntegrity:
         """Verify track_artists references valid tracks and artists."""
         # Check track_id references
         stmt = text("""
-            SELECT COUNT(*) FROM track_artists 
+            SELECT COUNT(*) FROM track_artists
             WHERE track_id NOT IN (SELECT track_id FROM tracks)
         """)
         result = await session.execute(stmt)
@@ -36,20 +33,18 @@ class TestForeignKeyIntegrity:
 
         # Check artist_id references
         stmt = text("""
-            SELECT COUNT(*) FROM track_artists 
+            SELECT COUNT(*) FROM track_artists
             WHERE artist_id NOT IN (SELECT artist_id FROM artists)
         """)
         result = await session.execute(stmt)
         orphaned_artists = result.scalar()
-        assert (
-            orphaned_artists == 0
-        ), f"Found {orphaned_artists} orphaned track_artists.artist_id"
+        assert orphaned_artists == 0, f"Found {orphaned_artists} orphaned track_artists.artist_id"
 
     async def test_audio_features_fk_integrity(self, session: AsyncSession):
         """Verify audio features reference valid tracks and runs."""
         # Check track_id
         stmt = text("""
-            SELECT COUNT(*) FROM track_audio_features_computed 
+            SELECT COUNT(*) FROM track_audio_features_computed
             WHERE track_id NOT IN (SELECT track_id FROM tracks)
         """)
         result = await session.execute(stmt)
@@ -58,7 +53,7 @@ class TestForeignKeyIntegrity:
 
         # Check run_id
         stmt = text("""
-            SELECT COUNT(*) FROM track_audio_features_computed 
+            SELECT COUNT(*) FROM track_audio_features_computed
             WHERE run_id NOT IN (SELECT run_id FROM feature_extraction_runs)
         """)
         result = await session.execute(stmt)
@@ -68,7 +63,7 @@ class TestForeignKeyIntegrity:
     async def test_sections_fk_integrity(self, session: AsyncSession):
         """Verify sections reference valid tracks and runs."""
         stmt = text("""
-            SELECT COUNT(*) FROM track_sections 
+            SELECT COUNT(*) FROM track_sections
             WHERE track_id NOT IN (SELECT track_id FROM tracks)
         """)
         result = await session.execute(stmt)
@@ -76,7 +71,7 @@ class TestForeignKeyIntegrity:
         assert orphans == 0, f"Found {orphans} orphaned sections.track_id"
 
         stmt = text("""
-            SELECT COUNT(*) FROM track_sections 
+            SELECT COUNT(*) FROM track_sections
             WHERE run_id NOT IN (SELECT run_id FROM feature_extraction_runs)
         """)
         result = await session.execute(stmt)
@@ -86,7 +81,7 @@ class TestForeignKeyIntegrity:
     async def test_dj_library_items_fk_integrity(self, session: AsyncSession):
         """Verify DJ library items reference valid tracks."""
         stmt = text("""
-            SELECT COUNT(*) FROM dj_library_items 
+            SELECT COUNT(*) FROM dj_library_items
             WHERE track_id NOT IN (SELECT track_id FROM tracks)
         """)
         result = await session.execute(stmt)
@@ -96,7 +91,7 @@ class TestForeignKeyIntegrity:
     async def test_playlist_items_fk_integrity(self, session: AsyncSession):
         """Verify playlist items reference valid playlists and tracks."""
         stmt = text("""
-            SELECT COUNT(*) FROM dj_playlist_items 
+            SELECT COUNT(*) FROM dj_playlist_items
             WHERE playlist_id NOT IN (SELECT playlist_id FROM dj_playlists)
         """)
         result = await session.execute(stmt)
@@ -104,7 +99,7 @@ class TestForeignKeyIntegrity:
         assert orphans == 0, f"Found {orphans} orphaned playlist_items.playlist_id"
 
         stmt = text("""
-            SELECT COUNT(*) FROM dj_playlist_items 
+            SELECT COUNT(*) FROM dj_playlist_items
             WHERE track_id NOT IN (SELECT track_id FROM tracks)
         """)
         result = await session.execute(stmt)
@@ -115,7 +110,7 @@ class TestForeignKeyIntegrity:
         """Verify set items reference valid versions, tracks, and transitions."""
         # Check set_version_id
         stmt = text("""
-            SELECT COUNT(*) FROM dj_set_items 
+            SELECT COUNT(*) FROM dj_set_items
             WHERE set_version_id NOT IN (SELECT set_version_id FROM dj_set_versions)
         """)
         result = await session.execute(stmt)
@@ -124,7 +119,7 @@ class TestForeignKeyIntegrity:
 
         # Check track_id
         stmt = text("""
-            SELECT COUNT(*) FROM dj_set_items 
+            SELECT COUNT(*) FROM dj_set_items
             WHERE track_id NOT IN (SELECT track_id FROM tracks)
         """)
         result = await session.execute(stmt)
@@ -133,8 +128,8 @@ class TestForeignKeyIntegrity:
 
         # Check transition_id (nullable)
         stmt = text("""
-            SELECT COUNT(*) FROM dj_set_items 
-            WHERE transition_id IS NOT NULL 
+            SELECT COUNT(*) FROM dj_set_items
+            WHERE transition_id IS NOT NULL
             AND transition_id NOT IN (SELECT transition_id FROM transitions)
         """)
         result = await session.execute(stmt)
@@ -144,7 +139,7 @@ class TestForeignKeyIntegrity:
     async def test_set_versions_fk_integrity(self, session: AsyncSession):
         """Verify set versions reference valid sets."""
         stmt = text("""
-            SELECT COUNT(*) FROM dj_set_versions 
+            SELECT COUNT(*) FROM dj_set_versions
             WHERE set_id NOT IN (SELECT set_id FROM dj_sets)
         """)
         result = await session.execute(stmt)
@@ -158,7 +153,7 @@ class TestDataRangeValidation:
     async def test_bpm_range_valid(self, session: AsyncSession):
         """Verify BPM values are in valid range (20-300)."""
         stmt = text("""
-            SELECT COUNT(*) FROM track_audio_features_computed 
+            SELECT COUNT(*) FROM track_audio_features_computed
             WHERE bpm < 20 OR bpm > 300
         """)
         result = await session.execute(stmt)
@@ -168,7 +163,7 @@ class TestDataRangeValidation:
     async def test_energy_values_normalized(self, session: AsyncSession):
         """Verify energy values are normalized (0-1)."""
         stmt = text("""
-            SELECT COUNT(*) FROM track_audio_features_computed 
+            SELECT COUNT(*) FROM track_audio_features_computed
             WHERE energy_mean < 0 OR energy_mean > 1
         """)
         result = await session.execute(stmt)
@@ -176,7 +171,7 @@ class TestDataRangeValidation:
         assert invalid == 0, f"Found {invalid} invalid energy_mean values (must be 0-1)"
 
         stmt = text("""
-            SELECT COUNT(*) FROM track_audio_features_computed 
+            SELECT COUNT(*) FROM track_audio_features_computed
             WHERE energy_max < 0 OR energy_max > 1
         """)
         result = await session.execute(stmt)
@@ -186,7 +181,7 @@ class TestDataRangeValidation:
     async def test_key_code_valid_range(self, session: AsyncSession):
         """Verify key codes are in valid range (0-23)."""
         stmt = text("""
-            SELECT COUNT(*) FROM track_audio_features_computed 
+            SELECT COUNT(*) FROM track_audio_features_computed
             WHERE key_code < 0 OR key_code > 23
         """)
         result = await session.execute(stmt)
@@ -203,19 +198,17 @@ class TestDataRangeValidation:
     async def test_section_duration_consistency(self, session: AsyncSession):
         """Verify section durations match their time ranges."""
         stmt = text("""
-            SELECT COUNT(*) FROM track_sections 
+            SELECT COUNT(*) FROM track_sections
             WHERE section_duration_ms != (end_ms - start_ms)
         """)
         result = await session.execute(stmt)
         invalid = result.scalar()
-        assert (
-            invalid == 0
-        ), f"Found {invalid} sections with inconsistent duration calculation"
+        assert invalid == 0, f"Found {invalid} sections with inconsistent duration calculation"
 
     async def test_sections_within_track_bounds(self, session: AsyncSession):
         """Verify all sections stay within their track's duration."""
         stmt = text("""
-            SELECT COUNT(*) 
+            SELECT COUNT(*)
             FROM track_sections s
             JOIN tracks t ON s.track_id = t.track_id
             WHERE s.end_ms > t.duration_ms
@@ -228,8 +221,8 @@ class TestDataRangeValidation:
         """Verify all band energy values are normalized (0-1)."""
         for band in ["sub", "low", "lowmid", "mid", "highmid", "high"]:
             stmt = text(f"""
-                SELECT COUNT(*) FROM track_audio_features_computed 
-                WHERE {band}_energy IS NOT NULL 
+                SELECT COUNT(*) FROM track_audio_features_computed
+                WHERE {band}_energy IS NOT NULL
                 AND ({band}_energy < 0 OR {band}_energy > 1)
             """)
             result = await session.execute(stmt)
@@ -240,7 +233,7 @@ class TestDataRangeValidation:
         """Verify all confidence values are normalized (0-1)."""
         for field in ["tempo_confidence", "key_confidence", "bpm_stability"]:
             stmt = text(f"""
-                SELECT COUNT(*) FROM track_audio_features_computed 
+                SELECT COUNT(*) FROM track_audio_features_computed
                 WHERE {field} < 0 OR {field} > 1
             """)
             result = await session.execute(stmt)
@@ -341,7 +334,7 @@ class TestRepositoryQueries:
         repo = AudioFeaturesRepository(session)
 
         # Filter by BPM range
-        features, total = await repo.filter_by_criteria(bpm_min=120.0, bpm_max=140.0)
+        features, _total = await repo.filter_by_criteria(bpm_min=120.0, bpm_max=140.0)
 
         # Verify all referenced tracks exist
         if features:
@@ -361,11 +354,7 @@ class TestRepositoryQueries:
         repo = SectionsRepository(session)
 
         # Get first 5 tracks with sections
-        stmt = (
-            select(TrackSection.track_id)
-            .distinct()
-            .limit(5)
-        )
+        stmt = select(TrackSection.track_id).distinct().limit(5)
         result = await session.execute(stmt)
         track_ids = [row[0] for row in result.fetchall()]
 
@@ -412,8 +401,8 @@ class TestRepositoryQueries:
             version_count, track_count = stats[set_id]
 
             # Manual count of versions
-            stmt = select(func.count()).select_from(DjSetVersion).where(
-                DjSetVersion.set_id == set_id
+            stmt = (
+                select(func.count()).select_from(DjSetVersion).where(DjSetVersion.set_id == set_id)
             )
             result = await session.execute(stmt)
             expected_versions = result.scalar()
@@ -434,8 +423,10 @@ class TestRepositoryQueries:
             latest_vid = result.scalar()
 
             if latest_vid:
-                stmt = select(func.count()).select_from(DjSetItem).where(
-                    DjSetItem.set_version_id == latest_vid
+                stmt = (
+                    select(func.count())
+                    .select_from(DjSetItem)
+                    .where(DjSetItem.set_version_id == latest_vid)
                 )
                 result = await session.execute(stmt)
                 expected_tracks = result.scalar()
@@ -452,9 +443,9 @@ class TestDuplicateValidation:
     async def test_no_duplicate_tracks(self, session: AsyncSession):
         """Check for duplicate tracks (same title + duration)."""
         stmt = text("""
-            SELECT title, duration_ms, COUNT(*) as cnt 
-            FROM tracks 
-            GROUP BY title, duration_ms 
+            SELECT title, duration_ms, COUNT(*) as cnt
+            FROM tracks
+            GROUP BY title, duration_ms
             HAVING COUNT(*) > 1
         """)
         result = await session.execute(stmt)
@@ -464,20 +455,17 @@ class TestDuplicateValidation:
         # This test just flags them for review
         if dupes:
             dupe_list = "\n".join(
-                f'  - "{title[:50]}" ({dur}ms): {cnt} copies'
-                for title, dur, cnt in dupes[:5]
+                f'  - "{title[:50]}" ({dur}ms): {cnt} copies' for title, dur, cnt in dupes[:5]
             )
             # This is a warning, not a failure - duplicates may be valid
-            print(
-                f"\n⚠️  Found {len(dupes)} potential duplicate track groups:\n{dupe_list}"
-            )
+            print(f"\n⚠️  Found {len(dupes)} potential duplicate track groups:\n{dupe_list}")
 
     async def test_no_duplicate_artists(self, session: AsyncSession):
         """Check for duplicate artist names."""
         stmt = text("""
-            SELECT name, COUNT(*) as cnt 
-            FROM artists 
-            GROUP BY name 
+            SELECT name, COUNT(*) as cnt
+            FROM artists
+            GROUP BY name
             HAVING COUNT(*) > 1
         """)
         result = await session.execute(stmt)
