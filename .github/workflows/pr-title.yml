@@ -21,9 +21,13 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          echo "PR title: $PR_TITLE"
+          echo "PR title: '$PR_TITLE'"
+          echo "Pattern: '^[A-Z][A-Z0-9]*-[0-9]+: .+'"
           REQUIRED_PATTERN='^[A-Z][A-Z0-9]*-[0-9]+: .+'
-          if [[ ! "$PR_TITLE" =~ $REQUIRED_PATTERN ]]; then
+          if [[ "$PR_TITLE" =~ $REQUIRED_PATTERN ]]; then
+            echo "✅ PR title matches the required format"
+          else
+            echo "❌ PR title does not match the required format"
             echo "::error title=Invalid PR title::Expected format: TEAM-123: Short summary (example: BPM-123: Fix ORM defaults)."
             exit 1
           fi
