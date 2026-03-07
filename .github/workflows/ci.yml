@@ -37,11 +37,15 @@ jobs:
         with:
           enable-cache: false
 
-      - name: Sync dependencies
-        run: uv sync --frozen --group dev
+      - name: Clean and sync dependencies
+        run: |
+          uv cache clean
+          uv sync --frozen --group dev
 
       - name: Ruff check
-        run: uv run ruff check app tests
+        run: |
+          echo "Running ruff check..."
+          uv run ruff check app tests --verbose
 
       - name: Ruff format check
         run: uv run ruff format --check app tests
@@ -68,8 +72,10 @@ jobs:
         with:
           enable-cache: false
 
-      - name: Sync dependencies
-        run: uv sync --frozen --group dev
+      - name: Clean and sync dependencies
+        run: |
+          uv cache clean
+          uv sync --frozen --group dev
 
       - name: Install lightweight audio deps
         run: uv pip install numpy scipy soundfile
