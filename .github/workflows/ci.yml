@@ -28,17 +28,26 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: "3.12"
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
 
+      - name: Debug environment
+        run: |
+          echo "Python version: $(python --version)"
+          echo "UV version: $(uv --version)"
+          echo "Current directory: $(pwd)"
+          echo "Files in current directory:"
+          ls -la
+          echo "uv.lock exists: $(test -f uv.lock && echo 'yes' || echo 'no')"
+
       - name: Sync dependencies
-        run: uv sync --frozen --group dev
+        run: uv sync --frozen --group dev --verbose
 
       - name: Ruff check
         run: uv run ruff check app tests
@@ -59,12 +68,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: "3.12"
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
 
