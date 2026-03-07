@@ -22,6 +22,7 @@ DC_PROD  := $(DC) -f compose.yaml -f compose.prod.yaml
         db db-upgrade db-downgrade db-revision db-history db-current db-reset db-schema \
         docker-local docker-dev docker-prod docker-down docker-logs docker-ps docker-shell docker-test \
         mcp-dev mcp-inspect mcp-list mcp-call mcp-install-desktop mcp-install-code \
+        refresh-features refresh-sections refresh-scores refresh-ym refresh-all refresh-dry \
         all ci
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -277,6 +278,30 @@ mcp-install-desktop:
 
 mcp-install-code:
 	$(UV) run fastmcp install claude-code $(MCP_SPEC) --name dj-techno --env-file .env --with-editable .
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Data Refresh
+# ═════════════════════════════════════════════════════════════════════════════
+
+refresh-features:
+	$(UV) run python scripts/refresh_data.py --mode features --workers 4
+
+refresh-sections:
+	$(UV) run python scripts/refresh_data.py --mode sections
+
+refresh-scores:
+	$(UV) run python scripts/rescore_sets.py
+
+refresh-ym:
+	$(UV) run python scripts/refresh_ym_metadata.py --mode all
+
+refresh-all: refresh-ym refresh-features refresh-sections refresh-scores
+	@echo "All data refreshed"
+
+refresh-dry:
+	$(UV) run python scripts/refresh_data.py --mode all --dry-run
+	$(UV) run python scripts/refresh_ym_metadata.py --mode all --dry-run
+	$(UV) run python scripts/rescore_sets.py --dry-run
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CI / All

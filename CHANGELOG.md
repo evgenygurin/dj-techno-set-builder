@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Data refresh scripts**: `scripts/refresh_data.py` (audio features + sections), `scripts/refresh_ym_metadata.py` (YM metadata), `scripts/rescore_sets.py` (transition scores)
+- **Makefile refresh targets**: `make refresh-features`, `make refresh-sections`, `make refresh-scores`, `make refresh-ym`, `make refresh-all`, `make refresh-dry`
+
+### Fixed
+
+- **test_filter_tracks_by_energy**: test was passing LUFS range (-9.0 to -5.0) to `energy_min`/`energy_max` which filters by `energy_mean` (0.0-1.0 scale); fixed test to use correct energy_mean values
+
+---
+
 - **Skills restructured**: 4 project skills переведены в официальный формат `.claude/skills/<name>/SKILL.md` с YAML frontmatter (`name`, `description`) — теперь model-invoked автоматически по контексту
 - **`/delegate` slash command**: `.claude/commands/delegate.md` — запуск Codegen cloud агента из чата
 - **Sub-agents**: `.claude/agents/` — 3 специализированных субагента: `db-analyst` (SQL-запросы к dev.db), `code-investigator` (read-only исследование кодовой базы), `dj-workflow` (построение и оптимизация DJ-сетов)

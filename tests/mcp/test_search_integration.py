@@ -76,12 +76,21 @@ async def _seed_features(session, track_ids: dict[str, int]) -> None:
     session.add(run)
     await session.flush()
 
-    # t1: Gravity — 140 BPM, Em (key_code=8), -8.3 LUFS
-    f1 = _make_features(track_ids["t1"], run.run_id, bpm=140.0, key_code=8, lufs_i=-8.3)
-    # t2: Space Motion — 138 BPM, Am (key_code=18), -6.0 LUFS
-    f2 = _make_features(track_ids["t2"], run.run_id, bpm=138.0, key_code=18, lufs_i=-6.0)
-    # t3: Dark Gravity — 145 BPM, Cm (key_code=0), -10.5 LUFS
-    f3 = _make_features(track_ids["t3"], run.run_id, bpm=145.0, key_code=0, lufs_i=-10.5)
+    # t1: Gravity — 140 BPM, Em (key_code=8), energy_mean=0.5
+    f1 = _make_features(
+        track_ids["t1"], run.run_id,
+        bpm=140.0, key_code=8, lufs_i=-8.3, energy_mean=0.5,
+    )
+    # t2: Space Motion — 138 BPM, Am (key_code=18), energy_mean=0.7
+    f2 = _make_features(
+        track_ids["t2"], run.run_id,
+        bpm=138.0, key_code=18, lufs_i=-6.0, energy_mean=0.7,
+    )
+    # t3: Dark Gravity — 145 BPM, Cm (key_code=0), energy_mean=0.2
+    f3 = _make_features(
+        track_ids["t3"], run.run_id,
+        bpm=145.0, key_code=0, lufs_i=-10.5, energy_mean=0.2,
+    )
     session.add_all([f1, f2, f3])
     await session.flush()
 
@@ -205,7 +214,7 @@ async def test_filter_tracks_by_key_code(workflow_mcp_with_db, session):
 
 
 async def test_filter_tracks_by_energy(workflow_mcp_with_db, session):
-    """filter_tracks returns tracks within energy (LUFS) range."""
+    """filter_tracks returns tracks within energy_mean range (0.0-1.0)."""
     track_ids = await _seed_tracks(session)
     await _seed_features(session, track_ids)
     await session.commit()
@@ -213,11 +222,11 @@ async def test_filter_tracks_by_energy(workflow_mcp_with_db, session):
     async with Client(workflow_mcp_with_db) as client:
         result = await client.call_tool(
             "filter_tracks",
-            {"energy_min": -9.0, "energy_max": -5.0},
+            {"energy_min": 0.4, "energy_max": 0.8},
         )
         data = _parse_response(result)
         tracks = data["results"]
-        # t1: -8.3 LUFS (within range), t2: -6.0 (within), t3: -10.5 (below)
+        # t1: energy_mean=0.5 (within), t2: 0.7 (within), t3: 0.2 (below)
         assert len(tracks) == 2
 
 
