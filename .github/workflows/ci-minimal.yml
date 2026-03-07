@@ -1,0 +1,28 @@
+name: CI Minimal Test
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test Basic Setup
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Debug
+        run: |
+          echo "=== Environment ==="
+          whoami
+          pwd
+          ls -la
+          echo "=== Python ==="
+          python3 --version
+          which python3
+          echo "=== End ==="
