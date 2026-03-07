@@ -39,19 +39,35 @@ jobs:
 
       - name: Clean and sync dependencies
         run: |
+          echo "Cleaning UV cache and syncing dependencies..."
           uv cache clean
           uv sync --frozen --group dev
+          echo "Dependencies synced successfully"
+
+      - name: Debug environment
+        run: |
+          echo "Python version: $(python --version)"
+          echo "UV version: $(uv --version)"
+          echo "Installed packages:"
+          uv pip list
 
       - name: Ruff check
         run: |
           echo "Running ruff check..."
           uv run ruff check app tests --verbose
+          echo "Ruff check completed"
 
       - name: Ruff format check
-        run: uv run ruff format --check app tests
+        run: |
+          echo "Running ruff format check..."
+          uv run ruff format --check app tests
+          echo "Ruff format check completed"
 
       - name: Mypy
-        run: uv run mypy app
+        run: |
+          echo "Running mypy..."
+          uv run mypy app
+          echo "Mypy check completed"
 
   tests:
     name: Tests
@@ -74,14 +90,22 @@ jobs:
 
       - name: Clean and sync dependencies
         run: |
+          echo "Cleaning UV cache and syncing test dependencies..."
           uv cache clean
           uv sync --frozen --group dev
+          echo "Test dependencies synced successfully"
 
       - name: Install lightweight audio deps
-        run: uv pip install numpy scipy soundfile
+        run: |
+          echo "Installing audio dependencies..."
+          uv pip install numpy scipy soundfile
+          echo "Audio dependencies installed successfully"
 
       - name: Run tests with coverage
-        run: uv run pytest -v --cov=app tests --cov-report=term --cov-report=xml
+        run: |
+          echo "Running tests with coverage..."
+          uv run pytest -v --cov=app tests --cov-report=term --cov-report=xml
+          echo "Tests completed successfully"
 
       - name: Upload coverage artifact
         if: always()
