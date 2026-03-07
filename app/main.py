@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 try:
     import sentry_sdk
 except ImportError:
-    sentry_sdk = None  # type: ignore[assignment]
+    sentry_sdk = None
 
 from fastapi import FastAPI
 
@@ -55,13 +55,25 @@ def _init_sentry() -> None:
 # Initialize Sentry BEFORE importing FastMCP
 _init_sentry()
 
-from fastmcp.utilities.lifespan import combine_lifespans  # noqa: E402
+# Try to import FastMCP utilities, gracefully handle TypeForm import issues
+try:
+    from fastmcp.utilities.lifespan import combine_lifespans
+    FASTMCP_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"FastMCP not available: {e}")
+    combine_lifespans = None  # type: ignore[assignment]
+    FASTMCP_AVAILABLE = False
 
 from app.database import close_db, init_db  # noqa: E402
 from app.errors import register_error_handlers  # noqa: E402
-from app.mcp import create_dj_mcp  # noqa: E402
 from app.middleware import apply_middleware  # noqa: E402
 from app.routers import register_routers  # noqa: E402
+
+# Import MCP conditionally
+if FASTMCP_AVAILABLE:
+    from app.mcp import create_dj_mcp
+else:
+    create_dj_mcp = None  # type: ignore[assignment]
 
 
 @asynccontextmanager
@@ -72,15 +84,25 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    mcp = create_dj_mcp()
-    mcp_app = mcp.http_app(path="/mcp")
+    if FASTMCP_AVAILABLE and create_dj_mcp is not None and combine_lifespans is not None:
+        mcp = create_dj_mcp()
+        mcp_app = mcp.http_app(path="/mcp")
 
-    application = FastAPI(
-        title=settings.app_name,
-        debug=settings.debug,
-        lifespan=combine_lifespans(lifespan, mcp_app.lifespan),
-    )
-    application.mount("/mcp", mcp_app)
+        application = FastAPI(
+            title=settings.app_name,
+            debug=settings.debug,
+            lifespan=combine_lifespans(lifespan, mcp_app.lifespan),
+        )
+        application.mount("/mcp", mcp_app)
+        logger.info("MCP server enabled at /mcp")
+    else:
+        application = FastAPI(
+            title=settings.app_name,
+            debug=settings.debug,
+            lifespan=lifespan,
+        )
+        logger.warning("MCP server disabled due to import issues")
+
     apply_middleware(application)
     register_error_handlers(application)
     register_routers(application)
