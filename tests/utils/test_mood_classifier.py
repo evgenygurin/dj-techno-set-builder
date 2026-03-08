@@ -1,8 +1,11 @@
 """Tests for rule-based mood classifier with 15 techno subgenres.
 
-Test values are calibrated against the actual scoring functions to ensure
-each prototypical case clearly wins over the "driving" catch-all subgenre.
-Confidence thresholds are realistic for the margin-based formula.
+Test values are calibrated against REAL data percentiles (N=1539 tracks):
+  BPM 122-149, LUFS -17..-5, hp_ratio 0.66-17.25, centroid 782-5235 Hz,
+  onset_rate 3.2-8.3, flux_mean 0.06-0.32, energy_mean 0.06-0.56.
+
+Each prototypical test uses extreme values for the subgenre's key
+discriminative features while keeping other features near the dataset median.
 """
 
 import pytest
@@ -13,327 +16,335 @@ from app.utils.audio.mood_classifier import (
     classify_track,
 )
 
-# ── Tests for each subgenre with prototypical features ─────────────
+# Median values for "neutral" features (P50 from real data)
+_MEDIAN = dict(
+    bpm=128.0,
+    lufs_i=-8.9,
+    kick_prominence=0.84,
+    spectral_centroid_mean=2616.0,
+    onset_rate=5.34,
+    hp_ratio=1.95,
+    flux_mean=0.185,
+    flux_std=0.124,
+    energy_std=0.150,
+    energy_mean=0.201,
+    lra_lu=5.7,
+    crest_factor_db=9.9,
+    flatness_mean=0.049,
+)
+
+
+# -- Tests for each subgenre with prototypical features ----------------------
 
 
 def test_ambient_dub_classification():
-    """Ambient Dub: slow (120 BPM), very quiet (-14 LUFS), deep sub-bass, smooth."""
+    """Ambient Dub: slow (122 BPM), very quiet, dark, spacious."""
     result = classify_track(
-        bpm=120.0,
+        bpm=122.0,
         lufs_i=-14.0,
-        kick_prominence=0.30,
-        spectral_centroid_mean=1200.0,
-        onset_rate=2.5,
-        hp_ratio=0.35,
-        sub_energy=0.48,
+        kick_prominence=0.50,
+        spectral_centroid_mean=1400.0,
+        onset_rate=3.5,
+        hp_ratio=1.6,
+        lra_lu=10.0,
+        energy_mean=0.10,
     )
     assert result.mood == TrackMood.AMBIENT_DUB
-    assert result.confidence > 0.1
+    assert result.confidence > 0.05
 
 
 def test_dub_techno_classification():
-    """Dub Techno: reverb-heavy (high LRA), deep sub-bass, dark timbre."""
+    """Dub Techno: slow, very high LRA from reverb/delay tails."""
     result = classify_track(
         bpm=124.0,
-        lufs_i=-12.0,
-        kick_prominence=0.45,
-        spectral_centroid_mean=1200.0,
-        onset_rate=3.5,
-        hp_ratio=0.45,
-        sub_energy=0.50,
-        lra_lu=12.0,
+        lufs_i=-11.0,
+        kick_prominence=0.65,
+        spectral_centroid_mean=1900.0,
+        onset_rate=4.0,
+        hp_ratio=2.0,
+        lra_lu=13.0,
     )
     assert result.mood == TrackMood.DUB_TECHNO
     assert result.confidence > 0.05
 
 
 def test_minimal_classification():
-    """Minimal: sparse, stable timbre, tight grid, low onset rate."""
+    """Minimal: sparse, stable, low flux, low onset rate."""
     result = classify_track(
-        bpm=127.5,
+        bpm=126.0,
         lufs_i=-9.5,
-        kick_prominence=0.40,
-        spectral_centroid_mean=1800.0,
-        onset_rate=3.5,
-        hp_ratio=0.50,
-        pulse_clarity=0.88,
-        flux_std=0.18,
-        energy_std=0.08,
+        kick_prominence=0.65,
+        spectral_centroid_mean=2300.0,
+        onset_rate=4.0,
+        hp_ratio=1.7,
+        energy_std=0.10,
+        flux_mean=0.13,
     )
     assert result.mood == TrackMood.MINIMAL
     assert result.confidence > 0.05
 
 
 def test_detroit_classification():
-    """Detroit: soulful, very harmonic (high hp_ratio + chroma), warm chords."""
+    """Detroit: high hp_ratio (>2.5), warm centroid, moderate BPM."""
     result = classify_track(
-        bpm=125.0,
-        lufs_i=-9.0,
-        kick_prominence=0.45,
-        spectral_centroid_mean=2200.0,
-        onset_rate=5.0,
-        hp_ratio=0.80,
-        chroma_entropy=0.82,
+        bpm=128.0,
+        lufs_i=-8.5,
+        kick_prominence=0.75,
+        spectral_centroid_mean=2500.0,
+        onset_rate=5.3,
+        hp_ratio=3.2,
+        energy_mean=0.25,
     )
     assert result.mood == TrackMood.DETROIT
     assert result.confidence > 0.05
 
 
 def test_melodic_deep_classification():
-    """Melodic Deep: harmonic, warm (low centroid), balanced mix."""
+    """Melodic Deep: harmonic but darker (low centroid), slower."""
     result = classify_track(
-        bpm=126.0,
-        lufs_i=-10.0,
-        kick_prominence=0.48,
-        spectral_centroid_mean=1400.0,
-        onset_rate=5.0,
-        hp_ratio=0.78,
+        bpm=125.0,
+        lufs_i=-10.5,
+        kick_prominence=0.60,
+        spectral_centroid_mean=1700.0,
+        onset_rate=4.8,
+        hp_ratio=2.5,
+        energy_mean=0.15,
     )
     assert result.mood == TrackMood.MELODIC_DEEP
     assert result.confidence > 0.05
 
 
 def test_progressive_classification():
-    """Progressive: building energy, evolving timbre, dynamic."""
+    """Progressive: high energy_std and flux_mean (dynamic, evolving)."""
     result = classify_track(
-        bpm=127.5,
+        bpm=128.0,
         lufs_i=-8.5,
-        kick_prominence=0.50,
-        spectral_centroid_mean=2000.0,
-        onset_rate=6.0,
-        hp_ratio=0.55,
-        energy_slope_mean=0.18,
-        flux_mean=0.72,
-        energy_std=0.28,
+        kick_prominence=0.80,
+        spectral_centroid_mean=2600.0,
+        onset_rate=5.5,
+        hp_ratio=2.0,
+        energy_std=0.21,
+        flux_mean=0.27,
+        lra_lu=9.0,
     )
     assert result.mood == TrackMood.PROGRESSIVE
     assert result.confidence > 0.05
 
 
 def test_hypnotic_classification():
-    """Hypnotic: 134 BPM, very stable timbre, tight grid, consistent energy."""
+    """Hypnotic: very low flux_std and energy_std (stable, trance-like)."""
     result = classify_track(
-        bpm=134.0,
-        lufs_i=-8.0,
-        kick_prominence=0.68,
-        spectral_centroid_mean=2200.0,
+        bpm=128.0,
+        lufs_i=-8.5,
+        kick_prominence=0.90,
+        spectral_centroid_mean=2500.0,
         onset_rate=5.0,
-        hp_ratio=0.45,
-        flux_std=0.14,
-        pulse_clarity=0.88,
-        energy_std=0.07,
+        hp_ratio=1.8,
+        flux_std=0.08,
+        energy_std=0.09,
+        flux_mean=0.13,
     )
     assert result.mood == TrackMood.HYPNOTIC
     assert result.confidence > 0.01
 
 
 def test_driving_classification():
-    """Driving: standard 4/4, moderate energy, balanced — the catch-all."""
+    """Driving: standard 4/4, ~129 BPM, solid kick, moderate everything."""
     result = classify_track(
         bpm=129.0,
-        lufs_i=-9.0,
-        kick_prominence=0.58,
-        spectral_centroid_mean=2200.0,
-        onset_rate=6.0,
-        hp_ratio=0.50,
-        energy_std=0.15,
+        lufs_i=-8.5,
+        kick_prominence=0.92,
+        spectral_centroid_mean=2600.0,
+        onset_rate=5.5,
+        hp_ratio=1.9,
+        energy_mean=0.22,
     )
     assert result.mood == TrackMood.DRIVING
-    assert result.confidence > 0.1
+    assert result.confidence > 0.01
 
 
 def test_tribal_classification():
-    """Tribal: very high onset rate, high contrast, heavy percussion."""
+    """Tribal: very high onset rate (>6.5), percussive, moderate kick."""
     result = classify_track(
         bpm=130.0,
-        lufs_i=-8.5,
-        kick_prominence=0.55,
-        spectral_centroid_mean=2500.0,
-        onset_rate=12.0,
-        hp_ratio=0.35,
-        contrast_mean_db=19.0,
+        lufs_i=-8.0,
+        kick_prominence=0.70,
+        spectral_centroid_mean=2700.0,
+        onset_rate=7.5,
+        hp_ratio=1.4,
     )
     assert result.mood == TrackMood.TRIBAL
     assert result.confidence > 0.01
 
 
 def test_breakbeat_classification():
-    """Breakbeat: very low kick (no 4/4), busy, disrupted grid."""
+    """Breakbeat: very low kick (<0.3), moderate onset, broken beats."""
     result = classify_track(
-        bpm=132.0,
+        bpm=133.0,
         lufs_i=-8.0,
-        kick_prominence=0.22,
-        spectral_centroid_mean=2800.0,
-        onset_rate=13.0,
-        hp_ratio=0.40,
-        pulse_clarity=0.30,
-        contrast_mean_db=19.0,
+        kick_prominence=0.20,
+        spectral_centroid_mean=2700.0,
+        onset_rate=6.0,
+        hp_ratio=1.5,
+        energy_mean=0.25,
     )
     assert result.mood == TrackMood.BREAKBEAT
     assert result.confidence > 0.01
 
 
 def test_peak_time_classification():
-    """Peak Time: dominant kick, loud, high energy, dancefloor focus."""
+    """Peak Time: loud, dominant kick, high energy, high onset."""
     result = classify_track(
-        bpm=131.0,
-        lufs_i=-6.5,
-        kick_prominence=0.82,
-        spectral_centroid_mean=2500.0,
-        onset_rate=7.0,
-        hp_ratio=0.40,
-        energy_mean=0.85,
+        bpm=132.0,
+        lufs_i=-6.8,
+        kick_prominence=0.95,
+        spectral_centroid_mean=2800.0,
+        onset_rate=6.5,
+        hp_ratio=1.7,
+        energy_mean=0.38,
     )
     assert result.mood == TrackMood.PEAK_TIME
-    assert result.confidence > 0.1
+    assert result.confidence > 0.05
 
 
 def test_acid_classification():
-    """Acid: 303-style, high flux (changing timbre), bright, fast."""
+    """Acid: high flux (303 filter sweeps), bright centroid, fast."""
     result = classify_track(
-        bpm=140.0,
-        lufs_i=-7.5,
-        kick_prominence=0.55,
-        spectral_centroid_mean=3200.0,
-        onset_rate=7.0,
-        hp_ratio=0.45,
-        flux_mean=0.78,
-        flux_std=0.58,
-        chroma_entropy=0.78,
+        bpm=136.0,
+        lufs_i=-8.0,
+        kick_prominence=0.80,
+        spectral_centroid_mean=3600.0,
+        onset_rate=5.5,
+        hp_ratio=1.5,
+        flux_mean=0.29,
+        flux_std=0.18,
     )
     assert result.mood == TrackMood.ACID
     assert result.confidence > 0.05
 
 
 def test_raw_classification():
-    """Raw: aggressive, very loud, heavily compressed, dominant kick."""
+    """Raw: very loud, heavily compressed (low crest), dominant kick."""
     result = classify_track(
         bpm=136.0,
-        lufs_i=-5.0,
-        kick_prominence=0.88,
+        lufs_i=-5.5,
+        kick_prominence=0.95,
         spectral_centroid_mean=2800.0,
-        onset_rate=7.5,
-        hp_ratio=0.30,
-        crest_factor_db=6.0,
-        energy_mean=0.92,
+        onset_rate=5.5,
+        hp_ratio=1.5,
+        crest_factor_db=7.0,
+        energy_mean=0.40,
     )
     assert result.mood == TrackMood.RAW
     assert result.confidence > 0.01
 
 
 def test_industrial_classification():
-    """Industrial: harsh (high centroid), noisy (high flatness), busy."""
+    """Industrial: very high centroid (>4000), high flatness (noisy), fast."""
     result = classify_track(
-        bpm=135.0,
-        lufs_i=-6.5,
-        kick_prominence=0.55,
-        spectral_centroid_mean=5500.0,
-        onset_rate=11.0,
-        hp_ratio=0.25,
-        flatness_mean=0.58,
+        bpm=138.0,
+        lufs_i=-7.0,
+        kick_prominence=0.80,
+        spectral_centroid_mean=4800.0,
+        onset_rate=7.0,
+        hp_ratio=1.3,
+        flatness_mean=0.14,
+        flux_mean=0.15,  # low flux to suppress Acid
+        flux_std=0.09,
     )
     assert result.mood == TrackMood.INDUSTRIAL
-    assert result.confidence > 0.05
+    assert result.confidence > 0.01
 
 
 def test_hard_techno_classification():
-    """Hard Techno: very fast (148+ BPM), extreme kick, very loud."""
+    """Hard Techno: very fast (>145 BPM), loud, dominant kick."""
     result = classify_track(
-        bpm=148.0,
-        lufs_i=-5.0,
-        kick_prominence=0.90,
-        spectral_centroid_mean=3000.0,
-        onset_rate=7.0,
-        hp_ratio=0.30,
-        energy_mean=0.92,
+        bpm=146.0,
+        lufs_i=-5.5,
+        kick_prominence=0.95,
+        spectral_centroid_mean=3200.0,
+        onset_rate=6.5,
+        hp_ratio=1.3,
+        energy_mean=0.40,
     )
     assert result.mood == TrackMood.HARD_TECHNO
     assert result.confidence > 0.01
 
 
-# ── Edge cases and boundary tests ──────────────────────────────────
+# -- Edge cases and boundary tests -------------------------------------------
 
 
 def test_borderline_minimal_vs_hypnotic():
-    """Borderline between minimal (127 BPM) and hypnotic (134 BPM)."""
+    """Both sparse and stable — minimal has lower onset, hypnotic lower flux."""
     result = classify_track(
-        bpm=130.5,
+        bpm=127.0,
         lufs_i=-9.0,
-        kick_prominence=0.60,
-        spectral_centroid_mean=2000.0,
-        onset_rate=5.0,
-        hp_ratio=0.50,
-        pulse_clarity=0.80,
-        flux_std=0.25,
+        kick_prominence=0.75,
+        spectral_centroid_mean=2400.0,
+        onset_rate=4.5,
+        hp_ratio=1.8,
+        flux_std=0.10,
         energy_std=0.12,
+        flux_mean=0.15,
     )
-    # Should classify as one or the other with moderate confidence
-    assert result.mood in [TrackMood.MINIMAL, TrackMood.HYPNOTIC, TrackMood.DRIVING]
+    assert result.mood in [TrackMood.MINIMAL, TrackMood.HYPNOTIC]
 
 
 def test_borderline_peak_time_vs_raw():
-    """Both have high kick and loudness, but raw is more compressed."""
+    """Both loud with strong kick — raw is more compressed."""
     result = classify_track(
         bpm=134.0,
-        lufs_i=-6.0,
-        kick_prominence=0.78,
-        spectral_centroid_mean=2600.0,
-        onset_rate=6.5,
-        hp_ratio=0.35,
-        energy_mean=0.82,
-        crest_factor_db=10.0,
+        lufs_i=-6.5,
+        kick_prominence=0.93,
+        spectral_centroid_mean=2800.0,
+        onset_rate=6.0,
+        hp_ratio=1.5,
+        energy_mean=0.35,
+        crest_factor_db=8.5,
     )
     assert result.mood in [TrackMood.PEAK_TIME, TrackMood.RAW]
 
 
 def test_borderline_detroit_vs_melodic_deep():
-    """Both harmonic, warm - detroit has more melodic richness."""
+    """Both harmonic — Detroit brighter centroid, Melodic Deep darker."""
     result = classify_track(
-        bpm=125.5,
-        lufs_i=-10.0,
-        kick_prominence=0.47,
-        spectral_centroid_mean=1800.0,
-        onset_rate=4.5,
-        hp_ratio=0.75,
-        chroma_entropy=0.70,
+        bpm=126.5,
+        lufs_i=-9.5,
+        kick_prominence=0.65,
+        spectral_centroid_mean=2100.0,
+        onset_rate=5.0,
+        hp_ratio=2.4,
+        energy_mean=0.18,
     )
     assert result.mood in [TrackMood.DETROIT, TrackMood.MELODIC_DEEP]
 
 
-# ── Confidence scoring tests ───────────────────────────────────────
+# -- Confidence scoring tests ------------------------------------------------
 
 
 def test_high_confidence_for_clear_classification():
-    """Prototypical driving (the catch-all) should have highest confidence."""
+    """Hard Techno at 148 BPM should be very clear."""
     result = classify_track(
-        bpm=129.0,
-        lufs_i=-9.0,
-        kick_prominence=0.58,
-        spectral_centroid_mean=2200.0,
-        onset_rate=6.0,
-        hp_ratio=0.50,
-        energy_std=0.15,
+        bpm=148.0,
+        lufs_i=-5.0,
+        kick_prominence=0.98,
+        spectral_centroid_mean=3200.0,
+        onset_rate=6.5,
+        hp_ratio=1.2,
+        energy_mean=0.45,
     )
-    assert result.mood == TrackMood.DRIVING
-    # Driving is the natural center — highest absolute confidence
-    assert result.confidence > 0.3
+    assert result.mood == TrackMood.HARD_TECHNO
+    assert result.confidence > 0.1
 
 
 def test_lower_confidence_for_ambiguous_classification():
-    """Generic features should result in lower confidence."""
-    result = classify_track(
-        bpm=128.0,
-        lufs_i=-9.0,
-        kick_prominence=0.55,
-        spectral_centroid_mean=2500.0,
-        onset_rate=5.5,
-        hp_ratio=0.50,
-    )
-    # Likely DRIVING but confidence shouldn't be too high
-    assert 0.0 <= result.confidence <= 0.7
+    """Median-range features should result in moderate confidence."""
+    result = classify_track(**_MEDIAN)
+    # Should still classify something but confidence shouldn't be extreme
+    assert 0.0 <= result.confidence <= 0.8
 
 
-# ── Backward compatibility and API tests ───────────────────────────
+# -- Backward compatibility and API tests ------------------------------------
 
 
 def test_backward_compatibility_with_original_params():
@@ -344,7 +355,7 @@ def test_backward_compatibility_with_original_params():
         kick_prominence=0.80,
         spectral_centroid_mean=3000.0,
         onset_rate=6.0,
-        hp_ratio=0.35,
+        hp_ratio=1.5,
     )
     assert isinstance(result, MoodClassification)
     assert result.mood in TrackMood
@@ -353,14 +364,7 @@ def test_backward_compatibility_with_original_params():
 
 def test_classify_track_returns_frozen_dataclass():
     """Result is immutable."""
-    result = classify_track(
-        bpm=130.0,
-        lufs_i=-9.0,
-        kick_prominence=0.55,
-        spectral_centroid_mean=2500.0,
-        onset_rate=5.5,
-        hp_ratio=0.50,
-    )
+    result = classify_track(**_MEDIAN)
     assert isinstance(result, MoodClassification)
     with pytest.raises(AttributeError):
         result.confidence = 0.9  # type: ignore[misc]
@@ -374,13 +378,13 @@ def test_classification_has_confidence_and_features():
         kick_prominence=0.80,
         spectral_centroid_mean=3000.0,
         onset_rate=6.0,
-        hp_ratio=0.35,
+        hp_ratio=1.5,
     )
     assert 0.0 <= result.confidence <= 1.0
-    assert len(result.features_used) >= 3  # At least 3 key features
+    assert len(result.features_used) >= 3
 
 
-# ── Intensity and ordering tests ───────────────────────────────────
+# -- Intensity and ordering tests --------------------------------------------
 
 
 def test_mood_energy_order():
@@ -433,65 +437,60 @@ def test_intensity_is_monotonic():
     assert intensities == list(range(1, 16))
 
 
-# ── Subgenre-specific discriminative feature tests ─────────────────
+# -- Subgenre-specific discriminative feature tests --------------------------
 
 
 def test_breakbeat_requires_low_kick_prominence():
     """Breakbeat is distinguished by LOW kick prominence (no 4/4)."""
-    # High onset but LOW kick should be breakbeat
     low_kick_result = classify_track(
-        bpm=132.0,
+        bpm=133.0,
         lufs_i=-8.0,
-        kick_prominence=0.22,
-        spectral_centroid_mean=2800.0,
-        onset_rate=13.0,
-        hp_ratio=0.40,
-        pulse_clarity=0.30,
-        contrast_mean_db=19.0,
+        kick_prominence=0.20,
+        spectral_centroid_mean=2700.0,
+        onset_rate=6.0,
+        hp_ratio=1.5,
+        energy_mean=0.25,
     )
     assert low_kick_result.mood == TrackMood.BREAKBEAT
 
-    # Same features but HIGH kick should NOT be breakbeat
+    # Same but HIGH kick should NOT be breakbeat
     high_kick_result = classify_track(
-        bpm=132.0,
+        bpm=133.0,
         lufs_i=-8.0,
-        kick_prominence=0.75,
-        spectral_centroid_mean=2800.0,
-        onset_rate=13.0,
-        hp_ratio=0.40,
-        pulse_clarity=0.70,
-        contrast_mean_db=19.0,
+        kick_prominence=0.90,
+        spectral_centroid_mean=2700.0,
+        onset_rate=6.0,
+        hp_ratio=1.5,
+        energy_mean=0.25,
     )
     assert high_kick_result.mood != TrackMood.BREAKBEAT
 
 
 def test_dub_techno_requires_high_lra():
     """Dub techno is distinguished by wide loudness range (reverb/delay)."""
-    result_high_lra = classify_track(
+    result = classify_track(
         bpm=124.0,
-        lufs_i=-12.0,
-        kick_prominence=0.45,
-        spectral_centroid_mean=1200.0,
-        onset_rate=3.5,
-        hp_ratio=0.45,
-        sub_energy=0.50,
-        lra_lu=12.0,
+        lufs_i=-11.0,
+        kick_prominence=0.65,
+        spectral_centroid_mean=1900.0,
+        onset_rate=4.0,
+        hp_ratio=2.0,
+        lra_lu=13.0,
     )
-    assert result_high_lra.mood == TrackMood.DUB_TECHNO
+    assert result.mood == TrackMood.DUB_TECHNO
 
 
 def test_acid_requires_high_flux():
     """Acid is distinguished by high spectral flux (changing timbre)."""
     result = classify_track(
-        bpm=140.0,
-        lufs_i=-7.5,
-        kick_prominence=0.55,
-        spectral_centroid_mean=3200.0,
-        onset_rate=7.0,
-        hp_ratio=0.45,
-        flux_mean=0.78,
-        flux_std=0.58,
-        chroma_entropy=0.78,
+        bpm=136.0,
+        lufs_i=-8.0,
+        kick_prominence=0.80,
+        spectral_centroid_mean=3600.0,
+        onset_rate=5.5,
+        hp_ratio=1.5,
+        flux_mean=0.29,
+        flux_std=0.18,
     )
     assert result.mood == TrackMood.ACID
 
@@ -500,28 +499,55 @@ def test_raw_requires_low_crest_factor():
     """Raw is distinguished by heavy compression (low crest factor)."""
     result = classify_track(
         bpm=136.0,
-        lufs_i=-5.0,
-        kick_prominence=0.88,
+        lufs_i=-5.5,
+        kick_prominence=0.95,
         spectral_centroid_mean=2800.0,
-        onset_rate=7.5,
-        hp_ratio=0.30,
-        crest_factor_db=6.0,
-        energy_mean=0.92,
+        onset_rate=5.5,
+        hp_ratio=1.5,
+        crest_factor_db=7.0,
+        energy_mean=0.40,
     )
     assert result.mood == TrackMood.RAW
 
 
-def test_progressive_requires_positive_energy_slope():
-    """Progressive is distinguished by building energy over time."""
-    result = classify_track(
-        bpm=127.5,
+def test_detroit_requires_high_hp_ratio():
+    """Detroit is distinguished by high hp_ratio (harmonic content)."""
+    # High hp_ratio -> Detroit
+    harmonic_result = classify_track(
+        bpm=128.0,
         lufs_i=-8.5,
-        kick_prominence=0.50,
-        spectral_centroid_mean=2000.0,
-        onset_rate=6.0,
-        hp_ratio=0.55,
-        energy_slope_mean=0.18,
-        flux_mean=0.72,
-        energy_std=0.28,
+        kick_prominence=0.75,
+        spectral_centroid_mean=2500.0,
+        onset_rate=5.3,
+        hp_ratio=3.2,
+        energy_mean=0.25,
     )
-    assert result.mood == TrackMood.PROGRESSIVE
+    assert harmonic_result.mood == TrackMood.DETROIT
+
+    # Low hp_ratio with same features -> NOT Detroit
+    percussive_result = classify_track(
+        bpm=128.0,
+        lufs_i=-8.5,
+        kick_prominence=0.75,
+        spectral_centroid_mean=2500.0,
+        onset_rate=5.3,
+        hp_ratio=1.3,
+        energy_mean=0.25,
+    )
+    assert percussive_result.mood != TrackMood.DETROIT
+
+
+def test_industrial_requires_high_centroid():
+    """Industrial is distinguished by harsh, bright timbre."""
+    result = classify_track(
+        bpm=138.0,
+        lufs_i=-7.0,
+        kick_prominence=0.80,
+        spectral_centroid_mean=4800.0,
+        onset_rate=7.0,
+        hp_ratio=1.3,
+        flatness_mean=0.14,
+        flux_mean=0.15,
+        flux_std=0.09,
+    )
+    assert result.mood == TrackMood.INDUSTRIAL

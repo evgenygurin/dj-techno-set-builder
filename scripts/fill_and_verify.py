@@ -56,12 +56,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.config import settings
 from app.database import close_db, init_db, session_factory
 from app.models.catalog import Track
-from app.models.dj import DjLibraryItem
+from app.models.dj import DjLibraryItem, DjPlaylist, DjPlaylistItem
 from app.models.features import TrackAudioFeaturesComputed
 from app.models.ingestion import ProviderTrackId
 from app.models.metadata_yandex import YandexMetadata
 from app.models.runs import FeatureExtractionRun
 from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+from app.utils.audio.mood_classifier import TrackMood, classify_track
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,26 @@ ANALYSIS_TIMEOUT_S = 180  # 3 min per track — essentia can hang on corrupt aud
 # Metadata pre-filter
 BAD_VERSION_WORDS = {"radio", "edit", "short", "remix", "live", "acoustic", "instrumental"}
 MIN_DURATION_MS = 255_000  # 4:15
+
+# Subgenre playlists
+SUBGENRE_MAP_PATH = Path(__file__).with_name(".subgenre_playlists.json")
+SUBGENRE_DISPLAY_NAMES: dict[str, str] = {
+    "ambient_dub": "Techno: Ambient Dub",
+    "dub_techno": "Techno: Dub Techno",
+    "minimal": "Techno: Minimal",
+    "detroit": "Techno: Detroit",
+    "melodic_deep": "Techno: Melodic Deep",
+    "progressive": "Techno: Progressive",
+    "hypnotic": "Techno: Hypnotic",
+    "driving": "Techno: Driving",
+    "tribal": "Techno: Tribal",
+    "breakbeat": "Techno: Breakbeat",
+    "peak_time": "Techno: Peak Time",
+    "acid": "Techno: Acid",
+    "raw": "Techno: Raw",
+    "industrial": "Techno: Industrial",
+    "hard_techno": "Techno: Hard Techno",
+}
 
 # Audio criteria (full techno check — matches MCP mood_classifier + save_features)
 BPM_MIN, BPM_MAX = 120.0, 155.0
@@ -116,7 +137,7 @@ def out(msg: str = "") -> None:
     sys.stderr.flush()
 
 
-def phase_header(num: int, title: str) -> None:
+def phase_header(num: int | str, title: str) -> None:
     out(f"\n{CY}{B}{'─' * 60}{C}")
     out(f"{CY}{B}  Phase {num}: {title}{C}")
     out(f"{CY}{'─' * 60}{C}")
@@ -222,6 +243,7 @@ class Candidate:
     file_path: Path | None = None
     audio_ok: bool | None = None  # None = not analyzed yet
     fail_reasons: list[str] = field(default_factory=list)
+    mood: TrackMood | None = None
 
 
 # ── Metadata pre-filter ─────────────────────────────────────────────────────
@@ -375,6 +397,173 @@ def check_audio_from_db(f: Any) -> list[str]:
     return reasons
 
 
+# ── Subgenre playlist helpers ─────────────────────────────────────────────
+
+
+def _load_subgenre_map() -> dict[str, dict[str, Any]]:
+    """Load {mood_value: {ym_kind, db_playlist_id, name}} from JSON."""
+    if SUBGENRE_MAP_PATH.exists():
+        try:
+            return json.loads(SUBGENRE_MAP_PATH.read_text())
+        except (json.JSONDecodeError, OSError):
+            return {}
+    return {}
+
+
+def _save_subgenre_map(mapping: dict[str, dict[str, Any]]) -> None:
+    """Persist subgenre playlist mapping."""
+    SUBGENRE_MAP_PATH.write_text(json.dumps(mapping, indent=2, ensure_ascii=False) + "\n")
+
+
+def classify_from_db(feat: Any) -> TrackMood:
+    """Classify track mood from DB audio features row (ORM or raw).
+
+    Fallback values are P50 medians from real data (N=583 tracks).
+    """
+    mc = classify_track(
+        bpm=feat.bpm,
+        lufs_i=feat.lufs_i,
+        kick_prominence=feat.kick_prominence or 0.5,
+        spectral_centroid_mean=feat.centroid_mean_hz or 2500.0,
+        onset_rate=feat.onset_rate_mean or 5.0,
+        hp_ratio=feat.hp_ratio or 2.0,
+        pulse_clarity=feat.pulse_clarity or 1.0,
+        flux_mean=feat.flux_mean or 0.18,
+        flux_std=feat.flux_std or 0.10,
+        energy_std=feat.energy_std or 0.13,
+        energy_mean=feat.energy_mean or 0.22,
+        sub_energy=feat.sub_energy or 0.95,
+        lra_lu=feat.lra_lu or 6.6,
+        crest_factor_db=feat.crest_factor_db or 13.3,
+        chroma_entropy=feat.chroma_entropy or 0.98,
+        contrast_mean_db=feat.contrast_mean_db or -0.7,
+        flatness_mean=feat.flatness_mean or 0.06,
+        energy_slope_mean=feat.energy_slope_mean or 0.0,
+    )
+    return mc.mood
+
+
+async def init_subgenre_playlists(api: YmApi) -> dict[str, dict[str, Any]]:
+    """Create YM + local DB playlists for all 15 subgenres if not exist.
+
+    Returns mapping {mood_value: {ym_kind, db_playlist_id, name}}.
+    """
+    mapping = _load_subgenre_map()
+    created = 0
+
+    for mood in TrackMood:
+        mood_val = mood.value
+        if mood_val in mapping:
+            # Verify YM playlist still exists
+            kind = mapping[mood_val]["ym_kind"]
+            try:
+                await api.get(f"{YM_BASE}/users/{USER_ID}/playlists/{kind}")
+                continue
+            except Exception:
+                out(f"  {Y}YM playlist kind={kind} for {mood_val} gone, recreating{C}")
+
+        display_name = SUBGENRE_DISPLAY_NAMES[mood_val]
+
+        # Create YM playlist
+        data = await api.post_form(
+            f"{YM_BASE}/users/{USER_ID}/playlists/create",
+            {"title": display_name, "visibility": "public"},
+        )
+        result = data.get("result", data)
+        ym_kind = str(result["kind"])
+
+        # Create local DB playlist
+        async with session_factory() as session:
+            db_pl = DjPlaylist(
+                name=display_name,
+                source_of_truth="ym",
+                platform_ids={"ym": ym_kind},
+            )
+            session.add(db_pl)
+            await session.flush()
+            db_pid = db_pl.playlist_id
+            await session.commit()
+
+        mapping[mood_val] = {
+            "ym_kind": ym_kind,
+            "db_playlist_id": db_pid,
+            "name": display_name,
+        }
+        created += 1
+        out(f"  {G}+{C} {display_name} (ym={ym_kind}, db={db_pid})")
+        await asyncio.sleep(REQUEST_DELAY)
+
+    _save_subgenre_map(mapping)
+    if created:
+        out(f"  {G}Created {created} subgenre playlists{C}")
+    else:
+        out(f"  {D}All 15 subgenre playlists exist{C}")
+    return mapping
+
+
+async def add_to_subgenre_playlist(
+    api: YmApi,
+    subgenre_map: dict[str, dict[str, Any]],
+    mood_val: str,
+    candidates: list[Any],
+) -> None:
+    """Add candidates to the YM + DB subgenre playlist."""
+    if not candidates:
+        return
+    sg = subgenre_map[mood_val]
+    ym_kind = sg["ym_kind"]
+    db_pid = sg["db_playlist_id"]
+
+    # Add to YM
+    rev, _, existing_ids, _ = await fetch_playlist(api, ym_kind)
+    new_tracks = [
+        c for c in candidates if (c.ym_id if hasattr(c, "ym_id") else str(c)) not in existing_ids
+    ]
+    if new_tracks:
+        add_tracks = [
+            {"id": c.ym_id, "albumId": c.album_id}
+            if hasattr(c, "album_id") and c.album_id
+            else {"id": c.ym_id if hasattr(c, "ym_id") else str(c)}
+            for c in new_tracks
+        ]
+        try:
+            new_rev = await add_to_playlist(api, ym_kind, rev, add_tracks)
+            out(f"    {G}+{C} {sg['name']}: {len(new_tracks)} tracks (rev={new_rev})")
+        except httpx.HTTPStatusError as e:
+            out(f"    {R}Failed to add to {sg['name']}: {e}{C}")
+            return
+
+    # Add to local DB
+    async with session_factory() as session:
+        # Get current max sort_index
+        row = await session.execute(
+            text(
+                "SELECT COALESCE(MAX(sort_index), -1) FROM dj_playlist_items"
+                f" WHERE playlist_id = {db_pid}"
+            )
+        )
+        max_idx = row.scalar() or -1
+
+        for i, cand in enumerate(new_tracks):
+            track_id = cand.track_id if hasattr(cand, "track_id") else 0
+            if track_id:
+                # Check not already in playlist
+                exists = await session.execute(
+                    select(DjPlaylistItem.playlist_item_id).where(
+                        DjPlaylistItem.playlist_id == db_pid,
+                        DjPlaylistItem.track_id == track_id,
+                    )
+                )
+                if exists.scalar():
+                    continue
+                session.add(DjPlaylistItem(
+                    playlist_id=db_pid,
+                    track_id=track_id,
+                    sort_index=max_idx + 1 + i,
+                ))
+        await session.commit()
+
+
 # ── Feedback gate helpers ──────────────────────────────────────────────────
 
 
@@ -472,6 +661,19 @@ async def delete_from_playlist(api: YmApi, kind: str, revision: int,
         {"diff": diff, "revision": str(revision)},
     )
     return data.get("result", {}).get("revision", revision + 1)
+
+
+async def clear_playlist(api: YmApi, kind: str) -> int:
+    """Remove ALL tracks from a YM playlist. Returns new revision."""
+    rev, track_count, _, _ = await fetch_playlist(api, kind)
+    if track_count == 0:
+        return rev
+    diff = json.dumps([{"op": "delete", "from": 0, "to": track_count}])
+    data = await api.post_form(
+        f"{YM_BASE}/users/{USER_ID}/playlists/{kind}/change",
+        {"diff": diff, "revision": str(rev)},
+    )
+    return data.get("result", {}).get("revision", rev + 1)
 
 
 _PLAYLIST_MAP_PATH = Path(__file__).with_name(".playlist_map.json")
@@ -1061,10 +1263,312 @@ async def analyze_candidate(candidate: Candidate, sem: asyncio.Semaphore) -> boo
     return candidate.audio_ok
 
 
+# ── Distribute mode ──────────────────────────────────────────────────────────
+
+
+async def _distribute_tracks(
+    api: YmApi, source_kind: str, *, clean: bool = False,
+    ym_client: YandexMusicClient | None = None,
+    sem: asyncio.Semaphore | None = None,
+) -> None:
+    """Classify all tracks from source playlist and distribute to subgenre playlists.
+
+    If ym_client and sem are provided, tracks missing from local DB or without
+    audio features will be auto-imported, downloaded, and analyzed.
+    """
+    out(f"\n{B}{'=' * 60}{C}")
+    out(f"{B}  Distribute Mode — classify & route to subgenre playlists{C}")
+    if clean:
+        out(f"{Y}  (--clean: all subgenre playlists will be cleared first){C}")
+    out(f"{B}{'=' * 60}{C}")
+
+    # 1. Init subgenre playlists (create if needed)
+    phase_header(1, "Init subgenre playlists")
+    subgenre_map = await init_subgenre_playlists(api)
+
+    # 1b. Clear existing playlists if --clean
+    if clean:
+        phase_header("1b", "Clear subgenre playlists")
+        for mood in TrackMood:
+            sg = subgenre_map[mood.value]
+            ym_kind = sg["ym_kind"]
+            db_pid = sg["db_playlist_id"]
+            new_rev = await clear_playlist(api, ym_kind)
+            # Also clear local DB
+            async with session_factory() as session:
+                await session.execute(
+                    text(f"DELETE FROM dj_playlist_items WHERE playlist_id = {db_pid}")
+                )
+                await session.commit()
+            out(f"  {D}Cleared {sg['name']} (rev={new_rev}){C}")
+            await asyncio.sleep(REQUEST_DELAY)
+
+    # 2. Fetch source playlist tracks
+    phase_header(2, "Fetch source playlist")
+    _, track_count, playlist_ids, _ = await fetch_playlist(api, source_kind)
+    out(f"  {CY}Source playlist: {track_count} tracks{C}")
+
+    if not playlist_ids:
+        out(f"  {Y}No tracks in source playlist{C}")
+        return
+
+    # 3. Classify each track
+    phase_header(3, f"Classify {len(playlist_ids)} tracks")
+    from collections import defaultdict
+
+    by_mood: dict[str, list[dict[str, str]]] = defaultdict(list)
+    # {mood_value: [{ym_id, album_id, track_id, title}]}
+    classified = 0
+    skipped = 0
+
+    for i, ym_id in enumerate(playlist_ids, 1):
+        progress_write(progress_bar(i, len(playlist_ids), label=f"classifying {ym_id}"))
+
+        # Find track_id via provider_track_ids
+        async with session_factory() as session:
+            row = await session.execute(
+                select(ProviderTrackId.track_id).where(
+                    ProviderTrackId.provider_track_id == ym_id,
+                )
+            )
+            track_id = row.scalar()
+
+        if not track_id:
+            # Auto-import: fetch metadata from YM, create DB records
+            if not ym_client or not sem:
+                skipped += 1
+                progress_finish(progress_bar(
+                    i, len(playlist_ids), label=f"{Y}SKIP{C} {ym_id} (not in DB)",
+                ))
+                continue
+            try:
+                resp = await api.get(f"{YM_BASE}/tracks/{ym_id}")
+                tracks_data = resp.get("result", [])
+                if not tracks_data:
+                    raise ValueError("empty result")
+                raw = tracks_data[0]
+            except Exception as e:
+                skipped += 1
+                progress_finish(progress_bar(
+                    i, len(playlist_ids),
+                    label=f"{Y}SKIP{C} {ym_id} (YM fetch fail: {e!s:.30})",
+                ))
+                continue
+            albums = raw.get("albums", [])
+            album_id_str = str(albums[0].get("id", "")) if albums else ""
+            artists = ", ".join(a.get("name", "?") for a in raw.get("artists", []))
+            cand = Candidate(
+                ym_id=ym_id, album_id=album_id_str,
+                title=raw.get("title", "?"), artists=artists,
+                duration_ms=raw.get("durationMs", 0), raw=raw,
+            )
+            await import_candidate(cand)
+            if not cand.track_id:
+                skipped += 1
+                progress_finish(progress_bar(
+                    i, len(playlist_ids), label=f"{Y}SKIP{C} {ym_id} (import fail)",
+                ))
+                continue
+            track_id = cand.track_id
+            ok = await download_candidate(cand, ym_client)
+            if not ok:
+                skipped += 1
+                progress_finish(progress_bar(
+                    i, len(playlist_ids),
+                    label=f"{Y}SKIP{C} #{track_id} (download fail)",
+                ))
+                continue
+            await analyze_candidate(cand, sem)
+            progress_write(progress_bar(
+                i, len(playlist_ids), label=f"{CY}imported{C} #{track_id}",
+            ))
+
+        # Get audio features
+        async with session_factory() as session:
+            row = await session.execute(
+                select(TrackAudioFeaturesComputed).where(
+                    TrackAudioFeaturesComputed.track_id == track_id,
+                )
+            )
+            feat = row.scalars().first()
+
+        if not feat:
+            # Auto-analyze: track exists but no features
+            if ym_client and sem:
+                # Build candidate for download + analyze
+                async with session_factory() as session:
+                    lib_row = await session.execute(
+                        select(DjLibraryItem.file_path).where(
+                            DjLibraryItem.track_id == track_id,
+                        )
+                    )
+                    file_path = lib_row.scalar()
+                    title_row = await session.execute(
+                        select(Track.title).where(Track.track_id == track_id)
+                    )
+                    title = title_row.scalar() or "?"
+                albums_str = ""
+                async with session_factory() as session:
+                    ym_row = await session.execute(
+                        select(YandexMetadata.yandex_album_id).where(
+                            YandexMetadata.track_id == track_id,
+                        )
+                    )
+                    albums_str = ym_row.scalar() or ""
+                cand = Candidate(
+                    ym_id=ym_id, album_id=albums_str,
+                    title=title, artists="",
+                    duration_ms=0, raw={},
+                    track_id=track_id,
+                )
+                if file_path:
+                    cand.file_path = Path(file_path)
+                else:
+                    ok = await download_candidate(cand, ym_client)
+                    if not ok:
+                        skipped += 1
+                        progress_finish(progress_bar(
+                            i, len(playlist_ids),
+                            label=f"{Y}SKIP{C} #{track_id} (download fail)",
+                        ))
+                        continue
+                await analyze_candidate(cand, sem)
+                # Re-fetch features after analysis
+                async with session_factory() as session:
+                    row = await session.execute(
+                        select(TrackAudioFeaturesComputed).where(
+                            TrackAudioFeaturesComputed.track_id == track_id,
+                        )
+                    )
+                    feat = row.scalars().first()
+
+            if not feat:
+                skipped += 1
+                progress_finish(progress_bar(
+                    i, len(playlist_ids),
+                    label=f"{Y}SKIP{C} #{track_id} (no features)",
+                ))
+                continue
+
+        mood = classify_from_db(feat)
+
+        # Get album_id from YM metadata
+        async with session_factory() as session:
+            ym_row = await session.execute(
+                select(YandexMetadata.yandex_album_id).where(
+                    YandexMetadata.track_id == track_id,
+                )
+            )
+            album_id = ym_row.scalar() or ""
+
+        by_mood[mood.value].append({
+            "ym_id": ym_id,
+            "album_id": album_id,
+            "track_id": str(track_id),
+        })
+        classified += 1
+        progress_finish(progress_bar(
+            i, len(playlist_ids),
+            label=f"{G}{mood.value}{C} #{track_id}",
+        ))
+
+    # 4. Add to subgenre playlists
+    phase_header(4, "Distribute to subgenre playlists")
+    for mood in TrackMood:
+        mood_val = mood.value
+        tracks = by_mood.get(mood_val, [])
+        if not tracks:
+            continue
+
+        sg = subgenre_map[mood_val]
+        ym_kind = sg["ym_kind"]
+        db_pid = sg["db_playlist_id"]
+
+        # Add to YM playlist
+        rev, _, existing_ids, _ = await fetch_playlist(api, ym_kind)
+        new_tracks = [t for t in tracks if t["ym_id"] not in existing_ids]
+
+        if new_tracks:
+            add_tracks = [
+                {"id": t["ym_id"], "albumId": t["album_id"]}
+                if t["album_id"]
+                else {"id": t["ym_id"]}
+                for t in new_tracks
+            ]
+            # Retry with fresh revision on 412 (stale revision)
+            for _attempt in range(3):
+                try:
+                    new_rev = await add_to_playlist(api, ym_kind, rev, add_tracks)
+                    out(f"  {G}+{C} {sg['name']}: {len(new_tracks)} new (rev={new_rev})")
+                    break
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 412 and _attempt < 2:
+                        out(f"  {Y}412 stale revision for {sg['name']}, re-fetching...{C}")
+                        await asyncio.sleep(REQUEST_DELAY)
+                        rev, _, existing_ids, _ = await fetch_playlist(api, ym_kind)
+                        new_tracks = [t for t in tracks if t["ym_id"] not in existing_ids]
+                        if not new_tracks:
+                            out(f"  {D}{sg['name']}: all present after re-fetch{C}")
+                            break
+                        add_tracks = [
+                            {"id": t["ym_id"], "albumId": t["album_id"]}
+                            if t["album_id"]
+                            else {"id": t["ym_id"]}
+                            for t in new_tracks
+                        ]
+                        continue
+                    out(f"  {R}Failed {sg['name']}: {e}{C}")
+                    break
+
+            # Add to local DB
+            async with session_factory() as session:
+                row = await session.execute(
+                    text(
+                        "SELECT COALESCE(MAX(sort_index), -1)"
+                        f" FROM dj_playlist_items WHERE playlist_id = {db_pid}"
+                    )
+                )
+                max_idx = row.scalar() or -1
+                for j, t in enumerate(new_tracks):
+                    tid = int(t["track_id"])
+                    if tid:
+                        exists = await session.execute(
+                            select(DjPlaylistItem.playlist_item_id).where(
+                                DjPlaylistItem.playlist_id == db_pid,
+                                DjPlaylistItem.track_id == tid,
+                            )
+                        )
+                        if not exists.scalar():
+                            session.add(DjPlaylistItem(
+                                playlist_id=db_pid,
+                                track_id=tid,
+                                sort_index=max_idx + 1 + j,
+                            ))
+                await session.commit()
+
+            await asyncio.sleep(REQUEST_DELAY)
+        else:
+            out(f"  {D}{sg['name']}: {len(tracks)} (all already present){C}")
+
+    # 5. Summary
+    out(f"\n{B}{'=' * 60}{C}")
+    out(f"{G}{B}  Distribution complete{C}")
+    out(f"{B}  Classified: {classified}  |  Skipped: {skipped}{C}")
+    out(f"{B}{'─' * 60}{C}")
+    for mood in TrackMood:
+        count = len(by_mood.get(mood.value, []))
+        if count:
+            bar = "█" * min(count, 40)
+            name = SUBGENRE_DISPLAY_NAMES[mood.value]
+            out(f"  {mood.intensity:2d}. {name:<25s} {count:3d} {D}{bar}{C}")
+    out(f"{B}{'=' * 60}{C}")
+
+
 # ── Main loop ────────────────────────────────────────────────────────────────
 
 
 async def main() -> None:
+    global _process_pool
     parser = argparse.ArgumentParser(description="Fill & verify YM techno playlist")
     parser.add_argument("--kind", default="1280", help="Playlist kind ID")
     parser.add_argument("--target", type=int, default=0, help="Target track count (0 = unlimited)")
@@ -1082,6 +1586,14 @@ async def main() -> None:
         "--deleted-kind", default=None,
         help="Kind ID for the 'deleted' playlist (skip name-based lookup)",
     )
+    parser.add_argument(
+        "--distribute", action="store_true", default=False,
+        help="Distribute existing playlist tracks into subgenre playlists, then exit",
+    )
+    parser.add_argument(
+        "--clean", action="store_true", default=False,
+        help="With --distribute: clear all subgenre playlists before distributing",
+    )
     args = parser.parse_args()
 
     if not settings.yandex_music_token:
@@ -1095,12 +1607,30 @@ async def main() -> None:
         os.nice(10)
 
     api = YmApi(settings.yandex_music_token)
+
+    # ── Distribute mode: classify existing tracks into subgenre playlists ──
+    if args.distribute:
+        # Init process pool + YM client for auto-import of missing tracks
+        _process_pool = concurrent.futures.ProcessPoolExecutor(max_workers=args.workers)
+        ym_client = YandexMusicClient(token=settings.yandex_music_token)
+        sem = asyncio.Semaphore(args.workers)
+        try:
+            await _distribute_tracks(
+                api, args.kind, clean=args.clean,
+                ym_client=ym_client, sem=sem,
+            )
+        finally:
+            await ym_client.close()
+            await api.close()
+            await close_db()
+            _process_pool.shutdown(wait=False, cancel_futures=True)
+        return
+
     ym_client = YandexMusicClient(token=settings.yandex_music_token)
     sem = asyncio.Semaphore(args.workers)
 
     # ProcessPoolExecutor isolates C-extension crashes (essentia segfaults)
     # from the main process.  max_workers=workers so semaphore controls concurrency.
-    global _process_pool
     _process_pool = concurrent.futures.ProcessPoolExecutor(max_workers=args.workers)
     seen_ids: set[str] = set()
     seed_used: set[str] = set()
@@ -1145,6 +1675,9 @@ async def main() -> None:
         deleted_kind = await get_or_create_deleted_playlist(
             api, args.kind, source_name,
         )
+
+    # Init subgenre playlists (create YM + DB playlists if needed)
+    subgenre_map = await init_subgenre_playlists(api)
 
     # Fetch feedback signals once — reused across the whole session
     disliked_ids = await get_disliked_ids(api)
@@ -1337,13 +1870,24 @@ async def main() -> None:
                     out(f"  {R}BLOCK{C} {cand.artists} -- {cand.title} {D}(disliked){C}")
                     total_rejected += 1
                 elif is_liked(ym_int, liked_ids):
+                    # Liked bypasses audio gate but still needs mood for routing
+                    async with session_factory() as session:
+                        row = await session.execute(
+                            select(TrackAudioFeaturesComputed).where(
+                                TrackAudioFeaturesComputed.track_id == cand.track_id
+                            )
+                        )
+                        feat = row.scalars().first()
+                        if feat:
+                            cand.mood = classify_from_db(feat)
                     passed.append(cand)
-                    out(f"  {G}LIKED{C} {cand.artists} -- {cand.title} {D}(bypass audio gate){C}")
+                    mood_tag = f" [{cand.mood.value}]" if cand.mood else ""
+                    out(f"  {G}LIKED{C} {cand.artists} -- {cand.title}"
+                        f" {D}(bypass audio gate){mood_tag}{C}")
                 elif cand.audio_ok:
-                    # Fetch details for log line
+                    # Classify mood for routing
                     bpm_s = "?"
                     lufs_s = "?"
-                    mood_str = ""
                     async with session_factory() as session:
                         row = await session.execute(
                             select(TrackAudioFeaturesComputed).where(
@@ -1354,22 +1898,11 @@ async def main() -> None:
                         if feat:
                             bpm_s = f"{feat.bpm:.0f}"
                             lufs_s = f"{feat.lufs_i:.1f}"
-                            try:
-                                from app.utils.audio.mood_classifier import classify_track
-                                mc = classify_track(
-                                    bpm=feat.bpm,
-                                    lufs_i=feat.lufs_i,
-                                    kick_prominence=feat.kick_prominence or 0.5,
-                                    spectral_centroid_mean=feat.centroid_mean_hz or 2000,
-                                    onset_rate=feat.onset_rate_mean or 4.0,
-                                    hp_ratio=feat.hp_ratio or 0.5,
-                                )
-                                mood_str = f" [{mc.mood.value}]"
-                            except Exception:
-                                pass
+                            cand.mood = classify_from_db(feat)
+                    mood_tag = f" [{cand.mood.value}]" if cand.mood else ""
                     passed.append(cand)
                     out(f"  {G}PASS{C} {cand.artists} -- {cand.title}"
-                        f" {D}BPM={bpm_s} LUFS={lufs_s}{mood_str}{C}")
+                        f" {D}BPM={bpm_s} LUFS={lufs_s}{mood_tag}{C}")
                 else:
                     failed.append(cand)
                     out(f"  {R}FAIL{C} {cand.artists} -- {cand.title}"
@@ -1382,25 +1915,42 @@ async def main() -> None:
             if blocked:
                 await add_to_deleted_playlist(api, deleted_kind, blocked)
 
-            # ── Phase 5: Add passed to playlist ──────────────────────────
+            # ── Phase 5: Add passed to subgenre playlists ────────────────
             if passed:
-                phase_header(5, f"Add {len(passed)} verified tracks to playlist")
-                # Re-fetch revision — it may have drifted during deleted-playlist ops
-                revision, track_count, playlist_ids, _ = await fetch_playlist(api, args.kind)
-                batch_to_add = passed
-                if args.target:
-                    remaining = args.target - track_count
-                    batch_to_add = passed[:remaining]
-                add_tracks = [{"id": c.ym_id, "albumId": c.album_id} for c in batch_to_add]
+                from collections import defaultdict
 
-                try:
-                    revision = await add_to_playlist(api, args.kind, revision, add_tracks)
-                    total_added += len(batch_to_add)
-                    out(f"  {G}{B}Added {len(batch_to_add)} tracks! rev={revision}{C}")
-                    for c in batch_to_add:
-                        out(f"  {G}+{C} {c.artists} -- {c.title}")
-                except httpx.HTTPStatusError as e:
-                    out(f"  {R}Failed to add: {e}{C}")
+                by_mood: dict[str, list[Candidate]] = defaultdict(list)
+                no_mood: list[Candidate] = []
+                for cand in passed:
+                    if cand.mood:
+                        by_mood[cand.mood.value].append(cand)
+                    else:
+                        no_mood.append(cand)
+
+                phase_header(5, f"Route {len(passed)} tracks to subgenre playlists")
+
+                for mood_val, mood_cands in sorted(by_mood.items()):
+                    await add_to_subgenre_playlist(
+                        api, subgenre_map, mood_val, mood_cands,
+                    )
+                    total_added += len(mood_cands)
+                    await asyncio.sleep(REQUEST_DELAY)
+
+                # Tracks without mood (no features) — add to source playlist
+                if no_mood:
+                    revision, track_count, playlist_ids, _ = (
+                        await fetch_playlist(api, args.kind)
+                    )
+                    add_tracks = [
+                        {"id": c.ym_id, "albumId": c.album_id} for c in no_mood
+                    ]
+                    try:
+                        await add_to_playlist(api, args.kind, revision, add_tracks)
+                        total_added += len(no_mood)
+                        out(f"  {Y}+{C} {len(no_mood)} tracks without mood"
+                            f" → source playlist")
+                    except httpx.HTTPStatusError as e:
+                        out(f"  {R}Failed to add unclassified: {e}{C}")
             else:
                 out(f"\n  {Y}No tracks passed verification this round{C}")
 
@@ -1417,6 +1967,18 @@ async def main() -> None:
             f"{G}{B}  Added: {total_added}  |  Rejected: {total_rejected}"
             f"  |  Rounds: {round_num}{C}"
         )
+        # Show subgenre playlist sizes
+        out(f"{B}{'─' * 60}{C}")
+        for mood in TrackMood:
+            sg = subgenre_map.get(mood.value)
+            if sg:
+                try:
+                    _, sg_count, _, _ = await fetch_playlist(api, sg["ym_kind"])
+                    bar = "█" * min(sg_count, 40)
+                    out(f"  {mood.intensity:2d}. {sg['name']:<25s}"
+                        f" {sg_count:3d} {D}{bar}{C}")
+                except Exception:
+                    pass
         out(f"{B}{'=' * 60}{C}")
 
     except Exception as fatal_err:

@@ -78,18 +78,30 @@ async def _seed_features(session, track_ids: dict[str, int]) -> None:
 
     # t1: Gravity — 140 BPM, Em (key_code=8), energy_mean=0.5
     f1 = _make_features(
-        track_ids["t1"], run.run_id,
-        bpm=140.0, key_code=8, lufs_i=-8.3, energy_mean=0.5,
+        track_ids["t1"],
+        run.run_id,
+        bpm=140.0,
+        key_code=8,
+        lufs_i=-8.3,
+        energy_mean=0.5,
     )
     # t2: Space Motion — 138 BPM, Am (key_code=18), energy_mean=0.7
     f2 = _make_features(
-        track_ids["t2"], run.run_id,
-        bpm=138.0, key_code=18, lufs_i=-6.0, energy_mean=0.7,
+        track_ids["t2"],
+        run.run_id,
+        bpm=138.0,
+        key_code=18,
+        lufs_i=-6.0,
+        energy_mean=0.7,
     )
     # t3: Dark Gravity — 145 BPM, Cm (key_code=0), energy_mean=0.2
     f3 = _make_features(
-        track_ids["t3"], run.run_id,
-        bpm=145.0, key_code=0, lufs_i=-10.5, energy_mean=0.2,
+        track_ids["t3"],
+        run.run_id,
+        bpm=145.0,
+        key_code=0,
+        lufs_i=-10.5,
+        energy_mean=0.2,
     )
     session.add_all([f1, f2, f3])
     await session.flush()

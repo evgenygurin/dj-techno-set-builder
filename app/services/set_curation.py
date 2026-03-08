@@ -55,7 +55,14 @@ class SetCurationService:
                 kick_prominence=feat.kick_prominence or 0.5,
                 spectral_centroid_mean=feat.centroid_mean_hz or 2500.0,
                 onset_rate=feat.onset_rate_mean or 5.0,
-                hp_ratio=feat.hp_ratio or 0.5,
+                hp_ratio=feat.hp_ratio or 2.0,
+                flux_mean=getattr(feat, "flux_mean", None) or 0.18,
+                flux_std=getattr(feat, "flux_std", None) or 0.10,
+                energy_std=getattr(feat, "energy_std", None) or 0.13,
+                energy_mean=getattr(feat, "energy_mean", None) or 0.22,
+                lra_lu=getattr(feat, "lra_lu", None) or 6.6,
+                crest_factor_db=getattr(feat, "crest_factor_db", None) or 13.3,
+                flatness_mean=getattr(feat, "flatness_mean", None) or 0.06,
             )
             result[feat.track_id] = classification.mood
         return result

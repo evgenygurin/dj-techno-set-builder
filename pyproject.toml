@@ -65,6 +65,7 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 "app/mcp/dependencies.py" = ["B008"]  # Depends() in defaults is the FastMCP DI pattern
 "app/mcp/tools/*.py" = ["B008"]
 "app/mcp/resources/status.py" = ["B008"]  # Depends() in defaults is the FastMCP DI pattern
+"scripts/*.py" = ["E402"]  # sys.path.insert before app imports
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

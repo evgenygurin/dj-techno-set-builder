@@ -11,9 +11,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Data refresh scripts**: `scripts/refresh_data.py` (audio features + sections), `scripts/refresh_ym_metadata.py` (YM metadata), `scripts/rescore_sets.py` (transition scores)
 - **Makefile refresh targets**: `make refresh-features`, `make refresh-sections`, `make refresh-scores`, `make refresh-ym`, `make refresh-all`, `make refresh-dry`
 
+### Changed
+
+- **Mood classifier**: expanded from 6 to 15 subgenres with weighted fuzzy scoring; narrowed driving/hypnotic Gaussians (sigma=0.15) to prevent catch-all dominance
+- **audio.md**: added "Mood classifier (15 subgenres)" section with discriminators table, anti-catch-all penalties, subgenre playlists info
+
 ### Fixed
 
 - **test_filter_tracks_by_energy**: test was passing LUFS range (-9.0 to -5.0) to `energy_min`/`energy_max` which filters by `energy_mean` (0.0-1.0 scale); fixed test to use correct energy_mean values
+- **NULL beat features**: deleted 98 v1.0 pipeline rows with NULL kick_prominence/hp_ratio/onset_rate_mean/pulse_clarity; re-analyzed via `refresh_data.py` with v2.1b6 pipeline (subprocess isolation with full essentia beats)
 
 ---
 

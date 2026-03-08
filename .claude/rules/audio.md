@@ -32,7 +32,7 @@ paths:
 | `set_generator` | `generate_set()` | `SetResult` | GA for optimal track ordering |
 | `mfcc` | `extract_mfcc()` | `MfccResult` | 13 mean MFCC coefficients (librosa) |
 | `pipeline` | `extract_all_features()` | `AllFeatures` | Orchestrator — runs all analyses |
-| `mood_classifier` | `classify_track()` | `MoodClassification` | Rule-based 6-mood classification (ambient_dub → hard_techno) |
+| `mood_classifier` | `classify_track()` | `MoodClassification` | Rule-based 15-subgenre classification with fuzzy scoring |
 | `set_templates` | `get_template()` | `SetTemplate` | 8 DJ set templates with slot-based energy arcs |
 
 **Pattern**: Each module exports one pure function returning a frozen `@dataclass(frozen=True, slots=True)`. All types defined in `_types.py`.
@@ -43,6 +43,32 @@ paths:
   - `AudioAnalysisError` — unexpected failure (wrapped by pipeline)
 
 **Pipeline** wraps unexpected errors in `AudioAnalysisError`, letting known errors (`AudioValidationError`, `FileNotFoundError`) bubble up unchanged.
+
+### Mood classifier (15 subgenres)
+
+`app/utils/audio/mood_classifier.py` — `TrackMood` enum with 15 techno subgenres:
+
+```text
+ambient_dub, dub_techno, minimal, detroit, melodic_deep, progressive,
+hypnotic, driving, tribal, breakbeat, peak_time, acid, raw, industrial, hard_techno
+```
+
+**Scoring**: Each subgenre has a weighted scoring function using 6-8 audio features. Track gets scored against all 15, highest wins. `MoodClassification` returns `mood`, `confidence`, `scores` dict, `reasoning`.
+
+**Key discriminators**:
+
+| Feature | Low → subgenre | High → subgenre |
+|---------|---------------|-----------------|
+| `hp_ratio` | >3.0 ambient/dub | <1.5 peak_time/hard |
+| `centroid_mean_hz` | <1500 dub/ambient | >4000 industrial/acid |
+| `energy_mean` | <0.3 ambient/minimal | >0.7 peak_time/hard |
+| `kick_prominence` | <0.3 ambient/melodic | >0.7 driving/hard |
+| `lra_lu` | <5 industrial/hard | >12 ambient/progressive |
+| `flux_std` | <0.2 minimal/hypnotic | >0.5 breakbeat/acid |
+
+**Anti-catch-all penalties**: `driving` and `hypnotic` get narrowed Gaussians (sigma=0.15 vs 0.25) to prevent catch-all dominance. Without this, ~40% of tracks classify as driving.
+
+**Subgenre playlists**: 15 YM playlists (kinds 1286-1300) + 15 local DB playlists (IDs 9-23). Mapping in `scripts/.subgenre_playlists.json`. Created/managed by `fill_and_verify.py --distribute`.
 
 ### Phase 2 optional modules (beats, mfcc)
 
