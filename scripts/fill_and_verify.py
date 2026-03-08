@@ -1564,6 +1564,93 @@ async def _distribute_tracks(
     out(f"{B}{'=' * 60}{C}")
 
 
+async def _backfill_source(api: YmApi, source_kind: str) -> None:
+    """Collect all tracks from subgenre playlists and add missing ones to source."""
+    out(f"\n{B}{'=' * 60}{C}")
+    out(f"{B}  Backfill — add subgenre tracks missing from source playlist{C}")
+    out(f"{B}{'=' * 60}{C}")
+
+    subgenre_map = _load_subgenre_map()
+    if not subgenre_map:
+        out(f"  {R}No subgenre map found. Run --distribute first.{C}")
+        return
+
+    # Collect all track IDs from subgenre playlists
+    all_subgenre_ids: set[str] = set()
+    for _mood_val, sg in subgenre_map.items():
+        ym_kind = sg["ym_kind"]
+        try:
+            _, count, ids, _ = await fetch_playlist(api, ym_kind)
+            all_subgenre_ids.update(ids)
+            out(f"  {D}{sg['name']}: {count} tracks{C}")
+        except Exception as e:
+            out(f"  {Y}Failed to fetch {sg['name']}: {e}{C}")
+        await asyncio.sleep(REQUEST_DELAY)
+
+    out(f"\n  {CY}Total unique tracks in subgenre playlists: {len(all_subgenre_ids)}{C}")
+
+    # Fetch source playlist
+    rev, src_count, source_ids, _ = await fetch_playlist(api, source_kind)
+    source_set = set(source_ids)
+    out(f"  {CY}Source playlist (kind={source_kind}): {src_count} tracks{C}")
+
+    # Find missing
+    missing_ids = all_subgenre_ids - source_set
+    if not missing_ids:
+        out(f"\n  {G}All subgenre tracks already in source playlist. Nothing to do.{C}")
+        return
+
+    out(f"  {Y}Missing from source: {len(missing_ids)} tracks{C}")
+
+    # Need album IDs for each missing track — look up from YM metadata in DB
+    add_tracks: list[dict[str, str]] = []
+    for ym_id in missing_ids:
+        async with session_factory() as session:
+            row = await session.execute(
+                select(
+                    ProviderTrackId.track_id,
+                ).where(
+                    ProviderTrackId.provider_track_id == ym_id,
+                )
+            )
+            track_id = row.scalar()
+
+        album_id = ""
+        if track_id:
+            async with session_factory() as session:
+                ym_row = await session.execute(
+                    select(YandexMetadata.yandex_album_id).where(
+                        YandexMetadata.track_id == track_id,
+                    )
+                )
+                album_id = ym_row.scalar() or ""
+
+        entry: dict[str, str] = {"id": ym_id}
+        if album_id:
+            entry["albumId"] = album_id
+        add_tracks.append(entry)
+
+    # Add in batches of 50 to avoid too-large requests
+    batch_size = 50
+    added = 0
+    for start in range(0, len(add_tracks), batch_size):
+        batch = add_tracks[start : start + batch_size]
+        # Re-fetch revision before each batch
+        rev, _, _, _ = await fetch_playlist(api, source_kind)
+        try:
+            new_rev = await add_to_playlist(api, source_kind, rev, batch)
+            added += len(batch)
+            out(f"  {G}+{C} batch {start // batch_size + 1}:"
+                f" {len(batch)} tracks (rev={new_rev})")
+        except httpx.HTTPStatusError as e:
+            out(f"  {R}Failed batch {start // batch_size + 1}: {e}{C}")
+        await asyncio.sleep(REQUEST_DELAY)
+
+    out(f"\n{B}{'=' * 60}{C}")
+    out(f"{G}{B}  Backfill complete: added {added}/{len(missing_ids)} tracks{C}")
+    out(f"{B}{'=' * 60}{C}")
+
+
 # ── Main loop ────────────────────────────────────────────────────────────────
 
 
@@ -1594,6 +1681,10 @@ async def main() -> None:
         "--clean", action="store_true", default=False,
         help="With --distribute: clear all subgenre playlists before distributing",
     )
+    parser.add_argument(
+        "--backfill", action="store_true", default=False,
+        help="Add missing tracks from subgenre playlists back into source playlist",
+    )
     args = parser.parse_args()
 
     if not settings.yandex_music_token:
@@ -1607,6 +1698,15 @@ async def main() -> None:
         os.nice(10)
 
     api = YmApi(settings.yandex_music_token)
+
+    # ── Backfill mode: add subgenre tracks missing from source playlist ──
+    if args.backfill:
+        try:
+            await _backfill_source(api, args.kind)
+        finally:
+            await api.close()
+            await close_db()
+        return
 
     # ── Distribute mode: classify existing tracks into subgenre playlists ──
     if args.distribute:
@@ -1933,24 +2033,22 @@ async def main() -> None:
                     await add_to_subgenre_playlist(
                         api, subgenre_map, mood_val, mood_cands,
                     )
-                    total_added += len(mood_cands)
                     await asyncio.sleep(REQUEST_DELAY)
 
-                # Tracks without mood (no features) — add to source playlist
-                if no_mood:
-                    revision, track_count, playlist_ids, _ = (
-                        await fetch_playlist(api, args.kind)
-                    )
-                    add_tracks = [
-                        {"id": c.ym_id, "albumId": c.album_id} for c in no_mood
-                    ]
-                    try:
-                        await add_to_playlist(api, args.kind, revision, add_tracks)
-                        total_added += len(no_mood)
-                        out(f"  {Y}+{C} {len(no_mood)} tracks without mood"
-                            f" → source playlist")
-                    except httpx.HTTPStatusError as e:
-                        out(f"  {R}Failed to add unclassified: {e}{C}")
+                # Also add ALL passed tracks to the source (general) playlist
+                revision, track_count, playlist_ids, _ = (
+                    await fetch_playlist(api, args.kind)
+                )
+                all_add = [
+                    {"id": c.ym_id, "albumId": c.album_id} for c in passed
+                ]
+                try:
+                    await add_to_playlist(api, args.kind, revision, all_add)
+                    total_added += len(passed)
+                    out(f"  {G}+{C} {len(passed)} tracks → source playlist"
+                        f" (rev={revision})")
+                except httpx.HTTPStatusError as e:
+                    out(f"  {R}Failed to add to source playlist: {e}{C}")
             else:
                 out(f"\n  {Y}No tracks passed verification this round{C}")
 
