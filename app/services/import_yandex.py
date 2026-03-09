@@ -21,12 +21,13 @@ from app.models.catalog import (
 )
 from app.models.enums import ArtistRole
 from app.models.ingestion import ProviderTrackId, RawProviderResponse
+from app.repositories.providers import ProviderRepository
 from app.repositories.yandex_metadata import YandexMetadataRepository
 from app.services.base import BaseService
 from app.services.yandex_music_client import ParsedYmTrack, YandexMusicClient, parse_ym_track
 from app.utils.text_sort import sort_key
 
-_PROVIDER_ID = 4  # yandex_music — seeded in schema_v6.sql
+_PROVIDER_CODE = "yandex_music"
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,8 @@ class ImportYandexService(BaseService):
         self.session = session
         self.ym = ym_client
         self.ym_repo = YandexMetadataRepository(session)
+        self._provider_repo = ProviderRepository(session)
+        self._provider_id: int | None = None
 
     async def enrich_track(self, track_id: int) -> bool:
         """Search YM by track title, enrich metadata. Returns True if found."""
@@ -86,6 +89,19 @@ class ImportYandexService(BaseService):
             "not_found": not_found,
             "errors": errors,
         }
+
+    async def _resolve_provider_id(self) -> int:
+        """Lazily resolve provider_id from DB by code. Cached after first call."""
+        if self._provider_id is not None:
+            return self._provider_id
+        provider = await self._provider_repo.get_by_code(_PROVIDER_CODE)
+        if provider is None:
+            raise RuntimeError(
+                f"Provider '{_PROVIDER_CODE}' not found in DB. "
+                "Run migrations or seed the providers table."
+            )
+        self._provider_id = provider.provider_id
+        return self._provider_id
 
     async def _get_track(self, track_id: int) -> Track | None:
         stmt = select(Track).where(Track.track_id == track_id)
@@ -139,9 +155,10 @@ class ImportYandexService(BaseService):
             await self._link_track_release(track.track_id, release.release_id)
 
         # 6. Raw response (for debugging)
+        provider_id = await self._resolve_provider_id()
         raw = RawProviderResponse(
             track_id=track.track_id,
-            provider_id=_PROVIDER_ID,
+            provider_id=provider_id,
             provider_track_id=parsed.yandex_track_id,
             endpoint="search",
             payload=parsed.raw,
@@ -205,14 +222,15 @@ class ImportYandexService(BaseService):
 
     # --- Link helpers (idempotent) ---
     async def _link_provider_track(self, track_id: int, ym_id: str) -> None:
+        provider_id = await self._resolve_provider_id()
         stmt = select(ProviderTrackId).where(
             ProviderTrackId.track_id == track_id,
-            ProviderTrackId.provider_id == _PROVIDER_ID,
+            ProviderTrackId.provider_id == provider_id,
         )
         if (await self.session.execute(stmt)).scalar_one_or_none():
             return
         self.session.add(
-            ProviderTrackId(track_id=track_id, provider_id=_PROVIDER_ID, provider_track_id=ym_id)
+            ProviderTrackId(track_id=track_id, provider_id=provider_id, provider_track_id=ym_id)
         )
         await self.session.flush()
 
@@ -226,15 +244,16 @@ class ImportYandexService(BaseService):
         await self.session.flush()
 
     async def _link_track_genre(self, track_id: int, genre_id: int) -> None:
+        provider_id = await self._resolve_provider_id()
         stmt = select(TrackGenre).where(
             TrackGenre.track_id == track_id,
             TrackGenre.genre_id == genre_id,
-            TrackGenre.source_provider_id == _PROVIDER_ID,
+            TrackGenre.source_provider_id == provider_id,
         )
         if (await self.session.execute(stmt)).scalar_one_or_none():
             return
         self.session.add(
-            TrackGenre(track_id=track_id, genre_id=genre_id, source_provider_id=_PROVIDER_ID)
+            TrackGenre(track_id=track_id, genre_id=genre_id, source_provider_id=provider_id)
         )
         await self.session.flush()
 

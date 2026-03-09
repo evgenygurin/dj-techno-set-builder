@@ -106,7 +106,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         cursor: str | None = None,
         session: AsyncSession = Depends(get_session),
     ) -> str:
-        """Filter tracks by audio parameters (BPM, key_code, energy LUFS).
+        """Filter tracks by audio parameters (BPM, key_code, energy).
 
         Uses SQL-level filtering — efficient for large libraries.
         Returns paginated track list with BPM/key/energy populated.
@@ -116,8 +116,8 @@ def register_search_tools(mcp: FastMCP) -> None:
             bpm_max: Maximum BPM (e.g. 145.0).
             key_code_min: Minimum key_code (0-23).
             key_code_max: Maximum key_code (0-23).
-            energy_min: Minimum LUFS (e.g. -10.0).
-            energy_max: Maximum LUFS (e.g. -5.0).
+            energy_min: Minimum energy_mean (0.0-1.0, e.g. 0.3).
+            energy_max: Maximum energy_mean (0.0-1.0, e.g. 0.8).
             limit: Max results (default 50, max 100).
             cursor: Pagination cursor.
         """

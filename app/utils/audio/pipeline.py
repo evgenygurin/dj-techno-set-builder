@@ -50,6 +50,17 @@ def extract_all_features(
     band_energy_result = _run_stage("band_energy", path_str, compute_band_energies, signal)
     spectral_result = _run_stage("spectral", path_str, extract_spectral_features, signal)
 
+    # Phase 2: Beats extraction (optional, graceful failure)
+    beats_result = None
+    try:
+        from app.utils.audio.beats import detect_beats
+
+        beats_result = _run_stage("beats", path_str, detect_beats, signal)
+    except ImportError:
+        logger.debug("essentia/scipy not installed — skipping beats extraction")
+    except AudioAnalysisError:
+        logger.warning("Beats extraction failed for %s", path, exc_info=True)
+
     # Phase 2: MFCC extraction (optional, graceful failure)
     mfcc_result = None
     try:
@@ -75,5 +86,6 @@ def extract_all_features(
         loudness=loudness_result,  # type: ignore[arg-type]
         band_energy=band_energy_result,  # type: ignore[arg-type]
         spectral=spectral_result,  # type: ignore[arg-type]
+        beats=beats_result,  # type: ignore[arg-type]
         mfcc=mfcc_result,  # type: ignore[arg-type]
     )

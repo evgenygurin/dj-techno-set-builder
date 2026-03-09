@@ -77,7 +77,9 @@ def extract_spectral_features(
                     hnr_values.append(10.0 * np.log10(peak / noise))
         if hnr_values:
             hnr_db = float(np.mean(hnr_values))
-    except Exception:
+    except (ValueError, IndexError, ZeroDivisionError):
+        # HNR autocorrelation can fail on edge cases: empty frames,
+        # silent signals, or degenerate lag windows — safe to skip.
         pass
 
     return SpectralResult(

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import Field
+from typing import Literal
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,8 +15,17 @@ class Settings(BaseSettings):
 
     app_name: str = "DJ Techno Set Builder"
     debug: bool = False
-    log_level: str = "INFO"
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     database_url: str = "sqlite+aiosqlite:///./dev.db"
+
+    @field_validator("database_url")
+    @classmethod
+    def validate_db_url(cls, v: str) -> str:
+        if not (v.startswith("sqlite+aiosqlite://") or v.startswith("postgresql+asyncpg://")):
+            raise ValueError(
+                "Unsupported database URL scheme. Use sqlite+aiosqlite:// or postgresql+asyncpg://"
+            )
+        return v
 
     yandex_music_token: str = ""
     yandex_music_user_id: str = ""

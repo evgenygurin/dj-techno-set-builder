@@ -6,29 +6,32 @@ Rekordbox XML export for DJ sets.
 from __future__ import annotations
 
 import contextlib
-import re
 from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import NotFoundError
-from app.mcp.dependencies import get_features_service, get_set_service, get_track_service
+from app.mcp.dependencies import (
+    get_features_service,
+    get_session,
+    get_set_service,
+    get_track_service,
+)
 from app.mcp.resolve import resolve_local_id
 from app.mcp.session_state import save_export_config
+from app.mcp.tools._scoring_helpers import sanitize_filename
 from app.mcp.types import ExportResult
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 
-# Characters forbidden in filenames on macOS/Windows
-_FILENAME_BAD_RE = re.compile(r'[<>:"/\\|?*]')
-
 
 def _safe_filename(name: str) -> str:
     """Sanitize a string for use as a filename component."""
-    return _FILENAME_BAD_RE.sub("_", name).strip(". ")
+    return sanitize_filename(name).strip(". ")
 
 
 def _build_display_name(
@@ -62,6 +65,7 @@ def register_export_tools(mcp: FastMCP) -> None:
         set_svc: DjSetService = Depends(get_set_service),
         track_svc: TrackService = Depends(get_track_service),
         features_svc: AudioFeaturesService = Depends(get_features_service),
+        session: AsyncSession = Depends(get_session),
     ) -> ExportResult:
         """Export a set version as Rekordbox XML (DJ_PLAYLISTS).
 
@@ -118,8 +122,7 @@ def register_export_tools(mcp: FastMCP) -> None:
         # --- Batch-load all data (no N+1) ---
         artists_map = await track_svc.get_track_artists(track_ids)
 
-        # Repos from session via features_svc (shares same session)
-        session = features_svc.features_repo.session
+        # Repos from DI-injected session (shared across all services)
         cue_repo = DjCuePointRepository(session)
         loop_repo = DjSavedLoopRepository(session)
         bg_repo = DjBeatgridRepository(session)

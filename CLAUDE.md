@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 // Всегда думай по-русски и отвечай по-русски, если только явно не просят другое.
 
-Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
+Detailed rules for each layer are in `.claude/rules/` (загружаются через `@`-импорты в `.claude/CLAUDE.md`):
 - `api.md` — routers, schemas, services, error handling
 - `database.md` — models, repositories, migrations, SQLite compat
 - `audio.md` — audio utils, transition scoring, set generation
@@ -15,11 +15,25 @@ Detailed rules for each layer are in `.claude/rules/` (auto-loaded):
 - `documentation.md` — meta-rules for maintaining this documentation system
 - `git.md` — Linear integration, domain scopes, branching model
 
-Workflow skills in `.claude/skills/` (read when working on that domain):
-- `delegated-development.md` — `/delegate` command, Codegen orchestration, vertical management system
-- `dj-set-workflow.md` — декларативный гайд: build → score → deliver → YM sync
-- `mcp-tool-dev.md` — разработка MCP-инструментов: DI, staged pattern, тесты, чеклист
-- `audio-analysis.md` — аудио пайплайн, scoring, cheat_sheet, iCloud стабы, M3U8
+Workflow skills in `.claude/skills/` (model-invoked автоматически по контексту):
+- `delegated-development/` — Codegen orchestration, vertical management, quality gates
+- `dj-set-workflow/` — декларативный гайд: build → score → deliver → YM sync
+- `mcp-tool-dev/` — разработка MCP-инструментов: DI, staged pattern, тесты, чеклист
+- `audio-analysis/` — аудио пайплайн, scoring, cheat_sheet, iCloud стабы, M3U8
+
+Slash commands в `.claude/commands/`:
+- `/delegate <задача>` — запустить Codegen cloud agent
+
+## Strict Scope Rule (КРИТИЧНО)
+
+Делай ТОЛЬКО то, что явно просят. Никакой самодеятельности:
+
+- **НЕ предлагай альтернативы** если запрошенное действие не удалось — сообщи об ошибке и жди инструкций
+- **НЕ расширяй scope** — "добавь треки в плейлист" ≠ "добавь треки из другого источника если этих нет"
+- **НЕ делай fallback-действия** без явного согласия — если жанр/трек/плейлист не найден, СТОП
+- **НЕ додумывай намерения** — если неясно что делать, СПРОСИ вместо того чтобы угадывать
+
+Если действие не получилось — скажи что не получилось и почему. Точка. Не пытайся "помочь" делая что-то другое.
 
 ## Workflow
 
@@ -87,7 +101,7 @@ External MCP servers (.mcp.json):
 
 - **DI**: `DbSession = Annotated[AsyncSession, Depends(get_session)]` in `app/dependencies.py`
 - **App factory**: `create_app()` in `app/main.py` — lifespan manages DB + MCP
-- **Routes**: `/health` (unversioned), `/api/v1/...` (13 domain routers), `/mcp/mcp` (MCP)
+- **Routes**: `/health` (unversioned), `/api/v1/...` (15 domain routers), `/mcp/mcp` (MCP)
 
 ## Plugins & Settings
 

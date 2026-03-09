@@ -8,7 +8,7 @@ paths:
 
 # DB Schema Reference (auto-generated)
 
-> Generated: 2026-03-05 21:38 UTC | Source: `dev.db` | Tables: 44
+> Generated: 2026-03-05 21:47 UTC | Source: `dev.db` | Tables: 44
 >
 > **Do not edit manually.** Regenerate: `make db-schema`
 
@@ -24,7 +24,7 @@ paths:
 | `dj_beatgrid_change_points` | 0 | 5 |
 | `dj_cue_points` | 0 | 11 |
 | `dj_library_items` | 1,206 | 12 |
-| `dj_playlist_items` | 812 | 5 |
+| `dj_playlist_items` | 809 | 5 |
 | `dj_playlists` | 4 | 7 |
 | `dj_saved_loops` | 0 | 11 |
 | `dj_set_constraints` | 0 | 5 |
@@ -38,7 +38,7 @@ paths:
 | `key_edges` | 0 | 6 |
 | `keys` | 24 | 5 |
 | `labels` | 0 | 5 |
-| `provider_track_ids` | 1,221 | 7 |
+| `provider_track_ids` | 1,218 | 7 |
 | `providers` | 5 | 3 |
 | `raw_provider_responses` | 0 | 7 |
 | `releases` | 0 | 7 |
@@ -49,13 +49,13 @@ paths:
 | `spotify_metadata` | 0 | 12 |
 | `spotify_playlist_metadata` | 0 | 9 |
 | `track_artists` | 1,371 | 4 |
-| `track_audio_features_computed` | 588 | 47 |
+| `track_audio_features_computed` | 583 | 47 |
 | `track_embeddings` | 0 | 6 |
 | `track_genres` | 0 | 5 |
 | `track_releases` | 0 | 5 |
 | `track_sections` | 45,117 | 16 |
 | `track_timeseries_refs` | 0 | 11 |
-| `tracks` | 1,423 | 8 |
+| `tracks` | 1,420 | 8 |
 | `transition_candidates` | 0 | 9 |
 | `transition_runs` | 0 | 9 |
 | `transitions` | 0 | 17 |
@@ -156,7 +156,7 @@ paths:
 - `source_app` SMALLINT
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `dj_playlist_items` (812 rows)
+### `dj_playlist_items` (809 rows)
 - `playlist_item_id` INTEGER PK NOT NULL
 - `playlist_id` INTEGER NOT NULL -> dj_playlists.playlist_id
 - `track_id` INTEGER NOT NULL -> tracks.track_id
@@ -283,7 +283,7 @@ paths:
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 - `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `provider_track_ids` (1,221 rows)
+### `provider_track_ids` (1,218 rows)
 - `id` INTEGER PK NOT NULL
 - `track_id` INTEGER NOT NULL -> tracks.track_id
 - `provider_id` SMALLINT NOT NULL -> providers.provider_id
@@ -406,7 +406,7 @@ paths:
 - `role` SMALLINT PK NOT NULL
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `track_audio_features_computed` (588 rows)
+### `track_audio_features_computed` (583 rows)
 - `track_id` INTEGER PK NOT NULL -> tracks.track_id
 - `run_id` INTEGER PK NOT NULL -> feature_extraction_runs.run_id
 - `bpm` FLOAT NOT NULL
@@ -508,7 +508,7 @@ paths:
 - `file_size` INTEGER
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `tracks` (1,423 rows)
+### `tracks` (1,420 rows)
 - `track_id` INTEGER PK NOT NULL
 - `title` VARCHAR(500) NOT NULL
 - `title_sort` VARCHAR(500)

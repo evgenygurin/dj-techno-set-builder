@@ -16,6 +16,7 @@ Idempotent: skips already-analyzed tracks. Safe to re-run.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import math
@@ -61,19 +62,19 @@ OUTPUT_DIR = Path(settings.dj_library_path).expanduser().parent / "techno-develo
 
 # Tier 0: metadata
 ALLOWED_GENRES = {"techno"}
-MIN_DURATION_MS = 180_000   # 3 min
-MAX_DURATION_MS = 600_000   # 10 min
+MIN_DURATION_MS = 180_000  # 3 min
+MAX_DURATION_MS = 600_000  # 10 min
 
 # Tier 1: BPM
 BPM_MIN = 120.0
 BPM_MAX = 150.0
 
 # Tier 2: loudness
-LUFS_MIN = -14.0   # too quiet
-LUFS_MAX = -3.0    # too loud / clipping
+LUFS_MIN = -14.0  # too quiet
+LUFS_MAX = -3.0  # too loud / clipping
 
 # Parallelism
-CONCURRENCY = 4    # simultaneous tracks (8 CPU cores, leave headroom)
+CONCURRENCY = 4  # simultaneous tracks (8 CPU cores, leave headroom)
 
 
 # ── Data structures ─────────────────────────────────────────
@@ -141,6 +142,7 @@ def analyze_single_pass(audio_path: str, track_id: int) -> dict:
     mfcc_result = None
     try:
         from app.utils.audio.mfcc import extract_mfcc
+
         mfcc_result = extract_mfcc(signal)
     except Exception:
         pass
@@ -204,7 +206,7 @@ def _call_worker(audio_path: str, track_id: int) -> dict:
     is no injection risk even if audio_path contains special characters.
     Running in a thread via asyncio.to_thread keeps the event loop free.
     """
-    import subprocess  # noqa: PLC0415
+    import subprocess
 
     cmd = [sys.executable, str(WORKER_SCRIPT), audio_path, str(track_id)]
     proc = subprocess.run(cmd, capture_output=True, timeout=180)  # 3 min max
@@ -249,7 +251,8 @@ async def enable_wal_mode() -> None:
 
 async def load_playlist_metadata() -> list[TrackMeta]:
     async with session_factory() as session:
-        result = await session.execute(text("""
+        result = await session.execute(
+            text("""
             SELECT
                 t.track_id,
                 COALESCE(ym.yandex_track_id, '') as ym_id,
@@ -267,12 +270,17 @@ async def load_playlist_metadata() -> list[TrackMeta]:
             LEFT JOIN yandex_metadata ym ON ym.track_id = t.track_id
             WHERE pi.playlist_id = :pid
             ORDER BY pi.sort_index
-        """), {"pid": PLAYLIST_ID})
+        """),
+            {"pid": PLAYLIST_ID},
+        )
         return [
             TrackMeta(
-                track_id=row[0], ym_track_id=str(row[1]),
-                title=row[2] or "Unknown", artist=row[3] or "Unknown",
-                duration_ms=row[4] or 0, genre=row[5],
+                track_id=row[0],
+                ym_track_id=str(row[1]),
+                title=row[2] or "Unknown",
+                artist=row[3] or "Unknown",
+                duration_ms=row[4] or 0,
+                genre=row[5],
             )
             for row in result.fetchall()
         ]
@@ -280,11 +288,14 @@ async def load_playlist_metadata() -> list[TrackMeta]:
 
 async def get_already_analyzed() -> set[int]:
     async with session_factory() as session:
-        result = await session.execute(text("""
+        result = await session.execute(
+            text("""
             SELECT taf.track_id FROM track_audio_features_computed taf
             JOIN dj_playlist_items pi ON taf.track_id = pi.track_id
             WHERE pi.playlist_id = :pid
-        """), {"pid": PLAYLIST_ID})
+        """),
+            {"pid": PLAYLIST_ID},
+        )
         return {row[0] for row in result.fetchall()}
 
 
@@ -297,20 +308,41 @@ def tier0_metadata(tracks: list[TrackMeta]) -> tuple[list[TrackMeta], list[Rejec
     kept, rejected = [], []
     for t in tracks:
         if t.genre not in ALLOWED_GENRES:
-            rejected.append(RejectedTrack(
-                t.track_id, t.ym_track_id, t.title, t.artist,
-                f"genre:{t.genre}", 0, {"genre": t.genre},
-            ))
+            rejected.append(
+                RejectedTrack(
+                    t.track_id,
+                    t.ym_track_id,
+                    t.title,
+                    t.artist,
+                    f"genre:{t.genre}",
+                    0,
+                    {"genre": t.genre},
+                )
+            )
         elif t.duration_ms < MIN_DURATION_MS:
-            rejected.append(RejectedTrack(
-                t.track_id, t.ym_track_id, t.title, t.artist,
-                f"too_short:{t.duration_ms / 1000:.0f}s", 0, {"duration_ms": t.duration_ms},
-            ))
+            rejected.append(
+                RejectedTrack(
+                    t.track_id,
+                    t.ym_track_id,
+                    t.title,
+                    t.artist,
+                    f"too_short:{t.duration_ms / 1000:.0f}s",
+                    0,
+                    {"duration_ms": t.duration_ms},
+                )
+            )
         elif t.duration_ms > MAX_DURATION_MS:
-            rejected.append(RejectedTrack(
-                t.track_id, t.ym_track_id, t.title, t.artist,
-                f"too_long:{t.duration_ms / 1000:.0f}s", 0, {"duration_ms": t.duration_ms},
-            ))
+            rejected.append(
+                RejectedTrack(
+                    t.track_id,
+                    t.ym_track_id,
+                    t.title,
+                    t.artist,
+                    f"too_long:{t.duration_ms / 1000:.0f}s",
+                    0,
+                    {"duration_ms": t.duration_ms},
+                )
+            )
         else:
             kept.append(t)
     return kept, rejected
@@ -320,17 +352,23 @@ def save_results(rejected: list[RejectedTrack], kept_count: int, tier_stats: dic
     output_path = OUTPUT_DIR / f"rejection_report_{datetime.now():%Y%m%d_%H%M%S}.json"
     by_tier: dict[str, list] = {}
     for r in rejected:
-        by_tier.setdefault(f"tier_{r.tier}", []).append({
-            "track_id": r.track_id, "ym_track_id": r.ym_track_id,
-            "title": r.title, "artist": r.artist, "reason": r.reason,
-            **r.details,
-        })
+        by_tier.setdefault(f"tier_{r.tier}", []).append(
+            {
+                "track_id": r.track_id,
+                "ym_track_id": r.ym_track_id,
+                "title": r.title,
+                "artist": r.artist,
+                "reason": r.reason,
+                **r.details,
+            }
+        )
     report = {
         "generated_at": datetime.now().isoformat(),
         "playlist_id": PLAYLIST_ID,
         "summary": {
             "total_tracks": tier_stats.get("total", 0),
-            "kept": kept_count, "rejected": len(rejected),
+            "kept": kept_count,
+            "rejected": len(rejected),
             **{f"rejected_tier_{k}": v for k, v in tier_stats.items() if k != "total"},
         },
         "ym_ids_to_delete": [r.ym_track_id for r in rejected if r.ym_track_id],
@@ -361,7 +399,9 @@ async def main() -> None:
     tier0_kept, tier0_rejected = tier0_metadata(all_tracks)
     all_rejected.extend(tier0_rejected)
     tier_stats["tier_0_metadata"] = len(tier0_rejected)
-    logger.info("Tier 0: %d → %d kept, %d rejected", len(all_tracks), len(tier0_kept), len(tier0_rejected))
+    logger.info(
+        "Tier 0: %d → %d kept, %d rejected", len(all_tracks), len(tier0_kept), len(tier0_rejected)
+    )
 
     # ── Find available audio ─────────────────────────────
     tracks_for_audio = []
@@ -381,7 +421,8 @@ async def main() -> None:
         "Candidates: %d | Done: %d | No file: %d | iCloud: %d",
         len(tracks_for_audio),
         len(already_analyzed & {t.track_id for t in tier0_kept}),
-        no_file, icloud_pending,
+        no_file,
+        icloud_pending,
     )
 
     if not tracks_for_audio:
@@ -417,12 +458,17 @@ async def main() -> None:
             if result["status"] == "rejected":
                 tier = result["reject_tier"]
                 async with lock:
-                    all_rejected.append(RejectedTrack(
-                        track.track_id, track.ym_track_id,
-                        track.title, track.artist,
-                        result["reject_reason"], tier,
-                        result.get("details", {}),
-                    ))
+                    all_rejected.append(
+                        RejectedTrack(
+                            track.track_id,
+                            track.ym_track_id,
+                            track.title,
+                            track.artist,
+                            result["reject_reason"],
+                            tier,
+                            result.get("details", {}),
+                        )
+                    )
                     if tier == 1:
                         t1_rejected += 1
                     else:
@@ -434,8 +480,11 @@ async def main() -> None:
             # ── Success ───────────────────────────────────
             logger.info(
                 "[%d] BPM=%.1f key=%d loud=%.1f LUFS%s (run %d)",
-                track.track_id, result["bpm"], result["key_code"],
-                result["lufs_i"], " [atonal]" if result["is_atonal"] else "",
+                track.track_id,
+                result["bpm"],
+                result["key_code"],
+                result["lufs_i"],
+                " [atonal]" if result["is_atonal"] else "",
                 result["run_id"],
             )
             async with lock:
@@ -450,19 +499,25 @@ async def main() -> None:
             remaining = total - processed
             eta = remaining / rate if rate > 0 else 0
             logger.info(
-                "[%d/%d %.0f%%] %d OK | rej: %d bpm, %d loud | %d err | %.1f tr/min | ETA %.0f min",
-                processed, total, 100 * processed / total, completed,
-                t1_rejected, t2_rejected, t3_failed, rate * 60, eta / 60,
+                "[%d/%d %.0f%%] %d OK | rej: %d bpm, %d loud"
+                " | %d err | %.1f tr/min | ETA %.0f min",
+                processed,
+                total,
+                100 * processed / total,
+                completed,
+                t1_rejected,
+                t2_rejected,
+                t3_failed,
+                rate * 60,
+                eta / 60,
             )
 
     logger.info("Parallel analysis: %d tracks, concurrency=%d", total, CONCURRENCY)
     progress_task = asyncio.create_task(report_progress())
     await asyncio.gather(*(process_one(t, p) for t, p in tracks_for_audio))
     progress_task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await progress_task
-    except asyncio.CancelledError:
-        pass
 
     tier_stats["tier_1_bpm"] = t1_rejected
     tier_stats["tier_2_key_loudness"] = t2_rejected

@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.errors import NotFoundError
 from app.mcp.dependencies import get_session
 from app.mcp.refs import RefType, parse_ref
 
@@ -52,8 +53,8 @@ def register_unified_export_tools(mcp: FastMCP) -> None:
 
         try:
             dj_set = await set_svc.get(set_id)
-        except Exception:
-            return json.dumps({"error": "Set not found", "ref": set_ref})
+        except (NotFoundError, ValueError) as exc:
+            return json.dumps({"error": f"Set not found: {exc}", "ref": set_ref})
 
         items_list = await set_svc.list_items(version_id, offset=0, limit=500)
         items = sorted(items_list.items, key=lambda i: i.sort_index)
@@ -83,17 +84,15 @@ def register_unified_export_tools(mcp: FastMCP) -> None:
         return json.dumps(result, ensure_ascii=False)
 
 
-async def _export_m3u(dj_set, items, set_svc, track_svc, features_svc):  # type: ignore[no-untyped-def]
+async def _export_m3u(dj_set, items, set_svc, track_svc, features_svc) -> str:  # type: ignore[no-untyped-def]
     """Generate M3U8 content."""
     import contextlib
-    import re
     from typing import Any
 
     from app.errors import NotFoundError
+    from app.mcp.tools._scoring_helpers import sanitize_filename
     from app.services.set_export import export_m3u
     from app.utils.audio.camelot import key_code_to_camelot
-
-    bad_re = re.compile(r'[<>:"/\\|?*]')
 
     track_ids = [item.track_id for item in items]
     artists_map = await track_svc.get_track_artists(track_ids)
@@ -109,7 +108,7 @@ async def _export_m3u(dj_set, items, set_svc, track_svc, features_svc):  # type:
 
         artists = artists_map.get(item.track_id, [])
         display = f"{', '.join(artists)} - {title}" if artists else title
-        safe = bad_re.sub("_", display).strip(". ")
+        safe = sanitize_filename(display).strip(". ")
 
         entry: dict[str, Any] = {
             "title": display,
@@ -141,7 +140,7 @@ async def _export_m3u(dj_set, items, set_svc, track_svc, features_svc):  # type:
     return export_m3u(tracks_data, set_name=dj_set.name)
 
 
-async def _export_json(dj_set, items, set_svc, track_svc, features_svc):  # type: ignore[no-untyped-def]
+async def _export_json(dj_set, items, set_svc, track_svc, features_svc) -> str:  # type: ignore[no-untyped-def]
     """Generate JSON guide content."""
     import contextlib
     import json as json_mod
@@ -194,18 +193,16 @@ async def _export_json(dj_set, items, set_svc, track_svc, features_svc):  # type
     return json_mod.dumps(guide_data, indent=2, ensure_ascii=False)
 
 
-async def _export_rekordbox(dj_set, items, track_svc, features_svc, base_path, session):  # type: ignore[no-untyped-def]
+async def _export_rekordbox(dj_set, items, track_svc, features_svc, base_path, session) -> str:  # type: ignore[no-untyped-def]
     """Generate Rekordbox XML content."""
     import contextlib
-    import re
     from urllib.parse import quote
 
     from app.errors import NotFoundError
+    from app.mcp.tools._scoring_helpers import sanitize_filename
     from app.services.rekordbox_types import RekordboxTrackData
     from app.services.set_export import export_rekordbox_xml
     from app.utils.audio.camelot import key_code_to_camelot
-
-    bad_re = re.compile(r'[<>:"/\\|?*]')
 
     track_ids = [item.track_id for item in items]
     artists_map = await track_svc.get_track_artists(track_ids)
@@ -221,7 +218,7 @@ async def _export_rekordbox(dj_set, items, track_svc, features_svc, base_path, s
 
         artists = artists_map.get(item.track_id, [])
         display = f"{', '.join(artists)} - {title}" if artists else title
-        safe = bad_re.sub("_", display).strip(". ")
+        safe = sanitize_filename(display).strip(". ")
         location = f"file://localhost{base_path}/{quote(f'{pos:03d}. {safe}.mp3')}"
 
         bpm: float | None = None

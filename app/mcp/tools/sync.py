@@ -106,6 +106,7 @@ async def _do_sync_set_to_ym(
                 "unmapped_count": len(local_track_ids),
                 "status": "not_supported",
                 "error": "Platform does not support playlist write operations",
+                "warnings": ["sync_set_to_ym is not yet implemented"],
             }
     else:
         # Create new playlist
@@ -120,6 +121,7 @@ async def _do_sync_set_to_ym(
                 "unmapped_count": len(local_track_ids),
                 "status": "not_supported",
                 "error": "Platform does not support playlist creation",
+                "warnings": ["sync_set_to_ym is not yet implemented"],
             }
 
     return {

@@ -138,7 +138,11 @@ async def main() -> None:
 
         await session.commit()
         print(f"\n✓ Successfully imported {len(imported_ids)} tracks!")
-        print(f"Track IDs: {imported_ids[:5]}..." if len(imported_ids) > 5 else f"Track IDs: {imported_ids}")
+        print(
+            f"Track IDs: {imported_ids[:5]}..."
+            if len(imported_ids) > 5
+            else f"Track IDs: {imported_ids}"
+        )
 
     await close_db()
 

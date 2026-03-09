@@ -9,6 +9,10 @@ WORKERS  ?= 4
 MCP_PORT ?= 9100
 MCP_SPEC := app/mcp/gateway.py:create_dj_mcp
 
+# Fix for typing-extensions import priority issues in some environments
+VENV_PYTHONPATH := .venv/lib/python3.13/site-packages
+UV_RUN := PYTHONPATH="$(VENV_PYTHONPATH):$(PYTHONPATH)" $(UV) run
+
 # Docker compose file combinations
 DC       := docker compose
 DC_DEV   := $(DC) -f compose.yaml -f compose.dev.yaml
@@ -22,6 +26,7 @@ DC_PROD  := $(DC) -f compose.yaml -f compose.prod.yaml
         db db-upgrade db-downgrade db-revision db-history db-current db-reset db-schema \
         docker-local docker-dev docker-prod docker-down docker-logs docker-ps docker-shell docker-test \
         mcp-dev mcp-inspect mcp-list mcp-call mcp-install-desktop mcp-install-code \
+        refresh-features refresh-sections refresh-scores refresh-ym refresh-all refresh-dry \
         all ci
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -128,7 +133,7 @@ lint: ruff mypy
 	@$(UV) run ruff format --check $(APP) $(TESTS)
 
 ruff:
-	$(UV) run ruff check $(APP) $(TESTS)
+	$(UV_RUN) ruff check $(APP) $(TESTS)
 
 ruff-fix:
 	$(UV) run ruff check --fix $(APP) $(TESTS)
@@ -138,7 +143,7 @@ format:
 	$(UV) run ruff format $(APP) $(TESTS)
 
 mypy:
-	$(UV) run mypy $(APP)
+	$(UV_RUN) mypy $(APP)
 
 check: lint test
 
@@ -147,19 +152,22 @@ check: lint test
 # ═════════════════════════════════════════════════════════════════════════════
 
 test:
-	$(UV) run pytest
+	$(UV_RUN) pytest
+
+test-all:
+	$(UV_RUN) pytest -m "" -v
 
 test-v:
-	$(UV) run pytest -v
+	$(UV_RUN) pytest -v
 
 test-k:
-	$(UV) run pytest -v -k "$(MATCH)"
+	$(UV_RUN) pytest -v -k "$(MATCH)"
 
 test-file:
-	$(UV) run pytest -v $(F)
+	$(UV_RUN) pytest -v $(F)
 
 coverage:
-	$(UV) run pytest --cov=$(APP) $(TESTS)/ --cov-report=term --cov-report=html
+	$(UV_RUN) pytest --cov=$(APP) $(TESTS)/ --cov-report=term --cov-report=html
 	@echo "HTML-отчёт: htmlcov/index.html"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -274,6 +282,30 @@ mcp-install-desktop:
 
 mcp-install-code:
 	$(UV) run fastmcp install claude-code $(MCP_SPEC) --name dj-techno --env-file .env --with-editable .
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Data Refresh
+# ═════════════════════════════════════════════════════════════════════════════
+
+refresh-features:
+	$(UV) run python scripts/refresh_data.py --mode features --workers 4
+
+refresh-sections:
+	$(UV) run python scripts/refresh_data.py --mode sections
+
+refresh-scores:
+	$(UV) run python scripts/rescore_sets.py
+
+refresh-ym:
+	$(UV) run python scripts/refresh_ym_metadata.py --mode all
+
+refresh-all: refresh-ym refresh-features refresh-sections refresh-scores
+	@echo "All data refreshed"
+
+refresh-dry:
+	$(UV) run python scripts/refresh_data.py --mode all --dry-run
+	$(UV) run python scripts/refresh_ym_metadata.py --mode all --dry-run
+	$(UV) run python scripts/rescore_sets.py --dry-run
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CI / All

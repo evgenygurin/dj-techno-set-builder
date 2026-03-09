@@ -60,7 +60,7 @@ async def create_track(data: TrackCreate, db: DbSession) -> TrackRead:
     return result
 ```
 
-13 domain routers using this pattern + health router.
+15 domain routers using this pattern + health router.
 
 ## Transactional boundary
 

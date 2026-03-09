@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -185,9 +185,10 @@ class TestDownloadService:
 
         mock_ym.download_track = AsyncMock(side_effect=mock_download)
 
-        # Test
+        # Test (mock sleep to avoid real 3s delay from exponential backoff)
         svc = DownloadService(session, mock_ym, tmp_path)
-        success, _ = await svc._download_single_track(track, prefer_bitrate=320)
+        with patch("app.services.download.asyncio.sleep", new_callable=AsyncMock):
+            success, _ = await svc._download_single_track(track, prefer_bitrate=320)
 
         assert success is True
         assert len(attempts) == 3  # Failed twice, succeeded on 3rd
@@ -219,9 +220,10 @@ class TestDownloadService:
         mock_ym = Mock()
         mock_ym.download_track = AsyncMock(side_effect=Exception("Always fail"))
 
-        # Test
+        # Test (mock sleep to avoid real 3s delay from exponential backoff)
         svc = DownloadService(session, mock_ym, tmp_path)
-        success, size = await svc._download_single_track(track, prefer_bitrate=320)
+        with patch("app.services.download.asyncio.sleep", new_callable=AsyncMock):
+            success, size = await svc._download_single_track(track, prefer_bitrate=320)
 
         assert success is False
         assert size == 0
@@ -295,9 +297,10 @@ class TestDownloadService:
 
         mock_ym.download_track = AsyncMock(side_effect=mock_download)
 
-        # Test
+        # Test (mock sleep to avoid real 3s delay from exponential backoff)
         svc = DownloadService(session, mock_ym, tmp_path)
-        result = await svc.download_tracks_batch([track1.track_id, track2.track_id])
+        with patch("app.services.download.asyncio.sleep", new_callable=AsyncMock):
+            result = await svc.download_tracks_batch([track1.track_id, track2.track_id])
 
         assert result.downloaded == 1
         assert result.skipped == 0

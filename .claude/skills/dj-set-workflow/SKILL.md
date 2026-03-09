@@ -1,3 +1,9 @@
+---
+name: DJ Set Workflow
+description: Декларативный гайд для работы с DJ-сетами. Используй когда: пользователь просит собрать сет, экспортировать, синхронизировать в YM, улучшить переходы, оценить качество сета. Триггеры: dj_build_set, dj_deliver_set, dj_score_transitions, dj_rebuild_set, "построй сет", "экспортируй сет", "синхронизируй в YM".
+allowed-tools: Read, Grep, Glob
+---
+
 # DJ Set Workflow
 
 ## Философия

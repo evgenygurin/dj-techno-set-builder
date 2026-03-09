@@ -22,6 +22,7 @@ Exit codes:
     1  — unexpected error (details on stderr)
     2  — bad arguments
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -49,16 +50,17 @@ os.chdir(_PROJECT_ROOT)
 
 # ── 3. Worker coroutine ─────────────────────────────────────────────────
 
+
 async def _run(audio_path: str, track_id: int) -> dict:
     """Analyze one track and persist to DB.  Returns JSON-serialisable dict."""
 
     # Late imports: after path/cwd are set up, and after logging is configured
     # so that any logging from app.* goes to stderr, not stdout.
-    from app.database import session_factory  # noqa: PLC0415
-    from app.repositories.audio_features import AudioFeaturesRepository  # noqa: PLC0415
-    from app.repositories.runs import FeatureRunRepository  # noqa: PLC0415
-    from app.repositories.sections import SectionsRepository  # noqa: PLC0415
-    from scripts.analyze_techno_develop_recs import analyze_single_pass  # noqa: PLC0415
+    from app.database import session_factory
+    from app.repositories.audio_features import AudioFeaturesRepository
+    from app.repositories.runs import FeatureRunRepository
+    from app.repositories.sections import SectionsRepository
+    from scripts.analyze_techno_develop_recs import analyze_single_pass
 
     # ── CPU-heavy analysis (may SIGBUS on corrupt audio) ─────────────────
     result = analyze_single_pass(audio_path, track_id)

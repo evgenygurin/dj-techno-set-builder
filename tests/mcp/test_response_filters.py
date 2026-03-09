@@ -75,11 +75,11 @@ def test_playlist_list_strips_tracks():
 
 
 def test_single_playlist_keeps_compact_tracks():
-    """Single playlist (by ID) should keep tracks in compact form."""
+    """Single playlist (by ID) keeps tracks for read-only inspection."""
     playlist = _make_playlist(3, 10)
     body = {"result": playlist}
     cleaned = clean_response_body(body)
-    # Single playlist still filtered via _PLAYLIST_FIELDS — no tracks
-    # This is acceptable: tracks are stripped, trackCount preserved
+    assert "tracks" in cleaned["result"]
+    assert len(cleaned["result"]["tracks"]) == 10
     assert cleaned["result"]["trackCount"] == 10
     assert "coverUri" not in cleaned["result"]

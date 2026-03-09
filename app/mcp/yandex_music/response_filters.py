@@ -65,12 +65,12 @@ _PLAYLIST_FIELDS: frozenset[str] = frozenset(
         "revision",
         "owner",
         "tags",
-        # "tracks" — NOT here: stripped in list context, added separately in single context
         "created",
         "modified",
         "playlistUuid",
     }
 )
+_PLAYLIST_FIELDS_WITH_TRACKS: frozenset[str] = _PLAYLIST_FIELDS | {"tracks"}
 
 # Search categories worth keeping (videos, podcasts, etc. stripped)
 _SEARCH_KEEP_KEYS: frozenset[str] = frozenset(
@@ -123,9 +123,14 @@ def clean_album(album: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in album.items() if k in _ALBUM_FIELDS}
 
 
-def clean_playlist(playlist: dict[str, Any]) -> dict[str, Any]:
-    """Keep only DJ-relevant fields from Playlist."""
-    return {k: v for k, v in playlist.items() if k in _PLAYLIST_FIELDS}
+def clean_playlist(playlist: dict[str, Any], *, include_tracks: bool = False) -> dict[str, Any]:
+    """Keep only DJ-relevant fields from Playlist.
+
+    For playlist lists we strip ``tracks`` to avoid huge payloads.
+    For single playlist detail responses we can keep ``tracks`` for inspection.
+    """
+    allowed_fields = _PLAYLIST_FIELDS_WITH_TRACKS if include_tracks else _PLAYLIST_FIELDS
+    return {k: v for k, v in playlist.items() if k in allowed_fields}
 
 
 def clean_genre(genre: dict[str, Any]) -> dict[str, Any]:
@@ -156,7 +161,7 @@ def _clean_object_list(items: list[Any]) -> list[Any]:
     result = []
     for it in items:
         if _is_playlist_like(it):
-            result.append(clean_playlist(it))
+            result.append(clean_playlist(it, include_tracks=False))
         elif _is_track_like(it):
             result.append(clean_track(it))
         elif _is_genre_like(it):
@@ -282,7 +287,8 @@ def clean_response_body(body: dict[str, Any]) -> dict[str, Any]:
 
     # ── Playlist-level cleaning: strip cover, og, colors, etc. ──
     if "kind" in result and "uid" in result:
-        body["result"] = {k: v for k, v in result.items() if k in _PLAYLIST_FIELDS}
+        has_tracks = isinstance(result.get("tracks"), list)
+        body["result"] = clean_playlist(result, include_tracks=has_tracks)
         return body
 
     body["result"] = result

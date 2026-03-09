@@ -10,7 +10,7 @@ from fastmcp.server.context import Context
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.mcp.dependencies import get_session, get_ym_client
+from app.mcp.dependencies import get_session, get_ym_download_client
 from app.services.download import DownloadResult, DownloadService
 from app.services.yandex_music_client import YandexMusicClient
 
@@ -30,7 +30,7 @@ def register_download_tools(mcp: FastMCP) -> None:
         prefer_bitrate: int = 320,
         ctx: Context | None = None,
         session: AsyncSession = Depends(get_session),
-        ym_client: YandexMusicClient = Depends(get_ym_client),
+        ym_client: YandexMusicClient = Depends(get_ym_download_client),
     ) -> DownloadResult:
         """Download tracks from Yandex Music to local library.
 

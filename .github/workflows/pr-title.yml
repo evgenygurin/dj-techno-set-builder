@@ -1,6 +1,6 @@
 name: PR Title Check
 
-on:
+'on':
   pull_request:
     types:
       - opened
@@ -21,9 +21,16 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          echo "PR title: $PR_TITLE"
+          echo "PR title: '$PR_TITLE'"
+          echo "Title length: ${#PR_TITLE}"
+          echo "Title hex dump:"
+          echo -n "$PR_TITLE" | xxd
           REQUIRED_PATTERN='^[A-Z][A-Z0-9]*-[0-9]+: .+'
-          if [[ ! "$PR_TITLE" =~ $REQUIRED_PATTERN ]]; then
+          echo "Testing pattern: $REQUIRED_PATTERN"
+          if [[ "$PR_TITLE" =~ $REQUIRED_PATTERN ]]; then
+            echo "✅ PR title matches required pattern"
+          else
+            echo "❌ PR title does not match required pattern"
             echo "::error title=Invalid PR title::Expected format: TEAM-123: Short summary (example: BPM-123: Fix ORM defaults)."
             exit 1
           fi

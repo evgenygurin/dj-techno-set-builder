@@ -36,6 +36,7 @@ def stems_result(short_mix: AudioSignal) -> StemsResult:
     return separate_stems(short_mix)
 
 
+@pytest.mark.slow
 class TestSeparateStems:
     def test_returns_stems_result(self, stems_result: StemsResult) -> None:
         assert isinstance(stems_result, StemsResult)
