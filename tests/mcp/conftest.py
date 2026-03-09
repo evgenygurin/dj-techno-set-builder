@@ -8,11 +8,12 @@ in fixtures to avoid event loop issues).
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from unittest.mock import patch
 
 import pytest
 from fastmcp import FastMCP
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.fixture
@@ -40,15 +41,28 @@ def ym_mcp() -> FastMCP:
 
 
 @pytest.fixture
-async def workflow_mcp_with_db(engine) -> AsyncIterator[FastMCP]:
+async def workflow_mcp_with_db(_connection) -> AsyncIterator[FastMCP]:
     """DJ Workflows MCP server wired to test DB.
 
-    Patches ``app.database.session_factory`` (used by ``get_session``)
-    so every MCP tool call uses the same in-memory SQLite engine.
+    Patches ``app.mcp.dependencies.session_factory`` with a factory
+    that returns sessions bound to the shared test connection using
+    ``join_transaction_mode="create_savepoint"``.  This ensures
+    every ``session.commit()`` inside MCP tool calls only releases
+    a SAVEPOINT, so the outer transaction can roll everything back.
     """
     from app.mcp.tools import create_workflow_mcp
 
-    factory = async_sessionmaker(engine, expire_on_commit=False)
+    @asynccontextmanager
+    async def _savepoint_session_factory() -> AsyncIterator[AsyncSession]:
+        sess = AsyncSession(
+            bind=_connection,
+            join_transaction_mode="create_savepoint",
+            expire_on_commit=False,
+        )
+        try:
+            yield sess
+        finally:
+            await sess.close()
 
-    with patch("app.mcp.dependencies.session_factory", factory):
+    with patch("app.mcp.dependencies.session_factory", _savepoint_session_factory):
         yield create_workflow_mcp()
