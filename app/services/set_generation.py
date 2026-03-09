@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 
 from app.errors import NotFoundError, ValidationError
+from app.models.features import TrackAudioFeaturesComputed
 from app.repositories.audio_features import AudioFeaturesRepository
 from app.repositories.playlists import DjPlaylistItemRepository
 from app.repositories.sections import SectionsRepository
@@ -159,9 +160,13 @@ class SetGenerationService(BaseService):
             for f in features_list
         ]
 
+        # Build features map once — reused by transition matrix builder
+        features_map = {f.track_id: f for f in features_list}
+
         # Build transition matrix using two-tier scoring
         transition_matrix = await self._build_transition_matrix_scored(
             tracks,
+            features_map=features_map,
             tier1_threshold=data.tier1_threshold,
             sections_map=sections_map,
         )
@@ -287,6 +292,7 @@ class SetGenerationService(BaseService):
     async def _build_transition_matrix_scored(
         self,
         tracks: list[TrackData],
+        features_map: dict[int, TrackAudioFeaturesComputed],
         tier1_threshold: float = 0.15,
         sections_map: dict[int, list[Any]] | None = None,
     ) -> np.ndarray:
@@ -297,7 +303,9 @@ class SetGenerationService(BaseService):
 
         Args:
             tracks: List of tracks with basic features (bpm, energy, key_code)
+            features_map: Pre-built map of track_id → TrackAudioFeaturesComputed
             tier1_threshold: quick_score cutoff for full scoring (0.0 = always full)
+            sections_map: Optional map of track_id → sections for structure scoring
 
         Returns:
             NxN matrix where [i, j] = quality of i→j transition
@@ -316,10 +324,6 @@ class SetGenerationService(BaseService):
         camelot_service = CamelotLookupService(self.features_repo.session)
         lookup_table = await camelot_service.build_lookup_table()
         scorer = TransitionScoringService(camelot_lookup=lookup_table)
-
-        # Fetch full features for all tracks
-        features_list = await self.features_repo.list_all()
-        features_map = {f.track_id: f for f in features_list}
 
         # Build feature objects via canonical conversion (with section data)
         smap = sections_map or {}
