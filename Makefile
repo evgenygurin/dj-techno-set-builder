@@ -9,6 +9,10 @@ WORKERS  ?= 4
 MCP_PORT ?= 9100
 MCP_SPEC := app/mcp/gateway.py:create_dj_mcp
 
+# Fix for typing-extensions import priority issues in some environments
+VENV_PYTHONPATH := .venv/lib/python3.13/site-packages
+UV_RUN := PYTHONPATH="$(VENV_PYTHONPATH):$(PYTHONPATH)" $(UV) run
+
 # Docker compose file combinations
 DC       := docker compose
 DC_DEV   := $(DC) -f compose.yaml -f compose.dev.yaml
@@ -129,7 +133,7 @@ lint: ruff mypy
 	@$(UV) run ruff format --check $(APP) $(TESTS)
 
 ruff:
-	$(UV) run ruff check $(APP) $(TESTS)
+	$(UV_RUN) ruff check $(APP) $(TESTS)
 
 ruff-fix:
 	$(UV) run ruff check --fix $(APP) $(TESTS)
@@ -139,7 +143,7 @@ format:
 	$(UV) run ruff format $(APP) $(TESTS)
 
 mypy:
-	$(UV) run mypy $(APP)
+	$(UV_RUN) mypy $(APP)
 
 check: lint test
 
@@ -148,22 +152,22 @@ check: lint test
 # ═════════════════════════════════════════════════════════════════════════════
 
 test:
-	$(UV) run pytest
+	$(UV_RUN) pytest
 
 test-all:
-	$(UV) run pytest -m "" -v
+	$(UV_RUN) pytest -m "" -v
 
 test-v:
-	$(UV) run pytest -v
+	$(UV_RUN) pytest -v
 
 test-k:
-	$(UV) run pytest -v -k "$(MATCH)"
+	$(UV_RUN) pytest -v -k "$(MATCH)"
 
 test-file:
-	$(UV) run pytest -v $(F)
+	$(UV_RUN) pytest -v $(F)
 
 coverage:
-	$(UV) run pytest --cov=$(APP) $(TESTS)/ --cov-report=term --cov-report=html
+	$(UV_RUN) pytest --cov=$(APP) $(TESTS)/ --cov-report=term --cov-report=html
 	@echo "HTML-отчёт: htmlcov/index.html"
 
 # ═════════════════════════════════════════════════════════════════════════════
