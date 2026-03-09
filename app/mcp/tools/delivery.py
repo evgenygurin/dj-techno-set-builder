@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
@@ -509,7 +510,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
                         ym_client=ym_client,
                     )
                     await ctx.info(f"YM playlist created: kind={ym_kind}")
-                except Exception as exc:
+                except (httpx.HTTPStatusError, httpx.ConnectError, ValueError) as exc:
                     await ctx.info(f"YM sync failed: {exc}. Files already written.")
 
         await ctx.report_progress(progress=3, total=3)

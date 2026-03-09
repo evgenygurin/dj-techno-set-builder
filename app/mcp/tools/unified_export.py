@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.errors import NotFoundError
 from app.mcp.dependencies import get_session
 from app.mcp.refs import RefType, parse_ref
 
@@ -52,8 +53,8 @@ def register_unified_export_tools(mcp: FastMCP) -> None:
 
         try:
             dj_set = await set_svc.get(set_id)
-        except Exception:
-            return json.dumps({"error": "Set not found", "ref": set_ref})
+        except (NotFoundError, ValueError) as exc:
+            return json.dumps({"error": f"Set not found: {exc}", "ref": set_ref})
 
         items_list = await set_svc.list_items(version_id, offset=0, limit=500)
         items = sorted(items_list.items, key=lambda i: i.sort_index)
