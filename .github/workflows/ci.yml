@@ -47,7 +47,10 @@ jobs:
         run: uv run ruff format --check app tests
 
       - name: Mypy
-        run: uv run mypy app
+        run: |
+          echo "Running mypy type checking..."
+          uv run mypy --version
+          uv run mypy app
 
   security:
     name: Security Scanning
