@@ -1,3 +1,4 @@
+# CI workflow for linting, type checking and tests
 name: CI
 
 'on':
@@ -155,3 +156,4 @@ jobs:
         with:
           name: coverage-xml
           path: coverage.xml
+
