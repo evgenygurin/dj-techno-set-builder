@@ -110,10 +110,10 @@ FLATNESS_MAX = 0.5
 TEMPO_CONF_MIN = 0.3
 BPM_STABILITY_MIN = 0.3
 PULSE_CLARITY_MIN = 0.02
-CREST_MAX = 30.0    # dB — too dynamic = not club-ready
-LRA_MAX = 25.0      # LU — loudness range too wide
-HP_RATIO_MAX = 8.0   # harmonic/percussive RMS ratio; unbounded (avg=2.2, >8 = extreme melodic)
-HNR_MIN = -30.0     # extremely noisy signal
+CREST_MAX = 30.0  # dB — too dynamic = not club-ready
+LRA_MAX = 25.0  # LU — loudness range too wide
+HP_RATIO_MAX = 8.0  # harmonic/percussive RMS ratio; unbounded (avg=2.2, >8 = extreme melodic)
+HNR_MIN = -30.0  # extremely noisy signal
 
 # ANSI colors
 C = "\033[0m"
@@ -556,11 +556,13 @@ async def add_to_subgenre_playlist(
                 )
                 if exists.scalar():
                     continue
-                session.add(DjPlaylistItem(
-                    playlist_id=db_pid,
-                    track_id=track_id,
-                    sort_index=max_idx + 1 + i,
-                ))
+                session.add(
+                    DjPlaylistItem(
+                        playlist_id=db_pid,
+                        track_id=track_id,
+                        sort_index=max_idx + 1 + i,
+                    )
+                )
         await session.commit()
 
 
@@ -617,7 +619,8 @@ def _pick_weighted_seed(
 
 
 async def fetch_playlist(
-    api: YmApi, kind: str,
+    api: YmApi,
+    kind: str,
 ) -> tuple[int, int, list[str], dict[str, str]]:
     """Returns (revision, track_count, list_of_ym_ids, {id: timestamp_iso}).
 
@@ -642,8 +645,9 @@ async def fetch_playlist(
     return revision, track_count, ids, timestamps
 
 
-async def add_to_playlist(api: YmApi, kind: str, revision: int,
-                          tracks: list[dict[str, str]]) -> int:
+async def add_to_playlist(
+    api: YmApi, kind: str, revision: int, tracks: list[dict[str, str]]
+) -> int:
     diff = json.dumps([{"op": "insert", "at": 0, "tracks": tracks}])
     data = await api.post_form(
         f"{YM_BASE}/users/{USER_ID}/playlists/{kind}/change",
@@ -652,8 +656,7 @@ async def add_to_playlist(api: YmApi, kind: str, revision: int,
     return data.get("result", {}).get("revision", revision + 1)
 
 
-async def delete_from_playlist(api: YmApi, kind: str, revision: int,
-                               index: int) -> int:
+async def delete_from_playlist(api: YmApi, kind: str, revision: int, index: int) -> int:
     """Delete track at given index. Returns new revision."""
     diff = json.dumps([{"op": "delete", "from": index, "to": index + 1}])
     data = await api.post_form(
@@ -705,7 +708,9 @@ async def _playlist_exists(api: YmApi, kind: str) -> bool:
 
 
 async def get_or_create_deleted_playlist(
-    api: YmApi, source_kind: str, source_name: str,
+    api: YmApi,
+    source_kind: str,
+    source_name: str,
 ) -> str:
     """Get deleted playlist kind by ID mapping, create if missing. Returns kind.
 
@@ -742,7 +747,9 @@ async def get_or_create_deleted_playlist(
 
 
 async def add_to_deleted_playlist(
-    api: YmApi, deleted_kind: str, candidates: list[Candidate],
+    api: YmApi,
+    deleted_kind: str,
+    candidates: list[Candidate],
 ) -> None:
     """Add rejected candidates to the 'deleted' playlist."""
     if not candidates:
@@ -757,8 +764,7 @@ async def add_to_deleted_playlist(
         return
 
     add_tracks = [
-        {"id": c.ym_id, "albumId": c.album_id} if c.album_id else {"id": c.ym_id}
-        for c in to_add
+        {"id": c.ym_id, "albumId": c.album_id} if c.album_id else {"id": c.ym_id} for c in to_add
     ]
     try:
         new_rev = await add_to_playlist(api, deleted_kind, revision, add_tracks)
@@ -794,7 +800,9 @@ async def get_liked_ids(api: YmApi) -> set[int]:
 
 
 async def remove_disliked_from_playlist(
-    api: YmApi, kind: str, deleted_kind: str,
+    api: YmApi,
+    kind: str,
+    deleted_kind: str,
     disliked_ids: set[int] | None = None,
 ) -> int:
     """Remove disliked tracks from playlist, move to deleted. Returns count removed.
@@ -807,9 +815,7 @@ async def remove_disliked_from_playlist(
         return 0
 
     revision, _, playlist_ids, _ = await fetch_playlist(api, kind)
-    to_remove = [
-        (i, tid) for i, tid in enumerate(playlist_ids) if is_disliked(int(tid), disliked)
-    ]
+    to_remove = [(i, tid) for i, tid in enumerate(playlist_ids) if is_disliked(int(tid), disliked)]
 
     if not to_remove:
         return 0
@@ -819,10 +825,16 @@ async def remove_disliked_from_playlist(
     # Move to deleted playlist first
     candidates_for_deleted: list[Candidate] = []
     for _, tid in to_remove:
-        candidates_for_deleted.append(Candidate(
-            ym_id=tid, album_id="", title=f"disliked:{tid}",
-            artists="", duration_ms=0, raw={},
-        ))
+        candidates_for_deleted.append(
+            Candidate(
+                ym_id=tid,
+                album_id="",
+                title=f"disliked:{tid}",
+                artists="",
+                duration_ms=0,
+                raw={},
+            )
+        )
     await add_to_deleted_playlist(api, deleted_kind, candidates_for_deleted)
 
     # Delete from main playlist (reverse order to keep indices valid)
@@ -843,7 +855,9 @@ async def remove_disliked_from_playlist(
 
 
 async def verify_no_disliked_in_main(
-    api: YmApi, kind: str, deleted_kind: str,
+    api: YmApi,
+    kind: str,
+    deleted_kind: str,
     disliked_ids: set[int],
 ) -> int:
     """Ensure no disliked track remains in the main playlist.
@@ -863,8 +877,7 @@ async def verify_no_disliked_in_main(
 
     # Move to deleted playlist
     cands = [
-        Candidate(ym_id=tid, album_id="", title=f"leaked:{tid}",
-                  artists="", duration_ms=0, raw={})
+        Candidate(ym_id=tid, album_id="", title=f"leaked:{tid}", artists="", duration_ms=0, raw={})
         for _, tid in leaked
     ]
     await add_to_deleted_playlist(api, deleted_kind, cands)
@@ -889,7 +902,9 @@ async def verify_no_disliked_in_main(
 
 
 async def audit_playlist_tracks(
-    api: YmApi, kind: str, deleted_kind: str,
+    api: YmApi,
+    kind: str,
+    deleted_kind: str,
     liked_ids: set[int] | None = None,
 ) -> int:
     """Check ALL playlist tracks against audio criteria. Remove failures.
@@ -927,10 +942,13 @@ async def audit_playlist_tracks(
     for audit_i, (idx, ym_id, track_id) in enumerate(to_check, 1):
         # Liked tracks bypass the audio gate entirely
         if is_liked(int(ym_id), _liked):
-            progress_finish(progress_bar(
-                audit_i, audit_total,
-                label=f"{G}LIKED{C} #{track_id} — bypass audio gate",
-            ))
+            progress_finish(
+                progress_bar(
+                    audit_i,
+                    audit_total,
+                    label=f"{G}LIKED{C} #{track_id} — bypass audio gate",
+                )
+            )
             continue
 
         progress_write(progress_bar(audit_i, audit_total, label=f"🔍 #{track_id}"))
@@ -964,13 +982,16 @@ async def audit_playlist_tracks(
                     loop = asyncio.get_event_loop()
                     feats = await asyncio.wait_for(
                         loop.run_in_executor(
-                            _process_pool, _extract_sync, file_path,
+                            _process_pool,
+                            _extract_sync,
+                            file_path,
                         ),
                         timeout=ANALYSIS_TIMEOUT_S,
                     )
                     # Save to DB
                     async with session_factory() as session:
                         from app.repositories.audio_features import AudioFeaturesRepository
+
                         run = FeatureExtractionRun(
                             pipeline_name="audit",
                             pipeline_version="1.0",
@@ -993,23 +1014,30 @@ async def audit_playlist_tracks(
 
         if reasons:
             fail_indices.append((idx, ym_id))
-            progress_finish(progress_bar(
-                audit_i, audit_total,
-                label=f"{R}FAIL{C} #{track_id}: {', '.join(reasons)}",
-            ))
+            progress_finish(
+                progress_bar(
+                    audit_i,
+                    audit_total,
+                    label=f"{R}FAIL{C} #{track_id}: {', '.join(reasons)}",
+                )
+            )
         else:
-            progress_finish(progress_bar(
-                audit_i, audit_total,
-                label=f"{G}OK{C} #{track_id}",
-            ))
+            progress_finish(
+                progress_bar(
+                    audit_i,
+                    audit_total,
+                    label=f"{G}OK{C} #{track_id}",
+                )
+            )
 
     if not fail_indices:
         return 0
 
     # Move to deleted playlist
     candidates_for_deleted = [
-        Candidate(ym_id=ym_id, album_id="", title=f"audit:{ym_id}",
-                  artists="", duration_ms=0, raw={})
+        Candidate(
+            ym_id=ym_id, album_id="", title=f"audit:{ym_id}", artists="", duration_ms=0, raw={}
+        )
         for _, ym_id in fail_indices
     ]
     await add_to_deleted_playlist(api, deleted_kind, candidates_for_deleted)
@@ -1036,8 +1064,9 @@ async def audit_playlist_tracks(
 # ── Core pipeline steps ─────────────────────────────────────────────────────
 
 
-async def get_similar_candidates(api: YmApi, seed_id: str,
-                                 seen: set[str], batch: int) -> list[Candidate]:
+async def get_similar_candidates(
+    api: YmApi, seed_id: str, seen: set[str], batch: int
+) -> list[Candidate]:
     """Get similar tracks, pre-filter by metadata, return candidates."""
     data = await api.get(f"{YM_BASE}/tracks/{seed_id}/similar")
     similar = data.get("result", {}).get("similarTracks", [])
@@ -1067,14 +1096,16 @@ async def get_similar_candidates(api: YmApi, seed_id: str,
         album_id = str(albums[0].get("id", "")) if albums else ""
         artists = ", ".join(a.get("name", "?") for a in tr.get("artists", []))
 
-        candidates.append(Candidate(
-            ym_id=tid,
-            album_id=album_id,
-            title=tr.get("title", "?"),
-            artists=artists,
-            duration_ms=dur,
-            raw=tr,
-        ))
+        candidates.append(
+            Candidate(
+                ym_id=tid,
+                album_id=album_id,
+                title=tr.get("title", "?"),
+                artists=artists,
+                duration_ms=dur,
+                raw=tr,
+            )
+        )
 
         if len(candidates) >= batch:
             break
@@ -1113,26 +1144,30 @@ async def import_candidate(candidate: Candidate) -> None:
         session.add(track)
         await session.flush()
 
-        session.add(ProviderTrackId(
-            track_id=track.track_id,
-            provider_id=provider_id,
-            provider_track_id=candidate.ym_id,
-            provider_country="RU",
-        ))
-        session.add(YandexMetadata(
-            track_id=track.track_id,
-            yandex_track_id=parsed.yandex_track_id,
-            yandex_album_id=parsed.yandex_album_id,
-            album_title=parsed.album_title,
-            album_type=parsed.album_type,
-            album_genre=parsed.album_genre,
-            album_year=parsed.album_year,
-            label_name=parsed.label_name,
-            release_date=parsed.release_date,
-            duration_ms=parsed.duration_ms,
-            cover_uri=parsed.cover_uri,
-            explicit=parsed.explicit,
-        ))
+        session.add(
+            ProviderTrackId(
+                track_id=track.track_id,
+                provider_id=provider_id,
+                provider_track_id=candidate.ym_id,
+                provider_country="RU",
+            )
+        )
+        session.add(
+            YandexMetadata(
+                track_id=track.track_id,
+                yandex_track_id=parsed.yandex_track_id,
+                yandex_album_id=parsed.yandex_album_id,
+                album_title=parsed.album_title,
+                album_type=parsed.album_type,
+                album_genre=parsed.album_genre,
+                album_year=parsed.album_year,
+                label_name=parsed.label_name,
+                release_date=parsed.release_date,
+                duration_ms=parsed.duration_ms,
+                cover_uri=parsed.cover_uri,
+                explicit=parsed.explicit,
+            )
+        )
         await session.flush()
         candidate.track_id = track.track_id
         await session.commit()
@@ -1193,6 +1228,7 @@ def _extract_sync(audio_path: str) -> Any:
     Running in a subprocess means a segfault kills only the worker, not the main script.
     """
     from app.utils.audio.pipeline import extract_all_features
+
     return extract_all_features(audio_path)
 
 
@@ -1249,6 +1285,7 @@ async def analyze_candidate(candidate: Candidate, sem: asyncio.Semaphore) -> boo
     # Save to DB
     async with session_factory() as session:
         from app.repositories.audio_features import AudioFeaturesRepository
+
         run = FeatureExtractionRun(
             pipeline_name="fill_and_verify",
             pipeline_version="1.0",
@@ -1267,7 +1304,10 @@ async def analyze_candidate(candidate: Candidate, sem: asyncio.Semaphore) -> boo
 
 
 async def _distribute_tracks(
-    api: YmApi, source_kind: str, *, clean: bool = False,
+    api: YmApi,
+    source_kind: str,
+    *,
+    clean: bool = False,
     ym_client: YandexMusicClient | None = None,
     sem: asyncio.Semaphore | None = None,
 ) -> None:
@@ -1337,9 +1377,13 @@ async def _distribute_tracks(
             # Auto-import: fetch metadata from YM, create DB records
             if not ym_client or not sem:
                 skipped += 1
-                progress_finish(progress_bar(
-                    i, len(playlist_ids), label=f"{Y}SKIP{C} {ym_id} (not in DB)",
-                ))
+                progress_finish(
+                    progress_bar(
+                        i,
+                        len(playlist_ids),
+                        label=f"{Y}SKIP{C} {ym_id} (not in DB)",
+                    )
+                )
                 continue
             try:
                 resp = await api.get(f"{YM_BASE}/tracks/{ym_id}")
@@ -1349,39 +1393,56 @@ async def _distribute_tracks(
                 raw = tracks_data[0]
             except Exception as e:
                 skipped += 1
-                progress_finish(progress_bar(
-                    i, len(playlist_ids),
-                    label=f"{Y}SKIP{C} {ym_id} (YM fetch fail: {e!s:.30})",
-                ))
+                progress_finish(
+                    progress_bar(
+                        i,
+                        len(playlist_ids),
+                        label=f"{Y}SKIP{C} {ym_id} (YM fetch fail: {e!s:.30})",
+                    )
+                )
                 continue
             albums = raw.get("albums", [])
             album_id_str = str(albums[0].get("id", "")) if albums else ""
             artists = ", ".join(a.get("name", "?") for a in raw.get("artists", []))
             cand = Candidate(
-                ym_id=ym_id, album_id=album_id_str,
-                title=raw.get("title", "?"), artists=artists,
-                duration_ms=raw.get("durationMs", 0), raw=raw,
+                ym_id=ym_id,
+                album_id=album_id_str,
+                title=raw.get("title", "?"),
+                artists=artists,
+                duration_ms=raw.get("durationMs", 0),
+                raw=raw,
             )
             await import_candidate(cand)
             if not cand.track_id:
                 skipped += 1
-                progress_finish(progress_bar(
-                    i, len(playlist_ids), label=f"{Y}SKIP{C} {ym_id} (import fail)",
-                ))
+                progress_finish(
+                    progress_bar(
+                        i,
+                        len(playlist_ids),
+                        label=f"{Y}SKIP{C} {ym_id} (import fail)",
+                    )
+                )
                 continue
             track_id = cand.track_id
             ok = await download_candidate(cand, ym_client)
             if not ok:
                 skipped += 1
-                progress_finish(progress_bar(
-                    i, len(playlist_ids),
-                    label=f"{Y}SKIP{C} #{track_id} (download fail)",
-                ))
+                progress_finish(
+                    progress_bar(
+                        i,
+                        len(playlist_ids),
+                        label=f"{Y}SKIP{C} #{track_id} (download fail)",
+                    )
+                )
                 continue
             await analyze_candidate(cand, sem)
-            progress_write(progress_bar(
-                i, len(playlist_ids), label=f"{CY}imported{C} #{track_id}",
-            ))
+            progress_write(
+                progress_bar(
+                    i,
+                    len(playlist_ids),
+                    label=f"{CY}imported{C} #{track_id}",
+                )
+            )
 
         # Get audio features
         async with session_factory() as session:
@@ -1416,9 +1477,12 @@ async def _distribute_tracks(
                     )
                     albums_str = ym_row.scalar() or ""
                 cand = Candidate(
-                    ym_id=ym_id, album_id=albums_str,
-                    title=title, artists="",
-                    duration_ms=0, raw={},
+                    ym_id=ym_id,
+                    album_id=albums_str,
+                    title=title,
+                    artists="",
+                    duration_ms=0,
+                    raw={},
                     track_id=track_id,
                 )
                 if file_path:
@@ -1427,10 +1491,13 @@ async def _distribute_tracks(
                     ok = await download_candidate(cand, ym_client)
                     if not ok:
                         skipped += 1
-                        progress_finish(progress_bar(
-                            i, len(playlist_ids),
-                            label=f"{Y}SKIP{C} #{track_id} (download fail)",
-                        ))
+                        progress_finish(
+                            progress_bar(
+                                i,
+                                len(playlist_ids),
+                                label=f"{Y}SKIP{C} #{track_id} (download fail)",
+                            )
+                        )
                         continue
                 await analyze_candidate(cand, sem)
                 # Re-fetch features after analysis
@@ -1444,10 +1511,13 @@ async def _distribute_tracks(
 
             if not feat:
                 skipped += 1
-                progress_finish(progress_bar(
-                    i, len(playlist_ids),
-                    label=f"{Y}SKIP{C} #{track_id} (no features)",
-                ))
+                progress_finish(
+                    progress_bar(
+                        i,
+                        len(playlist_ids),
+                        label=f"{Y}SKIP{C} #{track_id} (no features)",
+                    )
+                )
                 continue
 
         mood = classify_from_db(feat)
@@ -1461,16 +1531,21 @@ async def _distribute_tracks(
             )
             album_id = ym_row.scalar() or ""
 
-        by_mood[mood.value].append({
-            "ym_id": ym_id,
-            "album_id": album_id,
-            "track_id": str(track_id),
-        })
+        by_mood[mood.value].append(
+            {
+                "ym_id": ym_id,
+                "album_id": album_id,
+                "track_id": str(track_id),
+            }
+        )
         classified += 1
-        progress_finish(progress_bar(
-            i, len(playlist_ids),
-            label=f"{G}{mood.value}{C} #{track_id}",
-        ))
+        progress_finish(
+            progress_bar(
+                i,
+                len(playlist_ids),
+                label=f"{G}{mood.value}{C} #{track_id}",
+            )
+        )
 
     # 4. Add to subgenre playlists
     phase_header(4, "Distribute to subgenre playlists")
@@ -1539,11 +1614,13 @@ async def _distribute_tracks(
                             )
                         )
                         if not exists.scalar():
-                            session.add(DjPlaylistItem(
-                                playlist_id=db_pid,
-                                track_id=tid,
-                                sort_index=max_idx + 1 + j,
-                            ))
+                            session.add(
+                                DjPlaylistItem(
+                                    playlist_id=db_pid,
+                                    track_id=tid,
+                                    sort_index=max_idx + 1 + j,
+                                )
+                            )
                 await session.commit()
 
             await asyncio.sleep(REQUEST_DELAY)
@@ -1640,8 +1717,7 @@ async def _backfill_source(api: YmApi, source_kind: str) -> None:
         try:
             new_rev = await add_to_playlist(api, source_kind, rev, batch)
             added += len(batch)
-            out(f"  {G}+{C} batch {start // batch_size + 1}:"
-                f" {len(batch)} tracks (rev={new_rev})")
+            out(f"  {G}+{C} batch {start // batch_size + 1}: {len(batch)} tracks (rev={new_rev})")
         except httpx.HTTPStatusError as e:
             out(f"  {R}Failed batch {start // batch_size + 1}: {e}{C}")
         await asyncio.sleep(REQUEST_DELAY)
@@ -1662,27 +1738,38 @@ async def main() -> None:
     parser.add_argument("--batch", type=int, default=5, help="Candidates per seed")
     parser.add_argument("--workers", type=int, default=4, help="Parallel analysis workers")
     parser.add_argument(
-        "--max-rounds", type=int, default=0,
+        "--max-rounds",
+        type=int,
+        default=0,
         help="Max seed rounds (0 = unlimited)",
     )
     parser.add_argument(
-        "--no-skip-existing", action="store_true", default=False,
+        "--no-skip-existing",
+        action="store_true",
+        default=False,
         help="Allow tracks already in DB to enter pipeline (by default they are skipped)",
     )
     parser.add_argument(
-        "--deleted-kind", default=None,
+        "--deleted-kind",
+        default=None,
         help="Kind ID for the 'deleted' playlist (skip name-based lookup)",
     )
     parser.add_argument(
-        "--distribute", action="store_true", default=False,
+        "--distribute",
+        action="store_true",
+        default=False,
         help="Distribute existing playlist tracks into subgenre playlists, then exit",
     )
     parser.add_argument(
-        "--clean", action="store_true", default=False,
+        "--clean",
+        action="store_true",
+        default=False,
         help="With --distribute: clear all subgenre playlists before distributing",
     )
     parser.add_argument(
-        "--backfill", action="store_true", default=False,
+        "--backfill",
+        action="store_true",
+        default=False,
         help="Add missing tracks from subgenre playlists back into source playlist",
     )
     args = parser.parse_args()
@@ -1716,8 +1803,11 @@ async def main() -> None:
         sem = asyncio.Semaphore(args.workers)
         try:
             await _distribute_tracks(
-                api, args.kind, clean=args.clean,
-                ym_client=ym_client, sem=sem,
+                api,
+                args.kind,
+                clean=args.clean,
+                ym_client=ym_client,
+                sem=sem,
             )
         finally:
             await ym_client.close()
@@ -1756,9 +1846,7 @@ async def main() -> None:
     out(f"{B}  Fill & Verify Pipeline{C}")
     target_str = str(args.target) if args.target else "∞"
     skip_label = (
-        f"  Skip existing: {len(db_ym_ids)} DB tracks"
-        if skip_existing
-        else "  Skip existing: OFF"
+        f"  Skip existing: {len(db_ym_ids)} DB tracks" if skip_existing else "  Skip existing: OFF"
     )
     out(f"{B}  Playlist: {USER_ID}/{args.kind}  Target: {target_str}  Workers: {args.workers}{C}")
     out(f"{B}{skip_label}{C}")
@@ -1773,7 +1861,9 @@ async def main() -> None:
         out(f"  {D}Using deleted playlist: kind={deleted_kind}{C}")
     else:
         deleted_kind = await get_or_create_deleted_playlist(
-            api, args.kind, source_name,
+            api,
+            args.kind,
+            source_name,
         )
 
     # Init subgenre playlists (create YM + DB playlists if needed)
@@ -1799,6 +1889,7 @@ async def main() -> None:
         out(f"\n  {Y}{B}Shutting down after current round... (Ctrl+C again to force){C}")
 
     import signal
+
     signal.signal(signal.SIGINT, _handle_sigint)
 
     completed_normally = False
@@ -1815,22 +1906,28 @@ async def main() -> None:
 
             # ── Remove disliked tracks from main playlist ──────────────
             removed = await remove_disliked_from_playlist(
-                api, args.kind, deleted_kind, disliked_ids=disliked_ids,
+                api,
+                args.kind,
+                deleted_kind,
+                disliked_ids=disliked_ids,
             )
             if removed:
-                revision, track_count, playlist_ids, track_ts = (
-                    await fetch_playlist(api, args.kind)
+                revision, track_count, playlist_ids, track_ts = await fetch_playlist(
+                    api, args.kind
                 )
                 total_rejected += removed
 
             # ── Verify no disliked leaked into main ───────────────────
             if round_num == 1:
                 leaked = await verify_no_disliked_in_main(
-                    api, args.kind, deleted_kind, disliked_ids,
+                    api,
+                    args.kind,
+                    deleted_kind,
+                    disliked_ids,
                 )
                 if leaked:
-                    revision, track_count, playlist_ids, track_ts = (
-                        await fetch_playlist(api, args.kind)
+                    revision, track_count, playlist_ids, track_ts = await fetch_playlist(
+                        api, args.kind
                     )
                     total_rejected += leaked
                     out(f"  {Y}verify_no_disliked_in_main cleaned {leaked} tracks{C}")
@@ -1838,18 +1935,23 @@ async def main() -> None:
             # ── Audit: verify all playlist tracks pass criteria ────────
             if round_num == 1:  # full audit on first round only
                 audit_removed = await audit_playlist_tracks(
-                    api, args.kind, deleted_kind, liked_ids=liked_ids,
+                    api,
+                    args.kind,
+                    deleted_kind,
+                    liked_ids=liked_ids,
                 )
                 if audit_removed:
-                    revision, track_count, playlist_ids, track_ts = (
-                        await fetch_playlist(api, args.kind)
+                    revision, track_count, playlist_ids, track_ts = await fetch_playlist(
+                        api, args.kind
                     )
                     total_rejected += audit_removed
                     out(f"  {Y}Audit removed {audit_removed} tracks{C}")
 
             out(f"\n{CY}{B}{'=' * 60}{C}")
-            out(f"{CY}{B}  Round {round_num}  |  {track_count}/{target_str} tracks  |  "
-                f"rev={revision}  |  +{total_added} -{total_rejected}{C}")
+            out(
+                f"{CY}{B}  Round {round_num}  |  {track_count}/{target_str} tracks  |  "
+                f"rev={revision}  |  +{total_added} -{total_rejected}{C}"
+            )
             out(f"{CY}{'=' * 60}{C}")
 
             if args.target and track_count >= args.target:
@@ -1897,9 +1999,13 @@ async def main() -> None:
                 if ok:
                     download_ok.append(cand)
                     sz = cand.file_path.stat().st_size // 1024 if cand.file_path else 0
-                    progress_finish(progress_bar(
-                        dl_i, dl_total, label=f"{G}+{C} {sz}KB {cand.title}",
-                    ))
+                    progress_finish(
+                        progress_bar(
+                            dl_i,
+                            dl_total,
+                            label=f"{G}+{C} {sz}KB {cand.title}",
+                        )
+                    )
                 else:
                     progress_finish(progress_bar(dl_i, dl_total, label=f"{R}!{C} {cand.title}"))
                 await asyncio.sleep(REQUEST_DELAY)
@@ -1927,20 +2033,29 @@ async def main() -> None:
                     out(f"\n  {R}CRASH{C} {cand.title}: {e!s:.80}")
                 an_done += 1
                 if cand.audio_ok:
-                    progress_finish(progress_bar(
-                        an_done, _total,
-                        label=f"{G}PASS{C} {cand.title}",
-                    ))
+                    progress_finish(
+                        progress_bar(
+                            an_done,
+                            _total,
+                            label=f"{G}PASS{C} {cand.title}",
+                        )
+                    )
                 elif cand.audio_ok is False:
-                    progress_finish(progress_bar(
-                        an_done, _total,
-                        label=f"{R}FAIL{C} {cand.title} {D}{', '.join(cand.fail_reasons)}{C}",
-                    ))
+                    progress_finish(
+                        progress_bar(
+                            an_done,
+                            _total,
+                            label=f"{R}FAIL{C} {cand.title} {D}{', '.join(cand.fail_reasons)}{C}",
+                        )
+                    )
                 else:
-                    progress_finish(progress_bar(
-                        an_done, _total,
-                        label=f"{Y}NO-FEAT{C} {cand.title}",
-                    ))
+                    progress_finish(
+                        progress_bar(
+                            an_done,
+                            _total,
+                            label=f"{Y}NO-FEAT{C} {cand.title}",
+                        )
+                    )
                 _out.append(cand)
 
             tasks = [_analyze_and_report(cand) for cand in download_ok]
@@ -1982,8 +2097,10 @@ async def main() -> None:
                             cand.mood = classify_from_db(feat)
                     passed.append(cand)
                     mood_tag = f" [{cand.mood.value}]" if cand.mood else ""
-                    out(f"  {G}LIKED{C} {cand.artists} -- {cand.title}"
-                        f" {D}(bypass audio gate){mood_tag}{C}")
+                    out(
+                        f"  {G}LIKED{C} {cand.artists} -- {cand.title}"
+                        f" {D}(bypass audio gate){mood_tag}{C}"
+                    )
                 elif cand.audio_ok:
                     # Classify mood for routing
                     bpm_s = "?"
@@ -2001,12 +2118,16 @@ async def main() -> None:
                             cand.mood = classify_from_db(feat)
                     mood_tag = f" [{cand.mood.value}]" if cand.mood else ""
                     passed.append(cand)
-                    out(f"  {G}PASS{C} {cand.artists} -- {cand.title}"
-                        f" {D}BPM={bpm_s} LUFS={lufs_s}{mood_tag}{C}")
+                    out(
+                        f"  {G}PASS{C} {cand.artists} -- {cand.title}"
+                        f" {D}BPM={bpm_s} LUFS={lufs_s}{mood_tag}{C}"
+                    )
                 else:
                     failed.append(cand)
-                    out(f"  {R}FAIL{C} {cand.artists} -- {cand.title}"
-                        f" {D}{', '.join(cand.fail_reasons)}{C}")
+                    out(
+                        f"  {R}FAIL{C} {cand.artists} -- {cand.title}"
+                        f" {D}{', '.join(cand.fail_reasons)}{C}"
+                    )
                     total_rejected += 1
 
             # Move audio-failed and blocked to deleted playlist (separate reasons)
@@ -2031,22 +2152,20 @@ async def main() -> None:
 
                 for mood_val, mood_cands in sorted(by_mood.items()):
                     await add_to_subgenre_playlist(
-                        api, subgenre_map, mood_val, mood_cands,
+                        api,
+                        subgenre_map,
+                        mood_val,
+                        mood_cands,
                     )
                     await asyncio.sleep(REQUEST_DELAY)
 
                 # Also add ALL passed tracks to the source (general) playlist
-                revision, track_count, playlist_ids, _ = (
-                    await fetch_playlist(api, args.kind)
-                )
-                all_add = [
-                    {"id": c.ym_id, "albumId": c.album_id} for c in passed
-                ]
+                revision, track_count, playlist_ids, _ = await fetch_playlist(api, args.kind)
+                all_add = [{"id": c.ym_id, "albumId": c.album_id} for c in passed]
                 try:
                     await add_to_playlist(api, args.kind, revision, all_add)
                     total_added += len(passed)
-                    out(f"  {G}+{C} {len(passed)} tracks → source playlist"
-                        f" (rev={revision})")
+                    out(f"  {G}+{C} {len(passed)} tracks → source playlist (rev={revision})")
                 except httpx.HTTPStatusError as e:
                     out(f"  {R}Failed to add to source playlist: {e}{C}")
             else:
@@ -2073,8 +2192,7 @@ async def main() -> None:
                 try:
                     _, sg_count, _, _ = await fetch_playlist(api, sg["ym_kind"])
                     bar = "█" * min(sg_count, 40)
-                    out(f"  {mood.intensity:2d}. {sg['name']:<25s}"
-                        f" {sg_count:3d} {D}{bar}{C}")
+                    out(f"  {mood.intensity:2d}. {sg['name']:<25s} {sg_count:3d} {D}{bar}{C}")
                 except Exception:
                     pass
         out(f"{B}{'=' * 60}{C}")
@@ -2082,6 +2200,7 @@ async def main() -> None:
     except Exception as fatal_err:
         out(f"\n  {R}{B}FATAL: {fatal_err}{C}")
         import traceback
+
         traceback.print_exc()
 
     except BaseException as base_err:
@@ -2094,15 +2213,19 @@ async def main() -> None:
             try:
                 _, tc_final, _, _ = await fetch_playlist(api, args.kind)
                 out(f"\n{B}{'=' * 60}{C}")
-                out(f"{Y}{B}  CRASHED after {round_num} rounds  |  {tc_final} tracks  |  "
-                    f"+{total_added} -{total_rejected}{C}")
+                out(
+                    f"{Y}{B}  CRASHED after {round_num} rounds  |  {tc_final} tracks  |  "
+                    f"+{total_added} -{total_rejected}{C}"
+                )
                 out(f"{B}{'=' * 60}{C}")
             except Exception as summary_err:
                 # API also failed — print what we know without API data
                 out(f"\n{B}{'=' * 60}{C}")
-                out(f"{Y}{B}  CRASHED after {round_num} rounds  |  "
+                out(
+                    f"{Y}{B}  CRASHED after {round_num} rounds  |  "
                     f"+{total_added} -{total_rejected}  |  "
-                    f"(API unavailable: {summary_err!s:.40}){C}")
+                    f"(API unavailable: {summary_err!s:.40}){C}"
+                )
                 out(f"{B}{'=' * 60}{C}")
 
         # Shutdown process pool (kill any hung C-extension workers)
@@ -2124,5 +2247,6 @@ if __name__ == "__main__":
     except BaseException as exc:
         print(f"\n\033[91m\033[1mFATAL ({type(exc).__name__}): {exc}\033[0m", file=sys.stderr)
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

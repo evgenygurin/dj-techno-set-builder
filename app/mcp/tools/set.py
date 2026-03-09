@@ -19,7 +19,12 @@ from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.mcp.converters import set_to_summary
-from app.mcp.dependencies import get_features_service, get_session, get_track_service
+from app.mcp.dependencies import (
+    get_features_service,
+    get_session,
+    get_track_service,
+    get_unified_scoring,
+)
 from app.mcp.entity_finder import SetFinder
 from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
@@ -36,6 +41,7 @@ from app.schemas.sets import DjSetCreate, DjSetItemCreate, DjSetUpdate, DjSetVer
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
+from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 from app.utils.audio.camelot import key_code_to_camelot
 
 
@@ -361,6 +367,7 @@ def register_set_tools(mcp: FastMCP) -> None:
         set_ref: str | int,
         version_id: int | None = None,
         session: AsyncSession = Depends(get_session),
+        unified_svc: UnifiedTransitionScoringService = Depends(get_unified_scoring),
         features_svc: AudioFeaturesService = Depends(get_features_service),
         track_svc: TrackService = Depends(get_track_service),
     ) -> SetCheatSheet:
@@ -424,7 +431,9 @@ def register_set_tools(mcp: FastMCP) -> None:
         tracks = await _get_set_tracks_impl(set_id, version_id, session, features_svc, track_svc)
 
         # 2. Score transitions
-        scores = await _score_version(set_id, version_id, svc, features_svc, track_svc)
+        scores = await _score_version(
+            set_id, version_id, svc, unified_svc, features_svc, track_svc
+        )
         summary = _build_transition_summary(scores)
 
         # 3. Build text cheat sheet

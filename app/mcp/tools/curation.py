@@ -6,8 +6,14 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
-from app.mcp.dependencies import get_features_service, get_set_service
+from app.mcp.dependencies import (
+    get_features_service,
+    get_set_service,
+    get_track_service,
+    get_unified_scoring,
+)
 from app.mcp.resolve import resolve_local_id
+from app.mcp.tools._scoring_helpers import score_consecutive_transitions
 from app.mcp.types import (
     ClassifyResult,
     GapDescription,
@@ -19,6 +25,8 @@ from app.mcp.types import (
 from app.services.features import AudioFeaturesService
 from app.services.set_curation import SetCurationService
 from app.services.sets import DjSetService
+from app.services.tracks import TrackService
+from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 from app.utils.audio.mood_classifier import TrackMood
 from app.utils.audio.set_templates import TemplateName, get_template
 
@@ -128,7 +136,9 @@ def register_curation_tools(mcp: FastMCP) -> None:
         ctx: Context,
         template: str = "classic_60",
         set_svc: DjSetService = Depends(get_set_service),
+        unified_svc: UnifiedTransitionScoringService = Depends(get_unified_scoring),
         features_svc: AudioFeaturesService = Depends(get_features_service),
+        track_svc: TrackService = Depends(get_track_service),
     ) -> SetReviewResult:
         """Review a DJ set version — identify weak spots and suggest improvements.
 
@@ -140,9 +150,6 @@ def register_curation_tools(mcp: FastMCP) -> None:
             version_id: Set version to review.
             template: Template to compare energy arc against (default: classic_60).
         """
-        from app.services.transition_scoring_unified import (
-            UnifiedTransitionScoringService,
-        )
         from app.utils.audio.set_generator import TrackData, lufs_to_energy, variety_score
 
         set_id = resolve_local_id(set_ref, "set")
@@ -162,31 +169,25 @@ def register_curation_tools(mcp: FastMCP) -> None:
                 suggestions=["Set too short"],
             )
 
-        unified_svc = UnifiedTransitionScoringService(features_svc.features_repo.session)
         svc = SetCurationService()
 
-        # Score all transitions
+        # Score all transitions via shared helper
+        score_results = await score_consecutive_transitions(
+            items, unified_svc, track_svc, features_svc
+        )
+
         weak: list[WeakTransition] = []
         scores: list[float] = []
-        for i in range(len(items) - 1):
-            try:
-                components = await unified_svc.score_components_by_ids(
-                    items[i].track_id,
-                    items[i + 1].track_id,
-                )
-                total = components["total"]
-            except ValueError:
-                total = 0.0
-
-            scores.append(total)
-            if total < 0.4:
+        for i, sr in enumerate(score_results):
+            scores.append(sr.total)
+            if sr.total < 0.4:
                 weak.append(
                     WeakTransition(
                         position=i,
-                        from_track_id=items[i].track_id,
-                        to_track_id=items[i + 1].track_id,
-                        score=round(total, 3),
-                        reason=("Low transition quality" if total > 0 else "Missing features"),
+                        from_track_id=sr.from_track_id,
+                        to_track_id=sr.to_track_id,
+                        score=round(sr.total, 3),
+                        reason=("Low transition quality" if sr.total > 0 else "Missing features"),
                     )
                 )
 
