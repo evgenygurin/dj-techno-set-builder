@@ -2,6 +2,9 @@
 
 Single source of truth — every call-site that needs ORM → TrackFeatures
 must go through this function to prevent drift between scoring paths.
+
+Defaults are centralised in ``_DEFAULTS`` to avoid magic numbers scattered
+across the conversion logic.
 """
 
 from __future__ import annotations
@@ -16,6 +19,16 @@ from app.services.transition_scoring import TrackFeatures
 if TYPE_CHECKING:
     from app.models.features import TrackAudioFeaturesComputed
     from app.models.sections import TrackSection
+
+# Centralised fallback defaults for Phase-2 nullable ORM fields.
+# Each value is the neutral/median assumption when the real value is missing.
+_DEFAULTS: dict[str, float] = {
+    "onset_rate": 5.0,  # P50 onset_rate_mean — moderate rhythmic density
+    "kick_prominence": 0.5,  # neutral kick presence (mid-range)
+    "hnr_db": 0.0,  # 0 dB HNR — equal harmonic/noise energy
+    "spectral_slope": 0.0,  # flat spectrum — no tilt assumption
+    "hp_ratio": 0.5,  # equal harmonic/percussive — neutral balance
+}
 
 
 def orm_features_to_track_features(
@@ -69,12 +82,20 @@ def orm_features_to_track_features(
         harmonic_density=harmonic_density,
         centroid_hz=feat.centroid_mean_hz or 2000.0,
         band_ratios=band_ratios,
-        onset_rate=feat.onset_rate_mean or 5.0,
+        onset_rate=feat.onset_rate_mean or _DEFAULTS["onset_rate"],
         mfcc_vector=mfcc_vector,
-        kick_prominence=feat.kick_prominence if feat.kick_prominence is not None else 0.5,
-        hnr_db=feat.hnr_mean_db if feat.hnr_mean_db is not None else 0.0,
-        spectral_slope=feat.slope_db_per_oct if feat.slope_db_per_oct is not None else 0.0,
-        hp_ratio=feat.hp_ratio if feat.hp_ratio is not None else 0.5,
+        kick_prominence=(
+            feat.kick_prominence
+            if feat.kick_prominence is not None
+            else _DEFAULTS["kick_prominence"]
+        ),
+        hnr_db=(feat.hnr_mean_db if feat.hnr_mean_db is not None else _DEFAULTS["hnr_db"]),
+        spectral_slope=(
+            feat.slope_db_per_oct
+            if feat.slope_db_per_oct is not None
+            else _DEFAULTS["spectral_slope"]
+        ),
+        hp_ratio=(feat.hp_ratio if feat.hp_ratio is not None else _DEFAULTS["hp_ratio"]),
         first_section=first_section,
         last_section=last_section,
     )
