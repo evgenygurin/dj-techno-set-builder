@@ -1,6 +1,6 @@
 name: Codegen Orchestrator
 
-on:
+'on':
   issue_comment:
     types: [created]
 
