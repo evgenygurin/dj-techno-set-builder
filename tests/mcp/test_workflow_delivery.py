@@ -123,24 +123,20 @@ async def test_gateway_has_dj_deliver_set(gateway_mcp: FastMCP):
 # ── Integration test: deliver empty set version ─────────────────────────────
 
 
-async def test_deliver_set_empty_version(workflow_mcp_with_db: FastMCP, engine, tmp_path):
+async def test_deliver_set_empty_version(workflow_mcp_with_db: FastMCP, session, tmp_path):
     """deliver_set on a version with 0 items → ok with no transitions, all 3 files written."""
-    from sqlalchemy.ext.asyncio import async_sessionmaker
-
     from app.models.sets import DjSet, DjSetVersion
 
-    # Seed via the same engine the MCP server uses
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as session:
-        dj_set = DjSet(name="Test Delivery Set")
-        session.add(dj_set)
-        await session.flush()
-        version = DjSetVersion(set_id=dj_set.set_id)
-        session.add(version)
-        await session.flush()
-        set_id = dj_set.set_id
-        version_id = version.set_version_id
-        await session.commit()
+    # Seed via the shared test session (same connection as MCP server)
+    dj_set = DjSet(name="Test Delivery Set")
+    session.add(dj_set)
+    await session.flush()
+    version = DjSetVersion(set_id=dj_set.set_id)
+    session.add(version)
+    await session.flush()
+    set_id = dj_set.set_id
+    version_id = version.set_version_id
+    await session.commit()
 
     # Patch output dir to tmp_path so no real filesystem writes outside tests
     with patch("app.mcp.tools.delivery._output_dir", return_value=tmp_path):

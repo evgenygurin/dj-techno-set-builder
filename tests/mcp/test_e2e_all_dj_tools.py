@@ -607,17 +607,30 @@ async def _make_mock_platform_registry():
     return registry
 
 
-async def test_sync_set_to_ym_with_mock_platform(engine):
+async def test_sync_set_to_ym_with_mock_platform(_connection):
     """sync_set_to_ym creates YM playlist when platform connected."""
-    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from contextlib import asynccontextmanager
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.mcp.tools import create_workflow_mcp
 
-    factory = async_sessionmaker(engine, expire_on_commit=False)
+    @asynccontextmanager
+    async def _factory():
+        sess = AsyncSession(
+            bind=_connection,
+            join_transaction_mode="create_savepoint",
+            expire_on_commit=False,
+        )
+        try:
+            yield sess
+        finally:
+            await sess.close()
+
     mock_registry = await _make_mock_platform_registry()
 
     with (
-        patch("app.mcp.dependencies.session_factory", factory),
+        patch("app.mcp.dependencies.session_factory", _factory),
         patch("app.mcp.dependencies._platform_registry", mock_registry),
     ):
         mcp = create_workflow_mcp()
@@ -637,17 +650,30 @@ async def test_sync_set_to_ym_with_mock_platform(engine):
             assert data["status"] in ("cancelled", "synced", "not_supported")
 
 
-async def test_sync_set_from_ym_no_ym_playlist(engine):
+async def test_sync_set_from_ym_no_ym_playlist(_connection):
     """sync_set_from_ym raises when set has no ym_playlist_id."""
-    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from contextlib import asynccontextmanager
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.mcp.tools import create_workflow_mcp
 
-    factory = async_sessionmaker(engine, expire_on_commit=False)
+    @asynccontextmanager
+    async def _factory():
+        sess = AsyncSession(
+            bind=_connection,
+            join_transaction_mode="create_savepoint",
+            expire_on_commit=False,
+        )
+        try:
+            yield sess
+        finally:
+            await sess.close()
+
     mock_registry = await _make_mock_platform_registry()
 
     with (
-        patch("app.mcp.dependencies.session_factory", factory),
+        patch("app.mcp.dependencies.session_factory", _factory),
         patch("app.mcp.dependencies._platform_registry", mock_registry),
     ):
         mcp = create_workflow_mcp()
