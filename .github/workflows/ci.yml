@@ -46,10 +46,26 @@ jobs:
       - name: Ruff format check
         run: uv run ruff format --check app tests
 
+      - name: Debug Python environment
+        run: |
+          echo "=== Python and uv debug info ==="
+          python --version
+          uv --version
+          echo "=== Python path and packages ==="
+          python -c "import sys; print('\n'.join(sys.path))"
+          uv pip list | head -20
+          echo "=== FastMCP import test ==="
+          uv run python -c "import fastmcp; print('FastMCP version:', getattr(fastmcp, '__version__', 'unknown'))"
+          echo "=== TypeForm test ==="
+          uv run python -c "from typing_extensions import TypeForm; print('TypeForm available')"
+          
       - name: Mypy
         run: |
           echo "Running mypy type checking..."
           uv run mypy --version
+          echo "=== Testing app import ==="
+          uv run python -c "from app.main import create_app; print('App import successful')"
+          echo "=== Running mypy ==="
           uv run mypy app
 
   security:
