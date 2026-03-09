@@ -1,5 +1,20 @@
 from __future__ import annotations
 
+# Monkey-patch for TypeForm compatibility with typing_extensions 4.15.0
+try:
+    from typing_extensions import TypeForm  # noqa: F401
+except ImportError:
+    from typing import TypeVar
+
+    import typing_extensions
+
+    # Create a subscriptable TypeForm stub
+    class TypeFormStub:
+        def __class_getitem__(cls, item: object) -> TypeVar:
+            return TypeVar("TypeFormStub")
+
+    typing_extensions.TypeForm = TypeFormStub  # type: ignore
+
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
