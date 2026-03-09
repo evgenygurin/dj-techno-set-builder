@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **CI workflows**: Fixed YAML syntax by quoting 'on' keyword in GitHub Actions workflows
 - **test_filter_tracks_by_energy**: test was passing LUFS range (-9.0 to -5.0) to `energy_min`/`energy_max` which filters by `energy_mean` (0.0-1.0 scale); fixed test to use correct energy_mean values
 - **NULL beat features**: deleted 98 v1.0 pipeline rows with NULL kick_prominence/hp_ratio/onset_rate_mean/pulse_clarity; re-analyzed via `refresh_data.py` with v2.1b6 pipeline (subprocess isolation with full essentia beats)
 
