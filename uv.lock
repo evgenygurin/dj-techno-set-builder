@@ -630,7 +630,7 @@ requires-dist = [
     { name = "soundfile", marker = "extra == 'audio'", specifier = ">=0.13" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
     { name = "torch", marker = "extra == 'ml'", specifier = ">=2.0" },
-    { name = "typing-extensions", specifier = ">=4.13" },
+    { name = "typing-extensions", specifier = ">=4.12.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },
 ]
 provides-extras = ["audio", "ml", "observability", "sampling"]

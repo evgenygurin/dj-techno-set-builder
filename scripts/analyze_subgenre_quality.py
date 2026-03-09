@@ -155,71 +155,121 @@ def classify_from_features(
 
     all_scores = {
         "ambient_dub": _score_ambient_dub(
-            kwargs["bpm"], kwargs["lufs_i"], kwargs["spectral_centroid_mean"],
-            kwargs["onset_rate"], kwargs["lra_lu"], kwargs["energy_mean"],
+            kwargs["bpm"],
+            kwargs["lufs_i"],
+            kwargs["spectral_centroid_mean"],
+            kwargs["onset_rate"],
+            kwargs["lra_lu"],
+            kwargs["energy_mean"],
             kwargs["hp_ratio"],
         ),
         "dub_techno": _score_dub_techno(
-            kwargs["bpm"], kwargs["lufs_i"], kwargs["lra_lu"],
-            kwargs["spectral_centroid_mean"], kwargs["onset_rate"], kwargs["hp_ratio"],
+            kwargs["bpm"],
+            kwargs["lufs_i"],
+            kwargs["lra_lu"],
+            kwargs["spectral_centroid_mean"],
+            kwargs["onset_rate"],
+            kwargs["hp_ratio"],
         ),
         "minimal": _score_minimal(
-            kwargs["bpm"], kwargs["onset_rate"], kwargs["energy_std"],
-            kwargs["flux_mean"], kwargs["kick_prominence"], kwargs["lufs_i"],
+            kwargs["bpm"],
+            kwargs["onset_rate"],
+            kwargs["energy_std"],
+            kwargs["flux_mean"],
+            kwargs["kick_prominence"],
+            kwargs["lufs_i"],
         ),
         "detroit": _score_detroit(
-            kwargs["bpm"], kwargs["hp_ratio"], kwargs["spectral_centroid_mean"],
-            kwargs["lufs_i"], kwargs["kick_prominence"], kwargs["energy_mean"],
+            kwargs["bpm"],
+            kwargs["hp_ratio"],
+            kwargs["spectral_centroid_mean"],
+            kwargs["lufs_i"],
+            kwargs["kick_prominence"],
+            kwargs["energy_mean"],
         ),
         "melodic_deep": _score_melodic_deep(
-            kwargs["hp_ratio"], kwargs["spectral_centroid_mean"],
-            kwargs["bpm"], kwargs["lufs_i"], kwargs["kick_prominence"],
+            kwargs["hp_ratio"],
+            kwargs["spectral_centroid_mean"],
+            kwargs["bpm"],
+            kwargs["lufs_i"],
+            kwargs["kick_prominence"],
             kwargs["energy_mean"],
         ),
         "progressive": _score_progressive(
-            kwargs["bpm"], kwargs["energy_std"], kwargs["flux_mean"],
-            kwargs["lra_lu"], kwargs["hp_ratio"],
+            kwargs["bpm"],
+            kwargs["energy_std"],
+            kwargs["flux_mean"],
+            kwargs["lra_lu"],
+            kwargs["hp_ratio"],
         ),
         "hypnotic": _score_hypnotic(
-            kwargs["bpm"], kwargs["flux_std"], kwargs["energy_std"],
-            kwargs["kick_prominence"], kwargs["flux_mean"],
+            kwargs["bpm"],
+            kwargs["flux_std"],
+            kwargs["energy_std"],
+            kwargs["kick_prominence"],
+            kwargs["flux_mean"],
         ),
         "driving": _score_driving(
-            kwargs["bpm"], kwargs["lufs_i"], kwargs["kick_prominence"],
-            kwargs["energy_mean"], kwargs["onset_rate"],
-            hp_ratio=kwargs["hp_ratio"], flux_std=kwargs["flux_std"],
+            kwargs["bpm"],
+            kwargs["lufs_i"],
+            kwargs["kick_prominence"],
+            kwargs["energy_mean"],
+            kwargs["onset_rate"],
+            hp_ratio=kwargs["hp_ratio"],
+            flux_std=kwargs["flux_std"],
             centroid_mean_hz=kwargs["spectral_centroid_mean"],
             flatness_mean=kwargs["flatness_mean"],
             lra_lu=kwargs["lra_lu"],
         ),
         "tribal": _score_tribal(
-            kwargs["bpm"], kwargs["onset_rate"], kwargs["kick_prominence"],
-            kwargs["lufs_i"], kwargs["hp_ratio"],
+            kwargs["bpm"],
+            kwargs["onset_rate"],
+            kwargs["kick_prominence"],
+            kwargs["lufs_i"],
+            kwargs["hp_ratio"],
         ),
         "breakbeat": _score_breakbeat(
-            kwargs["kick_prominence"], kwargs["onset_rate"],
-            kwargs["bpm"], kwargs["energy_mean"], kwargs["hp_ratio"],
+            kwargs["kick_prominence"],
+            kwargs["onset_rate"],
+            kwargs["bpm"],
+            kwargs["energy_mean"],
+            kwargs["hp_ratio"],
         ),
         "peak_time": _score_peak_time(
-            kwargs["kick_prominence"], kwargs["lufs_i"],
-            kwargs["energy_mean"], kwargs["bpm"], kwargs["onset_rate"],
+            kwargs["kick_prominence"],
+            kwargs["lufs_i"],
+            kwargs["energy_mean"],
+            kwargs["bpm"],
+            kwargs["onset_rate"],
         ),
         "acid": _score_acid(
-            kwargs["bpm"], kwargs["flux_mean"], kwargs["flux_std"],
-            kwargs["spectral_centroid_mean"], kwargs["hp_ratio"],
+            kwargs["bpm"],
+            kwargs["flux_mean"],
+            kwargs["flux_std"],
+            kwargs["spectral_centroid_mean"],
+            kwargs["hp_ratio"],
         ),
         "raw": _score_raw(
-            kwargs["kick_prominence"], kwargs["lufs_i"],
-            kwargs["crest_factor_db"], kwargs["bpm"], kwargs["energy_mean"],
+            kwargs["kick_prominence"],
+            kwargs["lufs_i"],
+            kwargs["crest_factor_db"],
+            kwargs["bpm"],
+            kwargs["energy_mean"],
         ),
         "industrial": _score_industrial(
-            kwargs["spectral_centroid_mean"], kwargs["onset_rate"],
-            kwargs["flatness_mean"], kwargs["bpm"], kwargs["lufs_i"],
+            kwargs["spectral_centroid_mean"],
+            kwargs["onset_rate"],
+            kwargs["flatness_mean"],
+            kwargs["bpm"],
+            kwargs["lufs_i"],
             kwargs["flux_mean"],
         ),
         "hard_techno": _score_hard_techno(
-            kwargs["bpm"], kwargs["kick_prominence"],
-            kwargs["lufs_i"], kwargs["energy_mean"], kwargs["onset_rate"],
+            kwargs["bpm"],
+            kwargs["kick_prominence"],
+            kwargs["lufs_i"],
+            kwargs["energy_mean"],
+            kwargs["onset_rate"],
         ),
     }
 
@@ -254,9 +304,7 @@ async def load_subgenre_map() -> dict[str, dict]:
         return json.load(f)
 
 
-async def load_playlist_tracks(
-    playlist_id: int, mood_name: str
-) -> list[TrackAnalysis]:
+async def load_playlist_tracks(playlist_id: int, mood_name: str) -> list[TrackAnalysis]:
     """Load tracks from a playlist, classify each, return analyses."""
     results = []
 
@@ -389,18 +437,24 @@ def print_playlist_report(stats: PlaylistStats) -> None:
     acc_color = _color_pct(stats.accuracy)
 
     print(f"\n{B}{CY}▸ {stats.name}{C}  ({stats.mood})")
-    print(f"  Tracks: {B}{stats.track_count}{C}  "
-          f"Correct: {G}{stats.correct_count}{C}  "
-          f"Accuracy: {acc_color}  {acc_bar}")
-    print(f"  Confidence: mean={stats.mean_confidence:.3f}  "
-          f"median={stats.median_confidence:.3f}  "
-          f"low(<0.15): {stats.low_confidence_count}")
+    print(
+        f"  Tracks: {B}{stats.track_count}{C}  "
+        f"Correct: {G}{stats.correct_count}{C}  "
+        f"Accuracy: {acc_color}  {acc_bar}"
+    )
+    print(
+        f"  Confidence: mean={stats.mean_confidence:.3f}  "
+        f"median={stats.median_confidence:.3f}  "
+        f"low(<0.15): {stats.low_confidence_count}"
+    )
 
     if stats.track_count > 0:
-        print(f"  BPM: {stats.bpm_range[0]:.1f}-{stats.bpm_range[1]:.1f} "
-              f"(mean {stats.bpm_mean:.1f})  "
-              f"LUFS: {stats.lufs_range[0]:.1f} to {stats.lufs_range[1]:.1f} "
-              f"(mean {stats.lufs_mean:.1f})")
+        print(
+            f"  BPM: {stats.bpm_range[0]:.1f}-{stats.bpm_range[1]:.1f} "
+            f"(mean {stats.bpm_mean:.1f})  "
+            f"LUFS: {stats.lufs_range[0]:.1f} to {stats.lufs_range[1]:.1f} "
+            f"(mean {stats.lufs_mean:.1f})"
+        )
 
     if stats.leak_to:
         leaks = sorted(stats.leak_to.items(), key=lambda x: x[1], reverse=True)[:5]
@@ -413,10 +467,12 @@ def print_playlist_report(stats: PlaylistStats) -> None:
             assigned_score = t.top_scores.get(t.assigned_mood, 0)
             predicted_score = t.top_scores.get(t.predicted_mood, 0)
             gap = predicted_score - assigned_score
-            print(f"    {D}#{t.track_id}{C} {t.title[:40]:<40s}  "
-                  f"{t.assigned_mood}={assigned_score:.3f} → "
-                  f"{B}{t.predicted_mood}={predicted_score:.3f}{C}  "
-                  f"(gap +{gap:.3f})")
+            print(
+                f"    {D}#{t.track_id}{C} {t.title[:40]:<40s}  "
+                f"{t.assigned_mood}={assigned_score:.3f} → "
+                f"{B}{t.predicted_mood}={predicted_score:.3f}{C}  "
+                f"(gap +{gap:.3f})"
+            )
 
 
 def print_confusion_matrix(matrix: dict[str, dict[str, int]]) -> None:
@@ -426,11 +482,21 @@ def print_confusion_matrix(matrix: dict[str, dict[str, int]]) -> None:
     moods = list(matrix.keys())
     # Abbreviations for column headers
     abbrevs = {
-        "ambient_dub": "AmD", "dub_techno": "DuT", "minimal": "Min",
-        "detroit": "Det", "melodic_deep": "MeD", "progressive": "Pro",
-        "hypnotic": "Hyp", "driving": "Drv", "tribal": "Tri",
-        "breakbeat": "Brk", "peak_time": "PkT", "acid": "Acd",
-        "raw": "Raw", "industrial": "Ind", "hard_techno": "HdT",
+        "ambient_dub": "AmD",
+        "dub_techno": "DuT",
+        "minimal": "Min",
+        "detroit": "Det",
+        "melodic_deep": "MeD",
+        "progressive": "Pro",
+        "hypnotic": "Hyp",
+        "driving": "Drv",
+        "tribal": "Tri",
+        "breakbeat": "Brk",
+        "peak_time": "PkT",
+        "acid": "Acd",
+        "raw": "Raw",
+        "industrial": "Ind",
+        "hard_techno": "HdT",
     }
 
     # Header row
@@ -459,9 +525,7 @@ def print_confusion_matrix(matrix: dict[str, dict[str, int]]) -> None:
         print(row_str)
 
 
-def print_overall_summary(
-    all_stats: list[PlaylistStats], all_tracks: list[TrackAnalysis]
-) -> None:
+def print_overall_summary(all_stats: list[PlaylistStats], all_tracks: list[TrackAnalysis]) -> None:
     """Print overall quality summary."""
     print_header("OVERALL QUALITY SUMMARY")
 
@@ -470,15 +534,16 @@ def print_overall_summary(
     overall_acc = total_correct / total_tracks if total_tracks else 0.0
 
     print(f"\n  Total tracks analyzed: {B}{total_tracks}{C}")
-    print(f"  Overall accuracy:     {_color_pct(overall_acc)} "
-          f"({total_correct}/{total_tracks})")
+    print(f"  Overall accuracy:     {_color_pct(overall_acc)} ({total_correct}/{total_tracks})")
 
     # Driving dominance
     driving_stats = next((s for s in all_stats if s.mood == "driving"), None)
     if driving_stats and total_tracks > 0:
         driving_pct = driving_stats.track_count / total_tracks
-        print(f"  Driving share:        {driving_pct:.1%} "
-              f"({driving_stats.track_count}/{total_tracks})")
+        print(
+            f"  Driving share:        {driving_pct:.1%} "
+            f"({driving_stats.track_count}/{total_tracks})"
+        )
 
     # Empty playlists
     empty = [s for s in all_stats if s.track_count == 0]
@@ -488,16 +553,20 @@ def print_overall_summary(
     # Sparse playlists (<5 tracks)
     sparse = [s for s in all_stats if 0 < s.track_count < 5]
     if sparse:
-        print(f"  {Y}Sparse playlists:{C}     "
-              + ", ".join(f"{s.mood}({s.track_count})" for s in sparse))
+        print(
+            f"  {Y}Sparse playlists:{C}     "
+            + ", ".join(f"{s.mood}({s.track_count})" for s in sparse)
+        )
 
     # Confidence distribution
     confs = [t.confidence for t in all_tracks]
     if confs:
         print("\n  Confidence distribution:")
-        print(f"    mean={mean(confs):.3f}  median={median(confs):.3f}  "
-              f"stdev={stdev(confs):.3f}" if len(confs) > 1 else
-              f"    mean={mean(confs):.3f}")
+        print(
+            f"    mean={mean(confs):.3f}  median={median(confs):.3f}  stdev={stdev(confs):.3f}"
+            if len(confs) > 1
+            else f"    mean={mean(confs):.3f}"
+        )
         buckets = [0, 0.05, 0.10, 0.15, 0.25, 0.50, 1.01]
         for i in range(len(buckets) - 1):
             lo, hi = buckets[i], buckets[i + 1]
@@ -513,8 +582,10 @@ def print_overall_summary(
     for s in ranked:
         if s.track_count > 0:
             bar = _bar(s.accuracy, width=15)
-            print(f"    {s.mood:>15s}  {_color_pct(s.accuracy):>5s}  "
-                  f"{bar}  ({s.correct_count}/{s.track_count})")
+            print(
+                f"    {s.mood:>15s}  {_color_pct(s.accuracy):>5s}  "
+                f"{bar}  ({s.correct_count}/{s.track_count})"
+            )
         else:
             print(f"    {s.mood:>15s}  {D}empty{C}")
 
@@ -526,6 +597,7 @@ def print_overall_summary(
     counts = [s.track_count for s in all_stats]
     if total_tracks > 0 and len(counts) > 1:
         import math
+
         probs = [c / total_tracks for c in counts if c > 0]
         entropy = -sum(p * math.log2(p) for p in probs if p > 0)
         max_entropy = math.log2(len(all_stats))
@@ -535,8 +607,10 @@ def print_overall_summary(
 
     health = 0.50 * overall_acc + 0.20 * coverage + 0.15 * avg_conf + 0.15 * balance
     print(f"\n  {B}Health score: {_color_pct(health)}{C}")
-    print(f"    accuracy={overall_acc:.2f} x 0.50 + coverage={coverage:.2f} x 0.20 "
-          f"+ confidence={avg_conf:.2f} x 0.15 + balance={balance:.2f} x 0.15")
+    print(
+        f"    accuracy={overall_acc:.2f} x 0.50 + coverage={coverage:.2f} x 0.20 "
+        f"+ confidence={avg_conf:.2f} x 0.15 + balance={balance:.2f} x 0.15"
+    )
 
 
 def print_feature_heatmap(all_tracks: list[TrackAnalysis]) -> None:
@@ -548,17 +622,40 @@ def print_feature_heatmap(all_tracks: list[TrackAnalysis]) -> None:
     for t in all_tracks:
         by_mood[t.assigned_mood].append(t)
 
-    features = ["bpm", "lufs_i", "kick", "centroid", "onset", "hp_ratio",
-                 "flux_m", "flux_s", "e_std", "e_mean", "lra", "crest", "flat"]
+    features = [
+        "bpm",
+        "lufs_i",
+        "kick",
+        "centroid",
+        "onset",
+        "hp_ratio",
+        "flux_m",
+        "flux_s",
+        "e_std",
+        "e_mean",
+        "lra",
+        "crest",
+        "flat",
+    ]
 
     # Compute means
     mood_order = [m.value for m in TrackMood.energy_order()]
     abbrevs = {
-        "ambient_dub": "AmD", "dub_techno": "DuT", "minimal": "Min",
-        "detroit": "Det", "melodic_deep": "MeD", "progressive": "Pro",
-        "hypnotic": "Hyp", "driving": "Drv", "tribal": "Tri",
-        "breakbeat": "Brk", "peak_time": "PkT", "acid": "Acd",
-        "raw": "Raw", "industrial": "Ind", "hard_techno": "HdT",
+        "ambient_dub": "AmD",
+        "dub_techno": "DuT",
+        "minimal": "Min",
+        "detroit": "Det",
+        "melodic_deep": "MeD",
+        "progressive": "Pro",
+        "hypnotic": "Hyp",
+        "driving": "Drv",
+        "tribal": "Tri",
+        "breakbeat": "Brk",
+        "peak_time": "PkT",
+        "acid": "Acd",
+        "raw": "Raw",
+        "industrial": "Ind",
+        "hard_techno": "HdT",
     }
 
     # Header
@@ -570,10 +667,18 @@ def print_feature_heatmap(all_tracks: list[TrackAnalysis]) -> None:
 
     # Formatting per feature
     fmt_map = {
-        "bpm": "{:.1f}", "lufs_i": "{:.1f}", "kick": "{:.2f}",
-        "centroid": "{:.0f}", "onset": "{:.1f}", "hp_ratio": "{:.2f}",
-        "flux_m": "{:.3f}", "flux_s": "{:.3f}", "e_std": "{:.3f}",
-        "e_mean": "{:.3f}", "lra": "{:.1f}", "crest": "{:.1f}",
+        "bpm": "{:.1f}",
+        "lufs_i": "{:.1f}",
+        "kick": "{:.2f}",
+        "centroid": "{:.0f}",
+        "onset": "{:.1f}",
+        "hp_ratio": "{:.2f}",
+        "flux_m": "{:.3f}",
+        "flux_s": "{:.3f}",
+        "e_std": "{:.3f}",
+        "e_mean": "{:.3f}",
+        "lra": "{:.1f}",
+        "crest": "{:.1f}",
         "flat": "{:.3f}",
     }
 
@@ -641,11 +746,14 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="Analyze subgenre playlist quality")
     parser.add_argument("--playlist", type=str, help="Analyze only this subgenre (e.g. 'driving')")
     parser.add_argument(
-        "--top-fugitives", type=int, default=5,
+        "--top-fugitives",
+        type=int,
+        default=5,
         help="Show N top fugitives per playlist",
     )
     parser.add_argument(
-        "--json", action="store_true",
+        "--json",
+        action="store_true",
         help="Output JSON instead of human-readable",
     )
     args = parser.parse_args()
