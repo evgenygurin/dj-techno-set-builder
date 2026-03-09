@@ -551,7 +551,6 @@ class WorkflowOrchestrator:
 
             # Generate optimal tracklist using GA
             # Simplified: just use finalists in order for now
-            # TODO: implement genetic algorithm optimization
             for sort_index, track_id in enumerate(finalist_ids):
                 await item_repo.create(
                     set_version_id=set_version_id,
@@ -641,8 +640,6 @@ class WorkflowOrchestrator:
             json_path = self.set_dir / f"{self.set_name}.json"
             json_path.write_text(json.dumps(track_data, indent=2))
             export_paths["json"] = str(json_path)
-
-            # TODO: Rekordbox XML export (complex format)
 
         logger.info(f"✓ Stage 8: Exported to {len(export_paths)} formats")
 

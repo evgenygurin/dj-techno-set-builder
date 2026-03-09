@@ -131,3 +131,7 @@ dev.db-shm
 dev.db-wal
 .worktrees/
 .playlist_map.json
+
+# Script data files
+scripts/.subgenre_playlists.json
+scripts/.playlist_map.json

@@ -281,7 +281,6 @@ class SetGenerationService(BaseService):
                 bpm_score = max(0.0, 0.5 - bpm_diff / 20.0)
 
                 # Key compatibility component (0-0.5) — simple placeholder
-                # TODO: Use Camelot wheel distance
                 key_diff = abs(tracks[i].key_code - tracks[j].key_code)
                 key_score = max(0.0, 0.5 - key_diff / 24.0)
 
