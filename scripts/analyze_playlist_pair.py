@@ -7,7 +7,8 @@ recommendations based on actual data rather than arbitrary thresholds.
 
 Usage:
     uv run python scripts/analyze_playlist_pair.py --main-kind 1280 --deleted-kind 1282
-    uv run python scripts/analyze_playlist_pair.py --main-kind 1280 --deleted-kind 1282 --output-report
+    uv run python scripts/analyze_playlist_pair.py --main-kind 1280 \
+        --deleted-kind 1282 --output-report
 """
 
 from __future__ import annotations
@@ -75,8 +76,12 @@ class ComparisonReport:
                 "deleted": self.deleted.track_count,
             },
             "feature_coverage": {
-                "main_with_features": f"{self.main.tracks_with_features}/{self.main.track_count}",
-                "deleted_with_features": f"{self.deleted.tracks_with_features}/{self.deleted.track_count}",
+                "main_with_features": (
+                    f"{self.main.tracks_with_features}/{self.main.track_count}"
+                ),
+                "deleted_with_features": (
+                    f"{self.deleted.tracks_with_features}/{self.deleted.track_count}"
+                ),
                 "main_percentage": round(
                     self.main.tracks_with_features / self.main.track_count * 100, 1
                 ),
@@ -277,7 +282,8 @@ async def analyze_playlist(
                 playlist.local_track_ids.append(track_id)
 
     print(
-        f"  {playlist.name}: {len(playlist.local_track_ids)}/{len(playlist.ym_track_ids)} tracks in local DB"
+        f"  {playlist.name}: {len(playlist.local_track_ids)}/"
+        f"{len(playlist.ym_track_ids)} tracks in local DB"
     )
 
     # Check file presence and features
@@ -288,9 +294,8 @@ async def analyze_playlist(
                 text("SELECT file_path FROM dj_library_items WHERE track_id = :tid"),
                 {"tid": track_id},
             )
-            if file_path := file_row.scalar():
-                if Path(file_path).exists():
-                    playlist.tracks_with_files += 1
+            if (file_path := file_row.scalar()) and Path(file_path).exists():
+                playlist.tracks_with_files += 1
 
             # Check for computed features
             feat_row = await session.execute(
@@ -346,11 +351,13 @@ async def analyze_playlist(
     playlist.disliked_intersect = set(playlist.ym_track_ids) & disliked_ids
 
     print(
-        f"  {playlist.name}: {playlist.tracks_with_files} have files, {playlist.tracks_with_features} have features"
+        f"  {playlist.name}: {playlist.tracks_with_files} have files, "
+        f"{playlist.tracks_with_features} have features"
     )
     print(f"  {playlist.name}: {len(playlist.tracks_without_features)} missing features")
     print(
-        f"  {playlist.name}: {len(playlist.liked_intersect)} liked, {len(playlist.disliked_intersect)} disliked"
+        f"  {playlist.name}: {len(playlist.liked_intersect)} liked, "
+        f"{len(playlist.disliked_intersect)} disliked"
     )
 
 
@@ -402,10 +409,10 @@ async def main() -> None:
             ym_track_ids=deleted_tracks,
         )
 
-        print(f"\nAnalyzing main playlist...")
+        print("\nAnalyzing main playlist...")
         await analyze_playlist(main_analysis, liked_ids, disliked_ids)
 
-        print(f"\nAnalyzing deleted playlist...")
+        print("\nAnalyzing deleted playlist...")
         await analyze_playlist(deleted_analysis, liked_ids, disliked_ids)
 
         # Generate report
@@ -414,50 +421,49 @@ async def main() -> None:
         recommendations = report.filtering_recommendations()
 
         print(f"\n{'=' * 60}")
-        print(f"PLAYLIST PAIR ANALYSIS RESULTS")
+        print("PLAYLIST PAIR ANALYSIS RESULTS")
         print(f"{'=' * 60}")
 
-        print(f"\nTRACK COUNTS:")
+        print("\nTRACK COUNTS:")
         print(f"  Main: {stats['track_counts']['main']} tracks")
         print(f"  Deleted: {stats['track_counts']['deleted']} tracks")
 
-        print(f"\nFEATURE COVERAGE:")
-        print(
-            f"  Main: {stats['feature_coverage']['main_with_features']} ({stats['feature_coverage']['main_percentage']}%)"
-        )
-        print(
-            f"  Deleted: {stats['feature_coverage']['deleted_with_features']} ({stats['feature_coverage']['deleted_percentage']}%)"
-        )
+        print("\nFEATURE COVERAGE:")
+        main_features = stats['feature_coverage']['main_with_features']
+        main_pct = stats['feature_coverage']['main_percentage']
+        print(f"  Main: {main_features} ({main_pct}%)")
+        deleted_features = stats['feature_coverage']['deleted_with_features']
+        deleted_pct = stats['feature_coverage']['deleted_percentage']
+        print(f"  Deleted: {deleted_features} ({deleted_pct}%)")
 
         if (
             stats["audio_features"]["main_median_bpm"]
             and stats["audio_features"]["deleted_median_bpm"]
         ):
-            print(f"\nAUDIO FEATURES:")
+            print("\nAUDIO FEATURES:")
             print(f"  Main median BPM: {stats['audio_features']['main_median_bpm']:.1f}")
             print(f"  Deleted median BPM: {stats['audio_features']['deleted_median_bpm']:.1f}")
             print(f"  Main median LUFS: {stats['audio_features']['main_median_lufs']:.1f}")
             print(f"  Deleted median LUFS: {stats['audio_features']['deleted_median_lufs']:.1f}")
 
-        print(f"\nMETADATA SIGNALS:")
+        print("\nMETADATA SIGNALS:")
         if stats["metadata_signals"]["main_median_year"]:
             print(f"  Main median year: {stats['metadata_signals']['main_median_year']}")
             print(f"  Deleted median year: {stats['metadata_signals']['deleted_median_year']}")
         print(
             f"  Main compilation rate: {stats['metadata_signals']['main_compilation_rate']:.1f}%"
         )
-        print(
-            f"  Deleted compilation rate: {stats['metadata_signals']['deleted_compilation_rate']:.1f}%"
-        )
+        deleted_comp_rate = stats['metadata_signals']['deleted_compilation_rate']
+        print(f"  Deleted compilation rate: {deleted_comp_rate:.1f}%")
 
-        print(f"\nUSER FEEDBACK:")
+        print("\nUSER FEEDBACK:")
         print(f"  Main liked: {stats['user_feedback']['main_liked_count']}")
         print(f"  Main disliked: {stats['user_feedback']['main_disliked_count']}")
         print(f"  Deleted liked: {stats['user_feedback']['deleted_liked_count']}")
         print(f"  Deleted disliked: {stats['user_feedback']['deleted_disliked_count']}")
 
         print(f"\n{'=' * 60}")
-        print(f"FILTERING POLICY RECOMMENDATIONS")
+        print("FILTERING POLICY RECOMMENDATIONS")
         print(f"{'=' * 60}")
 
         for category, signals in recommendations.items():

@@ -1,3 +1,4 @@
+# CI workflow for linting, type checking and tests
 name: CI
 
 'on':
@@ -18,7 +19,7 @@ permissions:
 env:
   PYTHONUNBUFFERED: "1"
   # Fix for typing-extensions import priority in CI environments
-  PYTHONPATH: ".venv/lib/python3.12/site-packages:$PYTHONPATH"
+  PYTHONPATH: ".venv/lib/python3.13/site-packages:$PYTHONPATH"
 
 jobs:
   lint-and-types:
@@ -32,7 +33,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
@@ -88,7 +89,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
@@ -133,7 +134,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
@@ -155,3 +156,4 @@ jobs:
         with:
           name: coverage-xml
           path: coverage.xml
+
