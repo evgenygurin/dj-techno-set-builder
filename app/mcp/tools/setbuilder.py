@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
-
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
@@ -14,9 +12,11 @@ from app.mcp.dependencies import (
     get_set_generation_service,
     get_set_service,
     get_track_service,
+    get_unified_scoring,
 )
 from app.mcp.resolve import resolve_local_id
 from app.mcp.session_state import save_build_result
+from app.mcp.tools._scoring_helpers import score_consecutive_transitions
 from app.mcp.types import SetBuildResult, TransitionScoreResult
 from app.schemas.set_generation import SetGenerationRequest
 from app.schemas.sets import DjSetCreate
@@ -25,7 +25,6 @@ from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
-from app.utils.audio.camelot import key_code_to_camelot
 
 
 def register_setbuilder_tools(mcp: FastMCP) -> None:
@@ -192,6 +191,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         version_id: int,
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
+        unified_svc: UnifiedTransitionScoringService = Depends(get_unified_scoring),
         features_svc: AudioFeaturesService = Depends(get_features_service),
         track_svc: TrackService = Depends(get_track_service),
     ) -> list[TransitionScoreResult]:
@@ -216,125 +216,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         )
         items = sorted(items_list.items, key=lambda i: i.sort_index)
 
-        if len(items) < 2:
-            return []
+        results = await score_consecutive_transitions(items, unified_svc, track_svc, features_svc)
 
-        # Build track title lookup
-        title_map: dict[int, str] = {}
-        for item in items:
-            try:
-                track = await track_svc.get(item.track_id)
-                title_map[item.track_id] = track.title
-            except NotFoundError:
-                title_map[item.track_id] = f"Track {item.track_id}"
-
-        # Use unified scoring service (same path as GA and API)
-        unified_svc = UnifiedTransitionScoringService(
-            features_svc.features_repo.session,
-        )
-
-        # Score consecutive pairs
-        results: list[TransitionScoreResult] = []
-        pairs_total = len(items) - 1
-        for i in range(pairs_total):
-            await ctx.report_progress(progress=i, total=pairs_total)
-            from_item = items[i]
-            to_item = items[i + 1]
-
-            try:
-                components = await unified_svc.score_components_by_ids(
-                    from_item.track_id,
-                    to_item.track_id,
-                )
-            except ValueError:
-                results.append(
-                    TransitionScoreResult(
-                        from_track_id=from_item.track_id,
-                        to_track_id=to_item.track_id,
-                        from_title=title_map.get(
-                            from_item.track_id, f"Track {from_item.track_id}"
-                        ),
-                        to_title=title_map.get(to_item.track_id, f"Track {to_item.track_id}"),
-                        total=0.0,
-                        bpm=0.0,
-                        harmonic=0.0,
-                        energy=0.0,
-                        spectral=0.0,
-                        groove=0.0,
-                    )
-                )
-                continue
-
-            # Try to get features for transition recommendation + audio context
-            rec_type: str | None = None
-            rec_confidence: float | None = None
-            rec_reason: str | None = None
-            rec_alt: str | None = None
-            from_bpm_val: float | None = None
-            to_bpm_val: float | None = None
-            from_key_val: str | None = None
-            to_key_val: str | None = None
-            cam_dist_val: int | None = None
-            bpm_delta_val: float | None = None
-
-            try:
-                feat_a_raw = await features_svc.get_latest(from_item.track_id)
-                feat_b_raw = await features_svc.get_latest(to_item.track_id)
-
-                # Phase 3: Transition type recommendation
-                from app.services.transition_type import recommend_transition
-                from app.utils.audio.camelot import camelot_distance
-                from app.utils.audio.feature_conversion import (
-                    orm_features_to_track_features,
-                )
-
-                tf_a = orm_features_to_track_features(feat_a_raw)  # type: ignore[arg-type]
-                tf_b = orm_features_to_track_features(feat_b_raw)  # type: ignore[arg-type]
-                cam_dist = camelot_distance(tf_a.key_code, tf_b.key_code)
-
-                rec = recommend_transition(tf_a, tf_b, camelot_compatible=cam_dist <= 1)
-                rec_type = str(rec.transition_type)
-                rec_confidence = rec.confidence
-                rec_reason = rec.reason
-                rec_alt = str(rec.alt_type) if rec.alt_type else None
-
-                # Populate audio context fields
-                from_bpm_val = tf_a.bpm
-                to_bpm_val = tf_b.bpm
-                with contextlib.suppress(ValueError):
-                    from_key_val = key_code_to_camelot(tf_a.key_code)
-                    to_key_val = key_code_to_camelot(tf_b.key_code)
-                cam_dist_val = cam_dist
-                if tf_a.bpm and tf_b.bpm:
-                    bpm_delta_val = abs(tf_a.bpm - tf_b.bpm)
-            except (NotFoundError, ValueError):
-                pass
-
-            results.append(
-                TransitionScoreResult(
-                    from_track_id=from_item.track_id,
-                    to_track_id=to_item.track_id,
-                    from_title=title_map.get(from_item.track_id, f"Track {from_item.track_id}"),
-                    to_title=title_map.get(to_item.track_id, f"Track {to_item.track_id}"),
-                    total=components["total"],
-                    bpm=components["bpm"],
-                    harmonic=components["harmonic"],
-                    energy=components["energy"],
-                    spectral=components["spectral"],
-                    groove=components["groove"],
-                    structure=components.get("structure", 0.5),
-                    recommended_type=rec_type,
-                    type_confidence=rec_confidence,
-                    reason=rec_reason,
-                    alt_type=rec_alt,
-                    from_bpm=from_bpm_val,
-                    to_bpm=to_bpm_val,
-                    from_key=from_key_val,
-                    to_key=to_key_val,
-                    camelot_distance=cam_dist_val,
-                    bpm_delta=bpm_delta_val,
-                )
-            )
-
-        await ctx.report_progress(progress=pairs_total, total=pairs_total)
+        await ctx.report_progress(progress=len(items) - 1, total=max(len(items) - 1, 1))
         return results

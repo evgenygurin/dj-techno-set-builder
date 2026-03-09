@@ -14,7 +14,6 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
@@ -29,10 +28,12 @@ from app.mcp.dependencies import (
     get_features_service,
     get_set_service,
     get_track_service,
+    get_unified_scoring,
     get_ym_client,
 )
 from app.mcp.elicitation import resolve_conflict
 from app.mcp.resolve import resolve_local_id
+from app.mcp.tools._scoring_helpers import sanitize_filename, score_consecutive_transitions
 from app.mcp.types.workflows import DeliveryResult, TransitionScoreResult, TransitionSummary
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
@@ -42,7 +43,6 @@ from app.utils.audio.camelot import key_code_to_camelot
 
 logger = logging.getLogger(__name__)
 
-_BAD_PATH_RE = re.compile(r'[<>:"/\\|?*]')
 _WEAK_THRESHOLD = 0.85
 
 
@@ -51,7 +51,7 @@ _WEAK_THRESHOLD = 0.85
 
 def _safe_name(name: str) -> str:
     """Convert set name to a safe directory name."""
-    s = _BAD_PATH_RE.sub("_", name).strip(". ")
+    s = sanitize_filename(name).strip(". ")
     return s.lower().replace(" ", "_")
 
 
@@ -66,111 +66,14 @@ async def _score_version(
     set_id: int,
     version_id: int,
     set_svc: DjSetService,
+    unified_svc: UnifiedTransitionScoringService,
     features_svc: AudioFeaturesService,
     track_svc: TrackService,
 ) -> list[TransitionScoreResult]:
-    """Score all transitions in a set version. Same logic as score_transitions tool."""
+    """Score all transitions in a set version via shared helper."""
     items_list = await set_svc.list_items(version_id, offset=0, limit=500)
     items = sorted(items_list.items, key=lambda i: i.sort_index)
-
-    if len(items) < 2:
-        return []
-
-    title_map: dict[int, str] = {}
-    for item in items:
-        with contextlib.suppress(NotFoundError):
-            track = await track_svc.get(item.track_id)
-            title_map[item.track_id] = track.title
-
-    unified_svc = UnifiedTransitionScoringService(
-        features_svc.features_repo.session,
-    )
-
-    results: list[TransitionScoreResult] = []
-    for i in range(len(items) - 1):
-        from_item = items[i]
-        to_item = items[i + 1]
-        from_title = title_map.get(from_item.track_id, f"Track {from_item.track_id}")
-        to_title = title_map.get(to_item.track_id, f"Track {to_item.track_id}")
-
-        try:
-            components = await unified_svc.score_components_by_ids(
-                from_item.track_id, to_item.track_id
-            )
-        except ValueError:
-            results.append(
-                TransitionScoreResult(
-                    from_track_id=from_item.track_id,
-                    to_track_id=to_item.track_id,
-                    from_title=from_title,
-                    to_title=to_title,
-                    total=0.0,
-                    bpm=0.0,
-                    harmonic=0.0,
-                    energy=0.0,
-                    spectral=0.0,
-                    groove=0.0,
-                )
-            )
-            continue
-
-        # Transition type recommendation + audio context
-        rec_type: str | None = None
-        rec_reason: str | None = None
-        from_bpm_val: float | None = None
-        to_bpm_val: float | None = None
-        from_key_val: str | None = None
-        to_key_val: str | None = None
-        cam_dist_val: int | None = None
-        bpm_delta_val: float | None = None
-        with contextlib.suppress(Exception):
-            from app.services.transition_type import recommend_transition
-            from app.utils.audio.camelot import camelot_distance
-            from app.utils.audio.feature_conversion import orm_features_to_track_features
-
-            feat_a = await features_svc.get_latest(from_item.track_id)
-            feat_b = await features_svc.get_latest(to_item.track_id)
-            tf_a = orm_features_to_track_features(feat_a)  # type: ignore[arg-type]
-            tf_b = orm_features_to_track_features(feat_b)  # type: ignore[arg-type]
-            dist = camelot_distance(tf_a.key_code, tf_b.key_code)
-            rec = recommend_transition(tf_a, tf_b, camelot_compatible=dist <= 1)
-            rec_type = str(rec.transition_type)
-            rec_reason = rec.reason
-            # Audio context fields
-            from_bpm_val = tf_a.bpm
-            to_bpm_val = tf_b.bpm
-            with contextlib.suppress(ValueError):
-                from_key_val = key_code_to_camelot(tf_a.key_code)
-                to_key_val = key_code_to_camelot(tf_b.key_code)
-            cam_dist_val = dist
-            if tf_a.bpm and tf_b.bpm:
-                bpm_delta_val = abs(tf_a.bpm - tf_b.bpm)
-
-        results.append(
-            TransitionScoreResult(
-                from_track_id=from_item.track_id,
-                to_track_id=to_item.track_id,
-                from_title=from_title,
-                to_title=to_title,
-                total=components["total"],
-                bpm=components["bpm"],
-                harmonic=components["harmonic"],
-                energy=components["energy"],
-                spectral=components["spectral"],
-                groove=components["groove"],
-                structure=components.get("structure", 0.5),
-                recommended_type=rec_type,
-                reason=rec_reason,
-                from_bpm=from_bpm_val,
-                to_bpm=to_bpm_val,
-                from_key=from_key_val,
-                to_key=to_key_val,
-                camelot_distance=cam_dist_val,
-                bpm_delta=bpm_delta_val,
-            )
-        )
-
-    return results
+    return await score_consecutive_transitions(items, unified_svc, track_svc, features_svc)
 
 
 def _build_transition_summary(scores: list[TransitionScoreResult]) -> TransitionSummary:
@@ -291,7 +194,7 @@ def _write_m3u8(set_name: str, tracks: list[dict[str, Any]]) -> str:
         title = tr.get("title", f"Track {tr['track_id']}")
         artists = tr.get("artists", "")
         display = f"{artists} - {title}" if artists else title
-        safe = _BAD_PATH_RE.sub("_", display).strip(". ")
+        safe = sanitize_filename(display).strip(". ")
         duration = tr.get("duration_s", -1)
         lines.append(f"#EXTINF:{duration},{title}")
         if tr.get("bpm"):
@@ -392,6 +295,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         ym_user_id: int | None = None,
         ym_playlist_title: str | None = None,
         set_svc: DjSetService = Depends(get_set_service),
+        unified_svc: UnifiedTransitionScoringService = Depends(get_unified_scoring),
         features_svc: AudioFeaturesService = Depends(get_features_service),
         track_svc: TrackService = Depends(get_track_service),
         ym_client: YandexMusicClient = Depends(get_ym_client),
@@ -425,7 +329,9 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         await ctx.info(f"Stage 1/3 — Scoring transitions for '{set_name}'...")
         await ctx.report_progress(progress=0, total=3)
 
-        scores = await _score_version(set_id, version_id, set_svc, features_svc, track_svc)
+        scores = await _score_version(
+            set_id, version_id, set_svc, unified_svc, features_svc, track_svc
+        )
         summary = _build_transition_summary(scores)
 
         conflicts = [s for s in scores if s.total == 0.0]

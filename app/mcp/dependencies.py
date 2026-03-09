@@ -27,6 +27,7 @@ from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
 from app.services.track_analysis import TrackAnalysisService
 from app.services.tracks import TrackService
+from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 from app.services.transitions import TransitionService
 
 
@@ -114,6 +115,13 @@ def get_transition_service(
 ) -> TransitionService:
     """Build a TransitionService with a transition repository."""
     return TransitionService(TransitionRepository(session))
+
+
+def get_unified_scoring(
+    session: AsyncSession = Depends(get_session),
+) -> UnifiedTransitionScoringService:
+    """Build a UnifiedTransitionScoringService with DB session."""
+    return UnifiedTransitionScoringService(session)
 
 
 def get_ym_client() -> YandexMusicClient:
