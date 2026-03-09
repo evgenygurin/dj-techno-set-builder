@@ -37,7 +37,12 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Sync dependencies
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsndfile1-dev libfftw3-dev libeigen3-dev libyaml-dev libavcodec-dev libavformat-dev libavutil-dev
+          
+      - name: Sync dependencies  
         run: uv sync --frozen --group dev
 
       - name: Ruff check
