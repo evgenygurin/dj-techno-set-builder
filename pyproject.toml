@@ -14,6 +14,8 @@ dependencies = [
     "alembic>=1.14",
     "typing-extensions>=4.13.0",
     "sentry-sdk>=2.52.0",
+    "typer>=0.15",
+    "rich>=13.9",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +48,9 @@ dev = [
     "pytest-cov>=7.0.0",
 ]
 
+[project.scripts]
+dj = "app.cli.main:app"
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
@@ -67,6 +72,7 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 "app/mcp/tools/*.py" = ["B008"]
 "app/mcp/resources/status.py" = ["B008"]  # Depends() in defaults is the FastMCP DI pattern
 "scripts/*.py" = ["E402"]  # sys.path.insert before app imports
+"app/cli/**/*.py" = ["UP007", "B008"]  # Typer: Optional[X] syntax + Option() in defaults
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
@@ -120,6 +126,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["key_value.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["typer.*"]
 ignore_missing_imports = true
 
 # ── Pytest ────────────────────────────────────────────────────────────────────
