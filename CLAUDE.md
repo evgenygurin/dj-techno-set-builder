@@ -91,7 +91,7 @@ Schemas   Errors     Models
 
 MCP Gateway (FastMCP 3.0)
   ├── Yandex Music (namespace "ym") — ~30 OpenAPI-generated tools
-  └── DJ Workflows (namespace "dj") — 20 hand-written tools
+  └── DJ Workflows (namespace "dj") — 41 hand-written tools
 
 External MCP servers (.mcp.json):
   ├── dj-techno (HTTP :9100) — project FastMCP gateway
@@ -156,5 +156,5 @@ External MCP servers (.mcp.json):
 ## Lint & Type Rules
 
 - **ruff**: Python 3.12, line-length 99, rules: E/F/W/I/N/UP/B/SIM/RUF. `A003` ignored. B008 per-file ignore for MCP.
-- **mypy**: strict + `pydantic.mypy` plugin. `ignore_missing_imports`: fastmcp, alembic, essentia, soundfile, scipy, demucs, torch, torchaudio. **12 pre-existing errors** in `app/mcp/` (`wrap_list` variance, `unified_export`, `compute`, `track_mapper`) — documented in `mcp.md`, do not fix.
+- **mypy**: strict + `pydantic.mypy` plugin. `ignore_missing_imports`: fastmcp, alembic, aiosqlite, essentia, soundfile, scipy, numpy, librosa, demucs, torch, torchaudio, yaml, sentry_sdk, opentelemetry, key_value. **12 pre-existing errors** in `app/mcp/` (`wrap_list` variance, `unified_export`, `compute`, `track_mapper`) — documented in `mcp.md`, do not fix.
 - **pytest-asyncio**: `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed.
