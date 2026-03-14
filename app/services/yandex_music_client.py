@@ -1,5 +1,6 @@
 """Low-level Yandex Music API client with rate limiting."""
 
+# Trigger CI run
 from __future__ import annotations
 
 import asyncio
