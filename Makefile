@@ -27,6 +27,7 @@ DC_PROD  := $(DC) -f compose.yaml -f compose.prod.yaml
         docker-local docker-dev docker-prod docker-down docker-logs docker-ps docker-shell docker-test \
         mcp-dev mcp-inspect mcp-list mcp-call mcp-install-desktop mcp-install-code \
         refresh-features refresh-sections refresh-scores refresh-ym refresh-all refresh-dry \
+        cli cli-info cli-tracks cli-sets cli-build \
         all ci
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -306,6 +307,28 @@ refresh-dry:
 	$(UV) run python scripts/refresh_data.py --mode all --dry-run
 	$(UV) run python scripts/refresh_ym_metadata.py --mode all --dry-run
 	$(UV) run python scripts/rescore_sets.py --dry-run
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CLI
+# ═════════════════════════════════════════════════════════════════════════════
+
+cli:
+	$(UV) run dj --help
+
+cli-info:
+	$(UV) run dj info
+
+cli-tracks:
+	$(UV) run dj tracks list
+
+cli-sets:
+	$(UV) run dj sets list
+
+cli-build:
+ifndef SET_ARGS
+	$(error Укажи аргументы: make cli-build SET_ARGS="3 'My Set' --template classic_60")
+endif
+	$(UV) run dj build set $(SET_ARGS)
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CI / All
