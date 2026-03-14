@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json as _json
 import time
 import urllib.parse
 import xml.etree.ElementTree as ET
@@ -109,6 +110,14 @@ class YandexMusicClient(BaseService):
         resp.raise_for_status()
         return resp.json()  # type: ignore[no-any-return]
 
+    async def _post_form(self, url: str, data: dict[str, Any]) -> dict[str, Any]:
+        """POST form-encoded data with auth headers."""
+        await self._rate_limit()
+        client = await self._client()
+        resp = await client.post(url, headers=self._headers(), data=data)
+        resp.raise_for_status()
+        return resp.json()  # type: ignore[no-any-return]
+
     async def close(self) -> None:
         if self._http:
             await self._http.aclose()
@@ -134,6 +143,79 @@ class YandexMusicClient(BaseService):
         url = f"{_YM_BASE}/users/{user_id}/playlists/list"
         data = await self._get_json(url)
         return data.get("result", [])  # type: ignore[no-any-return]
+
+    async def fetch_playlist(self, user_id: str, kind: str) -> dict[str, Any]:
+        """Fetch full playlist metadata (including revision and tracks)."""
+        url = f"{_YM_BASE}/users/{user_id}/playlists/{kind}"
+        data = await self._get_json(url)
+        return data.get("result", {})  # type: ignore[no-any-return]
+
+    async def create_playlist(
+        self, user_id: str, title: str, *, visibility: str = "private"
+    ) -> int:
+        """Create a new YM playlist. Returns playlist kind (numeric ID)."""
+        url = f"{_YM_BASE}/users/{user_id}/playlists/create"
+        data = await self._post_form(url, {"title": title, "visibility": visibility})
+        return int(data["result"]["kind"])
+
+    async def add_tracks_to_playlist(
+        self,
+        user_id: str,
+        kind: int,
+        tracks: list[dict[str, str]],
+        revision: int = 1,
+    ) -> dict[str, Any]:
+        """Add tracks to a YM playlist via diff insert operation.
+
+        Args:
+            user_id: YM user ID.
+            kind: Playlist kind (numeric ID).
+            tracks: List of ``{"id": "track_id", "albumId": "album_id"}``.
+            revision: Current playlist revision number.
+
+        Returns:
+            Updated playlist data from the API.
+        """
+        url = f"{_YM_BASE}/users/{user_id}/playlists/{kind}/change"
+        diff = [{"op": "insert", "at": 0, "tracks": tracks}]
+        data = await self._post_form(
+            url,
+            {"diff": _json.dumps(diff, ensure_ascii=False), "revision": str(revision)},
+        )
+        return data.get("result", {})  # type: ignore[no-any-return]
+
+    async def remove_tracks_from_playlist(
+        self,
+        user_id: str,
+        kind: int,
+        from_index: int,
+        to_index: int,
+        revision: int,
+    ) -> dict[str, Any]:
+        """Remove tracks from a YM playlist via diff delete operation.
+
+        Args:
+            user_id: YM user ID.
+            kind: Playlist kind (numeric ID).
+            from_index: Start index (inclusive).
+            to_index: End index (exclusive).
+            revision: Current playlist revision number.
+
+        Returns:
+            Updated playlist data from the API.
+        """
+        url = f"{_YM_BASE}/users/{user_id}/playlists/{kind}/change"
+        diff = [{"op": "delete", "from": from_index, "to": to_index}]
+        data = await self._post_form(
+            url,
+            {"diff": _json.dumps(diff, ensure_ascii=False), "revision": str(revision)},
+        )
+        return data.get("result", {})  # type: ignore[no-any-return]
+
+    async def delete_playlist(self, user_id: str, kind: int) -> None:
+        """Delete a YM playlist."""
+        url = f"{_YM_BASE}/users/{user_id}/playlists/{kind}/delete"
+        await self._post_form(url, {})
 
     # --- Batch track metadata ---
 

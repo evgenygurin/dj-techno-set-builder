@@ -56,6 +56,20 @@ def mock_ym_client() -> AsyncMock:
             }
         ]
     )
+    client.fetch_playlist = AsyncMock(
+        return_value={
+            "kind": 1003,
+            "revision": 5,
+            "tracks": [
+                {"track": {"id": 111}},
+                {"track": {"id": 222}},
+            ],
+        }
+    )
+    client.create_playlist = AsyncMock(return_value=42)
+    client.add_tracks_to_playlist = AsyncMock(return_value={"kind": 42, "revision": 2})
+    client.remove_tracks_from_playlist = AsyncMock(return_value={"kind": 1003, "revision": 6})
+    client.delete_playlist = AsyncMock()
     client.resolve_download_url = AsyncMock(return_value="https://cdn.example.com/track.mp3")
     client.close = AsyncMock()
     return client
@@ -75,6 +89,7 @@ class TestYandexMusicAdapterProperties:
         assert PlatformCapability.SEARCH in caps
         assert PlatformCapability.DOWNLOAD in caps
         assert PlatformCapability.PLAYLIST_READ in caps
+        assert PlatformCapability.PLAYLIST_WRITE in caps
         assert PlatformCapability.LIKES in caps
 
 
@@ -151,14 +166,74 @@ class TestGetDownloadUrl:
 
 
 class TestPlaylistWrite:
-    """Playlist write operations are stubs for now (YM API is complex)."""
+    """Playlist write operations via YM diff-based API."""
 
-    async def test_create_playlist_not_supported(self, adapter: YandexMusicAdapter) -> None:
-        assert PlatformCapability.PLAYLIST_WRITE not in adapter.capabilities
+    async def test_create_playlist_without_tracks(
+        self, adapter: YandexMusicAdapter, mock_ym_client: AsyncMock
+    ) -> None:
+        result = await adapter.create_playlist("My Playlist", [])
 
-    async def test_create_playlist_raises(self, adapter: YandexMusicAdapter) -> None:
-        with pytest.raises(NotImplementedError):
-            await adapter.create_playlist("test", ["1", "2"])
+        assert result == "42"
+        mock_ym_client.create_playlist.assert_called_once_with("250905515", "My Playlist")
+        mock_ym_client.add_tracks_to_playlist.assert_not_called()
+
+    async def test_create_playlist_with_tracks(
+        self, adapter: YandexMusicAdapter, mock_ym_client: AsyncMock
+    ) -> None:
+        result = await adapter.create_playlist("My Playlist", ["100", "200"])
+
+        assert result == "42"
+        mock_ym_client.create_playlist.assert_called_once_with("250905515", "My Playlist")
+        mock_ym_client.add_tracks_to_playlist.assert_called_once_with(
+            "250905515",
+            42,
+            [{"id": "100", "albumId": "0"}, {"id": "200", "albumId": "0"}],
+            revision=1,
+        )
+
+    async def test_add_tracks_to_playlist(
+        self, adapter: YandexMusicAdapter, mock_ym_client: AsyncMock
+    ) -> None:
+        await adapter.add_tracks_to_playlist("1003", ["333", "444"])
+
+        mock_ym_client.fetch_playlist.assert_called_once_with("250905515", "1003")
+        mock_ym_client.add_tracks_to_playlist.assert_called_once_with(
+            "250905515",
+            1003,
+            [{"id": "333", "albumId": "0"}, {"id": "444", "albumId": "0"}],
+            revision=5,
+        )
+
+    async def test_remove_tracks_from_playlist(
+        self, adapter: YandexMusicAdapter, mock_ym_client: AsyncMock
+    ) -> None:
+        await adapter.remove_tracks_from_playlist("1003", ["222"])
+
+        mock_ym_client.fetch_playlist.assert_called_once_with("250905515", "1003")
+        # Track 222 is at index 1, should be removed
+        mock_ym_client.remove_tracks_from_playlist.assert_called_once_with(
+            "250905515", 1003, from_index=1, to_index=2, revision=5
+        )
+
+    async def test_remove_multiple_tracks_reverse_order(
+        self, adapter: YandexMusicAdapter, mock_ym_client: AsyncMock
+    ) -> None:
+        """Removing multiple tracks happens in reverse index order."""
+        await adapter.remove_tracks_from_playlist("1003", ["111", "222"])
+
+        # Two calls expected: index 1 first (reversed), then index 0
+        calls = mock_ym_client.remove_tracks_from_playlist.call_args_list
+        assert len(calls) == 2
+        # First call removes index 1 (track 222)
+        assert calls[0].kwargs["from_index"] == 1
+        # Second call removes index 0 (track 111)
+        assert calls[1].kwargs["from_index"] == 0
+
+    async def test_delete_playlist(
+        self, adapter: YandexMusicAdapter, mock_ym_client: AsyncMock
+    ) -> None:
+        await adapter.delete_playlist("1003")
+        mock_ym_client.delete_playlist.assert_called_once_with("250905515", 1003)
 
 
 class TestClose:

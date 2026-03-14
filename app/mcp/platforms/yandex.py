@@ -20,8 +20,7 @@ class YandexMusicAdapter:
     """Adapter wrapping YandexMusicClient to the MusicPlatform interface.
 
     Converts raw YM API responses to PlatformTrack/PlatformPlaylist.
-    Playlist write operations are not yet supported (YM API requires
-    complex diff-based mutations).
+    Supports full playlist CRUD via YM diff-based API.
     """
 
     def __init__(self, client: YandexMusicClient, user_id: str) -> None:
@@ -39,6 +38,7 @@ class YandexMusicAdapter:
                 PlatformCapability.SEARCH,
                 PlatformCapability.DOWNLOAD,
                 PlatformCapability.PLAYLIST_READ,
+                PlatformCapability.PLAYLIST_WRITE,
                 PlatformCapability.LIKES,
             }
         )
@@ -73,20 +73,63 @@ class YandexMusicAdapter:
         )
 
     async def create_playlist(self, name: str, track_ids: list[str]) -> str:
-        """Not yet supported — YM playlist creation requires diff-based API."""
-        raise NotImplementedError("YM playlist creation not yet implemented")
+        """Create a new YM playlist and optionally add tracks.
+
+        Args:
+            name: Playlist title.
+            track_ids: YM track IDs to add after creation.
+
+        Returns:
+            Playlist kind (ID) as a string.
+        """
+        kind = await self._client.create_playlist(self._user_id, name)
+        if track_ids:
+            # Build track diffs — albumId "0" works when actual albumId is unknown
+            tracks = [{"id": tid, "albumId": "0"} for tid in track_ids]
+            await self._client.add_tracks_to_playlist(self._user_id, kind, tracks, revision=1)
+        return str(kind)
 
     async def add_tracks_to_playlist(self, playlist_id: str, track_ids: list[str]) -> None:
-        """Not yet supported."""
-        raise NotImplementedError("YM playlist modification not yet implemented")
+        """Add tracks to an existing YM playlist.
+
+        Fetches current revision, then inserts tracks at position 0.
+        """
+        kind = int(playlist_id)
+        playlist_data = await self._client.fetch_playlist(self._user_id, str(kind))
+        revision = playlist_data.get("revision", 1)
+        tracks = [{"id": tid, "albumId": "0"} for tid in track_ids]
+        await self._client.add_tracks_to_playlist(self._user_id, kind, tracks, revision=revision)
 
     async def remove_tracks_from_playlist(self, playlist_id: str, track_ids: list[str]) -> None:
-        """Not yet supported."""
-        raise NotImplementedError("YM playlist modification not yet implemented")
+        """Remove tracks from a YM playlist by track IDs.
+
+        Fetches the playlist to find track positions, then deletes them
+        in reverse order to maintain correct indices.
+        """
+        kind = int(playlist_id)
+        playlist_data = await self._client.fetch_playlist(self._user_id, str(kind))
+        revision = playlist_data.get("revision", 1)
+        playlist_tracks = playlist_data.get("tracks", [])
+
+        # Find indices of tracks to remove
+        ids_to_remove = set(track_ids)
+        indices_to_remove: list[int] = []
+        for idx, item in enumerate(playlist_tracks):
+            track_data = item.get("track", item)
+            tid = str(track_data.get("id", ""))
+            if tid in ids_to_remove:
+                indices_to_remove.append(idx)
+
+        # Remove in reverse order so indices stay valid
+        for idx in reversed(indices_to_remove):
+            result = await self._client.remove_tracks_from_playlist(
+                self._user_id, kind, from_index=idx, to_index=idx + 1, revision=revision
+            )
+            revision = result.get("revision", revision + 1)
 
     async def delete_playlist(self, playlist_id: str) -> None:
-        """Not yet supported."""
-        raise NotImplementedError("YM playlist deletion not yet implemented")
+        """Delete a YM playlist."""
+        await self._client.delete_playlist(self._user_id, int(playlist_id))
 
     async def get_download_url(self, track_id: str, *, bitrate: int = 320) -> str | None:
         """Resolve a direct download URL for a YM track."""

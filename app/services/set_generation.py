@@ -5,8 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from sqlalchemy import select
 
 from app.errors import NotFoundError, ValidationError
+from app.models.catalog import TrackArtist
+from app.models.enums import ArtistRole
 from app.models.features import TrackAudioFeaturesComputed
 from app.repositories.audio_features import AudioFeaturesRepository
 from app.repositories.playlists import DjPlaylistItemRepository
@@ -147,6 +150,10 @@ class SetGenerationService(BaseService):
             )
             mood_map[f.track_id] = classification.mood.intensity
 
+        # Batch-load primary artist IDs for variety scoring
+        track_ids = [f.track_id for f in features_list]
+        artist_map = await self._get_primary_artist_ids(track_ids)
+
         # Build TrackData list (LUFS-based energy for accurate perceived loudness)
         tracks = [
             TrackData(
@@ -155,7 +162,7 @@ class SetGenerationService(BaseService):
                 energy=lufs_to_energy(f.lufs_i),
                 key_code=f.key_code or 0,
                 mood=mood_map.get(f.track_id, 0),
-                artist_id=0,  # TODO: wire artist_id from track model
+                artist_id=artist_map.get(f.track_id, 0),
             )
             for f in features_list
         ]
@@ -260,33 +267,32 @@ class SetGenerationService(BaseService):
             generator_run=version.generator_run or {},
         )
 
-    def _build_transition_matrix(self, tracks: list[TrackData]) -> np.ndarray:
-        """Build a simple transition quality matrix.
+    async def _get_primary_artist_ids(self, track_ids: list[int]) -> dict[int, int]:
+        """Batch-load primary artist IDs for given tracks.
 
-        TODO: Replace with TransitionScoringService for real scoring.
+        Queries ``track_artists`` for role=PRIMARY (0), returning
+        the first (primary) artist_id per track.
 
-        For now: higher score if BPM difference is small and keys are compatible.
+        Returns:
+            Dict mapping track_id → artist_id. Tracks without
+            a primary artist are omitted.
         """
-        n = len(tracks)
-        matrix = np.zeros((n, n), dtype=np.float64)
-
-        for i in range(n):
-            for j in range(n):
-                if i == j:
-                    matrix[i, j] = 0.0
-                    continue
-
-                # BPM similarity component (0-0.5)
-                bpm_diff = abs(tracks[i].bpm - tracks[j].bpm)
-                bpm_score = max(0.0, 0.5 - bpm_diff / 20.0)
-
-                # Key compatibility component (0-0.5) — simple placeholder
-                key_diff = abs(tracks[i].key_code - tracks[j].key_code)
-                key_score = max(0.0, 0.5 - key_diff / 24.0)
-
-                matrix[i, j] = bpm_score + key_score
-
-        return matrix
+        if not track_ids:
+            return {}
+        stmt = (
+            select(TrackArtist.track_id, TrackArtist.artist_id)
+            .where(
+                TrackArtist.track_id.in_(track_ids),
+                TrackArtist.role == ArtistRole.PRIMARY,
+            )
+            .order_by(TrackArtist.track_id)
+        )
+        result = await self.features_repo.session.execute(stmt)
+        artist_map: dict[int, int] = {}
+        for tid, aid in result:
+            if tid not in artist_map:
+                artist_map[tid] = aid
+        return artist_map
 
     async def _build_transition_matrix_scored(
         self,
