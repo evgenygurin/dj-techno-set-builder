@@ -56,7 +56,7 @@ PostgreSQL: `DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/dj_set_b
 - **CHECK constraints inline** in `mapped_column()` matching the DDL exactly
 - `__all__` lists in `__init__.py` must be **alphabetically sorted** (ruff RUF022)
 
-## Model files (20 files)
+## Model files (19 files)
 
 | File | Models | Purpose |
 |------|--------|---------|
@@ -70,8 +70,12 @@ PostgreSQL: `DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/dj_set_b
 | `harmony.py` | Key, KeyEdge | 24-key compatibility graph |
 | `runs.py` | FeatureExtractionRun, TransitionRun | Pipeline runs |
 | `embeddings.py` | EmbeddingType, TrackEmbedding | Vector embeddings |
-| `metadata_yandex.py` | YandexMusicMetadata | YM-specific enriched data |
-| `ingestion.py` | Provider, ProviderTrackId, RawProviderResponse | Multi-source mapping |
+| `metadata_yandex.py` | YandexMetadata | YM-specific enriched data |
+| `metadata_spotify.py` | SpotifyMetadata, SpotifyAudioFeatures, SpotifyAlbumMetadata, SpotifyArtistMetadata, SpotifyPlaylistMetadata | Spotify |
+| `metadata_soundcloud.py` | SoundCloudMetadata | SoundCloud |
+| `metadata_beatport.py` | BeatportMetadata | Beatport |
+| `ingestion.py` | ProviderTrackId, RawProviderResponse | Multi-source mapping |
+| `providers.py` | Provider | Source providers |
 | `assets.py` | AudioAsset | Original files + stems |
 | `timeseries.py` | TrackTimeseriesRef | Frame-level data pointers |
 | `enums.py` | 8 enum classes | IntEnum/StrEnum for DB values |
@@ -116,7 +120,7 @@ class BaseRepository[ModelT: Base]:
 
 **Critical pattern**: All repository methods use `await session.flush()`, never `commit()`. The commit is done in the **router** (HTTP boundary).
 
-19 specialized repositories with custom queries:
+20 specialized repositories with custom queries:
 - `TrackRepository` — `search_by_title(query, offset, limit)` with ILIKE
 - `AudioFeaturesRepository` — `get_by_track()`, `list_all()` (subquery for latest per track), `save_features()`
 - `CandidateRepository` — `list_unscored()`, `list_for_track()` with multiple filters

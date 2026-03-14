@@ -131,7 +131,7 @@ class AnalysisOrchestrator(BaseService):
         self.analysis_svc = TrackAnalysisService(track_repo, features_repo, sections_repo)
 ```
 
-Examples: `AnalysisOrchestrator` (4 repos), `SetGenerationService` (4 repos), `ImportYandexService` (6 repos + YM client).
+Examples: `AnalysisOrchestrator` (4 repos), `SetGenerationService` (6 repos: 4 required + 2 optional), `ImportYandexService` (session + YM client, creates repos internally).
 
 ## Yandex Music client
 
@@ -158,6 +158,8 @@ await _post_form(f"/users/{uid}/playlists/{kind}/change", {"diff": json.dumps(di
 
 `app/config.py` — `Settings(BaseSettings)` with `.env`:
 
+### Core
+
 | Env var | Default | Purpose |
 |---------|---------|---------|
 | `APP_NAME` | "DJ Techno Set Builder" | FastAPI title |
@@ -167,6 +169,49 @@ await _post_form(f"/users/{uid}/playlists/{kind}/change", {"diff": json.dumps(di
 | `YANDEX_MUSIC_TOKEN` | "" | YM OAuth token |
 | `YANDEX_MUSIC_USER_ID` | "" | YM user ID |
 | `YANDEX_MUSIC_BASE_URL` | "https://api.music.yandex.net:443" | YM API |
-| `DJ_LIBRARY_PATH` | — | Path to iCloud library root (for deliver_set output) |
+| `DJ_LIBRARY_PATH` | `~/Library/.../library` | Path to iCloud library root (for deliver_set output) |
+
+### Sentry
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `SENTRY_DSN` | "" | Sentry DSN for error tracking |
+| `SENTRY_TRACES_SAMPLE_RATE` | 1.0 | Sentry trace sampling rate |
+| `SENTRY_SEND_PII` | True | Send PII to Sentry |
+| `ENVIRONMENT` | "development" | Deployment environment name |
+
+### OpenTelemetry
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `OTEL_ENDPOINT` | None | OTLP exporter endpoint |
+| `OTEL_INSECURE` | True | Use insecure OTLP connection |
+| `OTEL_SERVICE_NAME` | "dj-set-builder-mcp" | Service name for traces |
+
+### MCP Observability
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `MCP_CACHE_DIR` | "./cache/mcp" | Cache directory for MCP responses |
+| `MCP_CACHE_TTL_TOOLS` | 60 | Tool response cache TTL (seconds) |
+| `MCP_CACHE_TTL_RESOURCES` | 300 | Resource response cache TTL (seconds) |
+| `MCP_RETRY_MAX` | 3 | Max retry attempts for MCP calls |
+| `MCP_RETRY_BACKOFF` | 1.0 | Retry backoff multiplier |
+| `MCP_PING_INTERVAL` | 30 | MCP health ping interval (seconds) |
+| `MCP_LOG_PAYLOADS` | False | Log full MCP request/response payloads |
+
+### Sampling (LLM fallback)
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `ANTHROPIC_API_KEY` | "" | API key for direct Anthropic calls |
+| `SAMPLING_MODEL` | "claude-sonnet-4-5-20250929" | Model for LLM sampling fallback |
+| `SAMPLING_MAX_TOKENS` | 1024 | Max tokens for sampling responses |
+
+### Pagination
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `MCP_PAGE_SIZE` | 50 | Default page size for MCP list operations |
 
 Settings use `SettingsConfigDict(extra="ignore")` — unknown env vars are silently ignored.
