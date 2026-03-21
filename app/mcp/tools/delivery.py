@@ -21,12 +21,15 @@ import httpx
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.yandex_music import YandexMusicClient
 from app.config import settings
 from app.errors import NotFoundError
 from app.mcp.dependencies import (
     get_features_service,
+    get_session,
     get_set_service,
     get_track_service,
     get_unified_scoring,
@@ -238,28 +241,25 @@ async def _sync_to_ym(
     ym_user_id: int,
     ym_playlist_title: str,
     ym_client: YandexMusicClient,
+    session: AsyncSession,
 ) -> int:
-    """Create a YM playlist with set tracks. Returns playlist kind."""
-    # Map track_id → ym_track_id + ym_album_id via yandex_metadata table
-    from sqlalchemy import text
+    """Create a YM playlist with set tracks. Returns playlist kind.
 
-    from app.database import session_factory
+    Uses the injected session (from parent tool's DI) instead of importing
+    session_factory directly. Uses ORM query instead of raw SQL to prevent
+    SQL injection (Issue #64, findings 1+2).
+    """
+    from app.models.metadata_yandex import YandexMetadata
 
     track_ids = [tr["track_id"] for tr in tracks]
     ym_tracks: list[dict[str, str]] = []
 
-    async with session_factory() as session:
-        if track_ids:
-            placeholders = ",".join(str(tid) for tid in track_ids)
-            rows = await session.execute(
-                text(
-                    f"SELECT track_id, yandex_track_id, yandex_album_id"
-                    f" FROM yandex_metadata WHERE track_id IN ({placeholders})"
-                )
-            )
-            ym_map = {row.track_id: row for row in rows}
-        else:
-            ym_map = {}
+    if track_ids:
+        stmt = select(YandexMetadata).where(YandexMetadata.track_id.in_(track_ids))
+        result = await session.execute(stmt)
+        ym_map = {row.track_id: row for row in result.scalars()}
+    else:
+        ym_map = {}
 
     for tr in tracks:
         tid = tr["track_id"]
@@ -300,6 +300,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         features_svc: AudioFeaturesService = Depends(get_features_service),
         track_svc: TrackService = Depends(get_track_service),
         ym_client: YandexMusicClient = Depends(get_ym_client),
+        session: AsyncSession = Depends(get_session),
     ) -> DeliveryResult:
         """Deliver a DJ set: score transitions, write files, optionally sync to YM.
 
@@ -414,6 +415,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
                         ym_user_id=ym_user_id,
                         ym_playlist_title=title,
                         ym_client=ym_client,
+                        session=session,
                     )
                     await ctx.info(f"YM playlist created: kind={ym_kind}")
                 except (httpx.HTTPStatusError, httpx.ConnectError, ValueError) as exc:

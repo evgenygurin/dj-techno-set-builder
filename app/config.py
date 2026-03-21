@@ -27,7 +27,7 @@ class Settings(BaseSettings):
             )
         return v
 
-    yandex_music_token: str = ""
+    yandex_music_token: str = Field(default="", repr=False)
     yandex_music_user_id: str = ""
     yandex_music_base_url: str = "https://api.music.yandex.net:443"
 
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     )
 
     # Sentry
-    sentry_dsn: str = ""
+    sentry_dsn: str = Field(default="", repr=False)
     sentry_traces_sample_rate: float = 1.0
     sentry_send_pii: bool = True
     environment: str = "development"
@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     mcp_log_payloads: bool = False
 
     # Sampling (LLM fallback)
-    anthropic_api_key: str = ""
+    anthropic_api_key: str = Field(default="", repr=False)
     sampling_model: str = "claude-sonnet-4-5-20250929"
     sampling_max_tokens: int = 1024
 

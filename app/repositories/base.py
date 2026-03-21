@@ -50,7 +50,10 @@ class BaseRepository[ModelT: Base]:
         return instance
 
     async def update(self, instance: ModelT, **kwargs: Any) -> ModelT:
+        allowed = {c.name for c in self.model.__table__.columns}
         for key, value in kwargs.items():
+            if key not in allowed:
+                raise ValueError(f"Invalid column for {self.model.__name__}: {key}")
             if value is not None:
                 setattr(instance, key, value)
         await self.session.flush()

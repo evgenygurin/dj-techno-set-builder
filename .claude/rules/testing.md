@@ -39,6 +39,27 @@ async def client(engine):
 
 **`from app.models import Base`** (not `from app.models.base`) — this import triggers all model registrations so `create_all()` sees every table. Without it, SQLite test DB will be empty.
 
+## Test pollution prevention (session-scoped engine)
+
+The `engine` fixture is **session-scoped** with `StaticPool` — all tests share one DB connection. While `_connection` fixture rolls back via outer transaction, data can leak between tests. Follow these rules:
+
+- **Use `merge()` instead of `insert()`** for seeding shared entities (Keys, Providers, Tracks with fixed IDs). `insert()` will `IntegrityError` if a previous test already created the row.
+- **Use high IDs** (80000+) for test data to avoid collisions with auto-increment from other tests.
+- **Never derive feature values from `track_id`** — use a 0-based `index` parameter instead. Example: `energy_mean = 0.5 + 0.02 * index` (NOT `0.05 * track_id` which breaks CHECK constraints when track_id > 10).
+- **Make count assertions relative** — `assert data["total"] >= N` or measure `existing` count before adding data.
+- **Use unique prefixes** in search tests to avoid matching pre-existing data.
+- **`seed_providers` fixture** in `conftest.py` uses `merge()` — always safe to call.
+
+```python
+# GOOD — merge() handles pre-existing rows
+await session.merge(Key(key_code=0, pitch_class=0, mode=0, name="Cm"))
+await session.merge(Provider(provider_id=4, provider_code="yandex_music", name="YM"))
+
+# BAD — IntegrityError if row exists
+session.add(Key(key_code=0, ...))
+await session.execute(insert(Provider).values(provider_id=4, ...))
+```
+
 ## Test organization
 
 ~118 test files across 7 directories:

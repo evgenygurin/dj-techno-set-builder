@@ -53,6 +53,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Router count**: CLAUDE.md + api.md updated 13→15 (actual count)
 - **sqlite-db MCP server**: fixed `${VAR}` expansion — wrapped in `sh -c` with explicit `env` block
 - **ORM Schema Consistency** (BPM-1): Fixed 5 critical default value mismatches between SQLAlchemy models and SQL DDL; improved consistency from 79.5% to 90.9%
+- **numpy compatibility**: pinned `numpy<2.4` in pyproject.toml — numba (via librosa) incompatible with NumPy 2.4
+- **Test pollution (23 failures → 0)**: replaced `insert()` with `merge()` in 7 test files to handle pre-existing rows from session-scoped engine; used `index`-based feature values instead of `track_id` to avoid CHECK constraint violations; made count assertions relative
+- **typing_extensions_patch.py**: fixed 14 ruff violations (whitespace, imports, PEP 695, SIM102)
+- **SQL injection in delivery.py** (Issue #64, P0-1): replaced f-string SQL with ORM `select().where(.in_())` query
+- **DI bypass in delivery.py** (Issue #64, P0-2): `_sync_to_ym()` now receives session via DI instead of importing `session_factory` directly
+- **BaseRepository.update() field validation** (Issue #64, P0-3): validates field names against model columns, rejects unknown fields with `ValueError`
+- **Secrets in repr** (Issue #64, P0-5): added `repr=False` to `yandex_music_token`, `anthropic_api_key`, `sentry_dsn` in Settings
 
 ## [0.2.0] - 2026-02-15
 
