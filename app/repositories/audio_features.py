@@ -36,26 +36,34 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         filters: list[Any] = [self.model.track_id == track_id]
         return await self.list(offset=offset, limit=limit, filters=filters)
 
-    async def list_all(self) -> list[TrackAudioFeaturesComputed]:
-        """Get latest features for every existing track (one row per track_id)."""
+    def _latest_subquery(self) -> Any:
+        """Subquery: max(run_id) per track_id for existing tracks only.
+
+        Uses ``run_id`` (auto-increment PK) instead of ``created_at``
+        because multiple runs in the same second would share the same
+        timestamp, causing duplicate rows in the join.
+        """
         from sqlalchemy import func as sa_func
 
         from app.models.catalog import Track
 
-        # Subquery: max(created_at) per track_id for existing tracks only
-        latest = (
+        return (
             select(
                 self.model.track_id,
-                sa_func.max(self.model.created_at).label("max_created"),
+                sa_func.max(self.model.run_id).label("max_run_id"),
             )
             .where(self.model.track_id.in_(select(Track.track_id)))
             .group_by(self.model.track_id)
             .subquery()
         )
+
+    async def list_all(self) -> list[TrackAudioFeaturesComputed]:
+        """Get latest features for every existing track (one row per track_id)."""
+        latest = self._latest_subquery()
         stmt = select(self.model).join(
             latest,
             (self.model.track_id == latest.c.track_id)
-            & (self.model.created_at == latest.c.max_created),
+            & (self.model.run_id == latest.c.max_run_id),
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -73,25 +81,39 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
     ) -> tuple[list[TrackAudioFeaturesComputed], int]:
         """Filter features by audio parameters at SQL level.
 
-        Only includes features for tracks that still exist (guards against orphaned rows).
+        Uses the same latest-run-per-track deduplication as ``list_all()``
+        to avoid returning duplicate rows when a track has multiple
+        feature extraction runs.
         """
-        from app.models.catalog import Track
+        from sqlalchemy import func as sa_func
 
-        filters: list[Any] = [
-            TrackAudioFeaturesComputed.track_id.in_(select(Track.track_id)),
-        ]
+        latest = self._latest_subquery()
+
+        base = select(self.model).join(
+            latest,
+            (self.model.track_id == latest.c.track_id)
+            & (self.model.run_id == latest.c.max_run_id),
+        )
+
         if bpm_min is not None:
-            filters.append(TrackAudioFeaturesComputed.bpm >= bpm_min)
+            base = base.where(self.model.bpm >= bpm_min)
         if bpm_max is not None:
-            filters.append(TrackAudioFeaturesComputed.bpm <= bpm_max)
+            base = base.where(self.model.bpm <= bpm_max)
         if key_codes:
-            filters.append(TrackAudioFeaturesComputed.key_code.in_(key_codes))
+            base = base.where(self.model.key_code.in_(key_codes))
         if energy_min is not None:
-            filters.append(TrackAudioFeaturesComputed.energy_mean >= energy_min)
+            base = base.where(self.model.energy_mean >= energy_min)
         if energy_max is not None:
-            filters.append(TrackAudioFeaturesComputed.energy_mean <= energy_max)
+            base = base.where(self.model.energy_mean <= energy_max)
 
-        return await self.list(offset=offset, limit=limit, filters=filters)
+        # Count distinct tracks matching criteria
+        count_stmt = select(sa_func.count()).select_from(base.subquery())
+        total_result = await self.session.execute(count_stmt)
+        total = total_result.scalar_one()
+
+        stmt = base.order_by(self.model.track_id).offset(offset).limit(limit)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all()), total
 
     async def save_features(
         self,

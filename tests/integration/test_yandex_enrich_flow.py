@@ -47,7 +47,7 @@ async def _mock_search(query: str) -> list[dict]:
     return []
 
 
-async def test_full_enrich_flow(session):
+async def test_full_enrich_flow(session, seed_providers):
     """Create tracks → enrich → verify metadata chain."""
     from app.models import Track
     from app.services.import_yandex import ImportYandexService

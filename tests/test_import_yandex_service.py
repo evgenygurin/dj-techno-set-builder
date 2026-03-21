@@ -5,7 +5,7 @@ from sqlalchemy import text
 from app.models import Track
 
 
-async def test_enrich_track_creates_metadata(session):
+async def test_enrich_track_creates_metadata(session, seed_providers):
     """Enriching a track creates YandexMetadata + links Artist/Genre/Label/Release."""
     from app.services.import_yandex import ImportYandexService
 
@@ -77,7 +77,7 @@ async def test_enrich_track_not_found_on_ym(session):
     assert result is False
 
 
-async def test_enrich_track_handles_empty_labels(session):
+async def test_enrich_track_handles_empty_labels(session, seed_providers):
     """Empty labels list doesn't crash."""
     from app.services.import_yandex import ImportYandexService
 
@@ -138,7 +138,7 @@ async def test_enrich_track_nonexistent_track_id(session):
     mock_client.search_tracks.assert_not_called()
 
 
-async def test_enrich_batch(session):
+async def test_enrich_batch(session, seed_providers):
     """Batch enrichment returns correct summary."""
     from app.services.import_yandex import ImportYandexService
 
