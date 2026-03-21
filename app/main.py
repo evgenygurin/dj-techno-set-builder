@@ -1,28 +1,18 @@
 from __future__ import annotations
 
-# Monkey-patch for TypeForm compatibility with typing_extensions 4.15.0
-try:
-    from typing_extensions import TypeForm  # noqa: F401
-except ImportError:
-    from typing import TypeVar
+# Apply Python 3.13 compatibility patches BEFORE any other imports
+from app._compat import apply_python313_compatibility
 
-    import typing_extensions
+apply_python313_compatibility()
 
-    # Create a subscriptable TypeForm stub
-    class TypeFormStub:
-        def __class_getitem__(cls, item: object) -> TypeVar:
-            return TypeVar("TypeFormStub")
+import logging  # noqa: E402
+from collections.abc import AsyncIterator  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
 
-    typing_extensions.TypeForm = TypeFormStub  # type: ignore
+import sentry_sdk  # noqa: E402
+from fastapi import FastAPI  # noqa: E402
 
-import logging
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-
-import sentry_sdk
-from fastapi import FastAPI
-
-from app.config import settings
+from app.config import settings  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

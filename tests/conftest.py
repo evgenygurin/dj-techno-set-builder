@@ -48,6 +48,7 @@ async def engine():
 
     async with eng.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
     yield eng
     async with eng.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -64,6 +65,25 @@ async def _connection(engine) -> AsyncIterator[AsyncConnection]:
     async with engine.connect() as conn, conn.begin() as txn:
         yield conn
         await txn.rollback()
+
+
+@pytest.fixture
+async def seed_providers(session: AsyncSession) -> None:
+    """Seed standard providers into the test session.
+
+    Uses merge() to handle cases where the provider already exists
+    (e.g., created by the test itself before requesting this fixture).
+    """
+    from app.models.providers import Provider
+
+    for pid, code, name in [
+        (1, "spotify", "Spotify"),
+        (2, "soundcloud", "SoundCloud"),
+        (3, "beatport", "Beatport"),
+        (4, "yandex_music", "Yandex Music"),
+    ]:
+        await session.merge(Provider(provider_id=pid, provider_code=code, name=name))
+    await session.flush()
 
 
 @pytest.fixture

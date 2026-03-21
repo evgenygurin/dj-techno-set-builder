@@ -597,7 +597,6 @@ async def test_ga_matrix_uses_same_scoring(session: AsyncSession) -> None:
         ),
     ]
 
-    # Create features_map as required by the updated method signature
     features_map = {
         feat_a.track_id: feat_a,
         feat_b.track_id: feat_b,

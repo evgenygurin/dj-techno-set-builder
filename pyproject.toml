@@ -12,10 +12,14 @@ dependencies = [
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
     "alembic>=1.14",
-    "typing-extensions>=4.13.0",
+    "typing_extensions>=4.13",
     "sentry-sdk>=2.52.0",
     "typer>=0.15",
     "rich>=13.9",
+    # Core audio dependencies - required by _types.py and core modules
+    "numpy>=1.26",
+    "scipy>=1.12",
+    "soundfile>=0.13",
 ]
 
 [project.optional-dependencies]
@@ -89,15 +93,7 @@ module = ["aiosqlite.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["essentia.*", "soundfile.*", "scipy.*", "numpy", "numpy.*", "librosa.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["librosa", "librosa.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["librosa", "librosa.*"]
+module = ["essentia.*", "soundfile.*", "scipy.*", "numpy", "numpy.*", "librosa", "librosa.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
