@@ -12,49 +12,29 @@ from contextlib import asynccontextmanager
 from unittest.mock import patch
 
 import pytest
+from fastmcp import FastMCP
 from sqlalchemy.ext.asyncio import AsyncSession
-
-# Check if FastMCP is available (Python 3.13 compatibility)
-try:
-    from fastmcp import FastMCP
-
-    MCP_AVAILABLE = True
-except ImportError:
-    MCP_AVAILABLE = False
-    FastMCP = None
-
-# Skip all MCP tests if FastMCP is not available
-pytestmark = pytest.mark.skipif(
-    not MCP_AVAILABLE,
-    reason="FastMCP not available (likely Python 3.13 TypeForm compatibility issue)",
-)
 
 
 @pytest.fixture
-def workflow_mcp():
+def workflow_mcp() -> FastMCP:
     """DJ Workflows MCP server (12 hand-written tools + prompts + resources)."""
-    if not MCP_AVAILABLE:
-        pytest.skip("FastMCP not available")
     from app.mcp.tools import create_workflow_mcp
 
     return create_workflow_mcp()
 
 
 @pytest.fixture
-def gateway_mcp():
+def gateway_mcp() -> FastMCP:
     """Full DJ Set Builder gateway (YM + DJ namespaces + transforms)."""
-    if not MCP_AVAILABLE:
-        pytest.skip("FastMCP not available")
     from app.mcp.gateway import create_dj_mcp
 
     return create_dj_mcp()
 
 
 @pytest.fixture
-def ym_mcp():
+def ym_mcp() -> FastMCP:
     """Yandex Music MCP sub-server (~30 OpenAPI-generated tools)."""
-    if not MCP_AVAILABLE:
-        pytest.skip("FastMCP not available")
     from app.mcp.yandex_music import create_yandex_music_mcp
 
     return create_yandex_music_mcp()
@@ -70,9 +50,6 @@ async def workflow_mcp_with_db(_connection) -> AsyncIterator[FastMCP]:
     every ``session.commit()`` inside MCP tool calls only releases
     a SAVEPOINT, so the outer transaction can roll everything back.
     """
-    if not MCP_AVAILABLE:
-        pytest.skip("FastMCP not available")
-
     from app.mcp.tools import create_workflow_mcp
 
     @asynccontextmanager

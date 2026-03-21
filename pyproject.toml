@@ -14,6 +14,8 @@ dependencies = [
     "alembic>=1.14",
     "typing_extensions>=4.13",
     "sentry-sdk>=2.52.0",
+    "typer>=0.15",
+    "rich>=13.9",
     # Core audio dependencies - required by _types.py and core modules
     "numpy>=1.26",
     "scipy>=1.12",
@@ -23,6 +25,9 @@ dependencies = [
 [project.optional-dependencies]
 audio = [
     "essentia>=2.1b6.dev1389",
+    "soundfile>=0.13",
+    "scipy>=1.12",
+    "numpy>=1.26",
     "librosa>=0.10",
 ]
 ml = [
@@ -47,6 +52,9 @@ dev = [
     "pytest-cov>=7.0.0",
 ]
 
+[project.scripts]
+dj = "app.cli.main:app"
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
@@ -68,6 +76,7 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 "app/mcp/tools/*.py" = ["B008"]
 "app/mcp/resources/status.py" = ["B008"]  # Depends() in defaults is the FastMCP DI pattern
 "scripts/*.py" = ["E402"]  # sys.path.insert before app imports
+"app/cli/**/*.py" = ["UP007", "B008"]  # Typer: Optional[X] syntax + Option() in defaults
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
@@ -115,45 +124,8 @@ ignore_missing_imports = true
 module = ["key_value.*"]
 ignore_missing_imports = true
 
-# Pre-existing MCP errors (12 total) - documented in .claude/rules/mcp.md
 [[tool.mypy.overrides]]
-module = ["app.mcp.sync.track_mapper"]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = ["app.mcp.tools.unified_export"]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = ["app.mcp.tools.track"]
-disable_error_code = ["arg-type"]
-
-[[tool.mypy.overrides]]
-module = ["app.mcp.tools.search"]
-disable_error_code = ["arg-type"]
-
-[[tool.mypy.overrides]]
-module = ["app.mcp.tools.playlist"]
-disable_error_code = ["arg-type"]
-
-[[tool.mypy.overrides]]
-module = ["app.mcp.tools.features"]
-disable_error_code = ["arg-type"]
-
-[[tool.mypy.overrides]]
-module = ["app.mcp.tools.compute"]
-disable_error_code = ["attr-defined"]
-
-[[tool.mypy.overrides]]
-module = ["app.mcp.tools.set"]
-disable_error_code = ["arg-type"]
-
-[[tool.mypy.overrides]]
-module = ["app.mcp.tools.download"]
-disable_error_code = ["assignment"]
-
-[[tool.mypy.overrides]]
-module = ["app.utils.audio.mfcc"]
+module = ["typer.*"]
 ignore_missing_imports = true
 
 # ── Pytest ────────────────────────────────────────────────────────────────────

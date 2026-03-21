@@ -41,43 +41,92 @@ async def client(engine):
 
 ## Test organization
 
+~118 test files across 7 directories:
+
 ```text
 tests/
-├── conftest.py                    # Shared fixtures (engine, session, client)
-├── test_tracks.py                 # Track CRUD API tests
-├── test_artists.py                # Artist CRUD API tests
-├── test_playlists.py              # Playlist API tests
-├── test_sets.py                   # DJ set API tests
-├── test_transitions.py            # Transition API tests
-├── test_transition_scoring.py     # TransitionScoringService unit tests
-├── test_track_analysis.py         # TrackAnalysisService tests
-├── test_sections_api.py           # Sections API tests
+├── conftest.py                       # Shared fixtures (engine, session, client)
+├── test_tracks.py                    # Track CRUD API tests
+├── test_health.py                    # Health endpoint
+├── test_sections_api.py              # Sections API
+├── test_features_api.py              # Features API
+├── test_analysis_api.py              # Analysis API
+├── test_batch_analysis_api.py        # Batch analysis API
+├── test_imports_api.py               # Imports API
+├── test_candidates.py                # Transition candidates
+├── test_config.py                    # Settings validation
+├── test_models_*.py                  # 14 model test files (catalog, dj, features, ...)
+├── test_track_analysis.py            # TrackAnalysisService tests
+├── test_transition_scoring.py        # TransitionScoringService unit tests
+├── test_transition_scoring_parity.py # Scoring parity checks
+├── test_transitions_compute.py       # Transition computation
+├── test_set_generation.py            # Set generation service
+├── test_mix_points.py                # Mix point detection
+├── test_schemas_*.py                 # Schema validation tests
+├── test_*_yandex_*.py                # YM client and enrichment tests
+├── test_sentry_init.py               # Sentry initialization
+├── test_providers_repo.py            # Provider repository
+├── test_repo_yandex_metadata.py      # YM metadata repository
+├── test_runs.py                      # Pipeline runs
+│
 ├── integration/
-│   └── test_yandex_enrich_flow.py # Integration with YM client
-├── utils/
-│   ├── conftest.py                # Synthetic audio fixtures (WAV generation)
-│   ├── test_bpm.py                # BPM detection tests
-│   ├── test_beats.py              # Beat detection tests
-│   ├── test_energy.py             # Energy analysis tests
-│   ├── test_groove.py             # Groove analysis tests
-│   ├── test_key_detect.py         # Key detection tests
-│   ├── test_loudness.py           # Loudness measurement tests
-│   └── test_spectral.py           # Spectral analysis tests
-└── mcp/
-    ├── conftest.py                # MCP fixtures (workflow_mcp, gateway_mcp, ym_mcp, workflow_mcp_with_db)
-    ├── test_client_integration.py # In-memory Client tests (ping, call_tool, errors)
-    ├── test_workflow_analysis.py   # Analysis tool registration tests
-    ├── test_workflow_delivery.py   # deliver_set tool tests (unit + integration)
-    ├── test_workflow_discovery.py
-    ├── test_workflow_export.py
-    ├── test_workflow_import.py
-    ├── test_workflow_setbuilder.py
-    ├── test_dependencies.py       # DI providers + Pydantic types importability
-    ├── test_gateway.py            # Gateway composition tests
-    ├── test_prompts.py            # Prompt registration + rendering
-    ├── test_resources.py          # Resource + template listing
-    ├── test_visibility.py         # Visibility control + transforms
-    └── test_yandex_music.py       # YM MCP server tests
+│   └── test_yandex_enrich_flow.py    # Integration with YM client
+│
+├── repositories/
+│   ├── test_batch_methods.py         # Batch repository methods
+│   └── test_dj_library_items.py      # DJ library items repo
+│
+├── services/                         # 12 service tests
+│   ├── test_camelot_lookup.py        # Camelot wheel
+│   ├── test_download_service.py      # Download service
+│   ├── test_set_export.py            # Set export (M3U/JSON)
+│   ├── test_set_generation*.py       # Set generation (3 files)
+│   ├── test_transition_scoring*.py   # Scoring (2 files)
+│   └── ...                           # energy arc, curation, rekordbox types
+│
+├── scripts/                          # Script tests
+│   ├── test_checkpoint.py            # Checkpoint logic
+│   ├── test_complete_workflow.py      # End-to-end script workflow
+│   └── test_fill_and_verify_gates.py # Fill & verify gates
+│
+├── utils/                            # 22 audio utility tests
+│   ├── conftest.py                   # Synthetic audio fixtures (WAV generation)
+│   ├── test_bpm.py                   # BPM detection
+│   ├── test_beats.py                 # Beat detection
+│   ├── test_energy.py                # Energy analysis
+│   ├── test_groove.py                # Groove analysis
+│   ├── test_key_detect.py            # Key detection
+│   ├── test_loudness.py              # Loudness measurement
+│   ├── test_spectral.py              # Spectral analysis
+│   ├── test_mood_classifier.py       # 15-subgenre classifier
+│   ├── test_set_generator*.py        # GA optimizer (3 files)
+│   ├── test_set_templates.py         # DJ set templates
+│   ├── test_feature_conversion.py    # ORM→TrackFeatures conversion
+│   └── ...                           # camelot, loader, mfcc, pipeline, stems, structure
+│
+└── mcp/                              # ~40 MCP tests
+    ├── conftest.py                   # MCP fixtures (workflow_mcp, gateway_mcp, ym_mcp, workflow_mcp_with_db)
+    ├── test_client_integration.py    # In-memory Client tests
+    ├── test_e2e_all_dj_tools.py      # E2E test for all DJ tools
+    ├── test_workflow_*.py            # Workflow tool tests (delivery, discovery, export, setbuilder, sync, curation, download)
+    ├── test_dependencies.py          # DI providers + Pydantic types importability
+    ├── test_gateway.py               # Gateway composition tests
+    ├── test_prompts.py               # Prompt registration + rendering
+    ├── test_resources.py             # Resource + template listing
+    ├── test_visibility.py            # Visibility control + transforms
+    ├── test_yandex_music.py          # YM MCP server tests
+    ├── test_search_*.py              # Search tools tests
+    ├── test_types_v2.py              # Type system v2
+    ├── test_pagination*.py           # Pagination tests (2 files)
+    ├── test_sampling_*.py            # Sampling handler/tools/types (3 files)
+    ├── platforms/                    # Platform abstraction tests (6 files)
+    │   ├── test_protocol.py          # Platform protocol
+    │   ├── test_registry*.py         # Registry tests
+    │   └── test_yandex.py            # YM platform impl
+    └── sync/                         # Sync engine tests (3 files)
+        ├── test_diff.py              # Diff algorithm
+        ├── test_engine.py            # Sync engine
+        └── test_track_mapper.py      # Track mapper
 ```
 
 ## Audio utils tests
