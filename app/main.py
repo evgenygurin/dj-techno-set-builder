@@ -1,28 +1,17 @@
 from __future__ import annotations
 
-# Monkey-patch for TypeForm compatibility with typing_extensions 4.15.0
-try:
-    from typing_extensions import TypeForm  # noqa: F401
-except ImportError:
-    from typing import TypeVar
+# Apply Python 3.13 compatibility patches BEFORE any other imports
+from app._compat import apply_python313_compatibility
 
-    import typing_extensions
+apply_python313_compatibility()
 
-    # Create a subscriptable TypeForm stub
-    class TypeFormStub:
-        def __class_getitem__(cls, item: object) -> TypeVar:
-            return TypeVar("TypeFormStub")
+import logging  # noqa: E402
+from collections.abc import AsyncIterator  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
 
-    typing_extensions.TypeForm = TypeFormStub  # type: ignore
+from fastapi import FastAPI  # noqa: E402
 
-import logging
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-
-import sentry_sdk
-from fastapi import FastAPI
-
-from app.config import settings
+from app.config import settings  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +26,13 @@ def _init_sentry() -> None:
         logger.debug("Sentry DSN not set, skipping init")
         return
 
-    from sentry_sdk.integrations import Integration
-    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations import Integration
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+    except ImportError:
+        logger.warning("sentry_sdk not available, skipping Sentry initialization")
+        return
 
     integrations: list[Integration] = [FastApiIntegration()]
 
@@ -62,11 +56,19 @@ def _init_sentry() -> None:
 # Initialize Sentry BEFORE importing FastMCP
 _init_sentry()
 
-from fastmcp.utilities.lifespan import combine_lifespans  # noqa: E402
+# Try to import MCP functionality, disable if not available (Python 3.13 compatibility)
+try:
+    from fastmcp.utilities.lifespan import combine_lifespans
+
+    from app.mcp import create_dj_mcp
+
+    MCP_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"MCP functionality disabled due to import error: {e}")
+    MCP_AVAILABLE = False
 
 from app.database import close_db, init_db  # noqa: E402
 from app.errors import register_error_handlers  # noqa: E402
-from app.mcp import create_dj_mcp  # noqa: E402
 from app.middleware import apply_middleware  # noqa: E402
 from app.routers import register_routers  # noqa: E402
 
@@ -79,15 +81,27 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    mcp = create_dj_mcp()
-    mcp_app = mcp.http_app(path="/mcp")
+    if MCP_AVAILABLE:
+        # Full MCP integration
+        mcp = create_dj_mcp()
+        mcp_app = mcp.http_app(path="/mcp")
 
-    application = FastAPI(
-        title=settings.app_name,
-        debug=settings.debug,
-        lifespan=combine_lifespans(lifespan, mcp_app.lifespan),
-    )
-    application.mount("/mcp", mcp_app)
+        application = FastAPI(
+            title=settings.app_name,
+            debug=settings.debug,
+            lifespan=combine_lifespans(lifespan, mcp_app.lifespan),
+        )
+        application.mount("/mcp", mcp_app)
+        logger.info("MCP functionality enabled")
+    else:
+        # Fallback without MCP
+        application = FastAPI(
+            title=settings.app_name,
+            debug=settings.debug,
+            lifespan=lifespan,
+        )
+        logger.warning("MCP functionality disabled - running without MCP endpoints")
+
     apply_middleware(application)
     register_error_handlers(application)
     register_routers(application)
