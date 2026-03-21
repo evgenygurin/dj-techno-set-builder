@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.mcp.sync.track_mapper import DbTrackMapper
@@ -15,30 +14,24 @@ from app.models.providers import Provider
 @pytest.fixture
 async def seed_data(session: AsyncSession) -> None:
     """Seed providers, tracks, and provider_track_ids."""
-    # Provider
-    await session.execute(
-        insert(Provider).values(provider_id=4, provider_code="yandex_music", name="Yandex Music")
-    )
-    # Tracks
-    await session.execute(
-        insert(Track).values(
-            [
-                {"track_id": 1, "title": "Alpha", "duration_ms": 300000, "status": 0},
-                {"track_id": 2, "title": "Beta", "duration_ms": 300000, "status": 0},
-                {"track_id": 3, "title": "Gamma", "duration_ms": 300000, "status": 0},
-            ]
-        )
-    )
-    # Provider track IDs
-    await session.execute(
-        insert(ProviderTrackId).values(
-            [
-                {"track_id": 1, "provider_id": 4, "provider_track_id": "ym_111"},
-                {"track_id": 2, "provider_id": 4, "provider_track_id": "ym_222"},
-                # track 3 has no YM mapping
-            ]
-        )
-    )
+    # Provider — use merge() to handle pre-existing rows from other tests
+    await session.merge(Provider(provider_id=4, provider_code="yandex_music", name="Yandex Music"))
+    await session.flush()
+    # Tracks — use merge() to handle pre-existing rows
+    for t in [
+        Track(track_id=1, title="Alpha", duration_ms=300000, status=0),
+        Track(track_id=2, title="Beta", duration_ms=300000, status=0),
+        Track(track_id=3, title="Gamma", duration_ms=300000, status=0),
+    ]:
+        await session.merge(t)
+    await session.flush()
+    # Provider track IDs — use merge() to handle pre-existing rows
+    for ptid in [
+        ProviderTrackId(id=90001, track_id=1, provider_id=4, provider_track_id="ym_111"),
+        ProviderTrackId(id=90002, track_id=2, provider_id=4, provider_track_id="ym_222"),
+        # track 3 has no YM mapping
+    ]:
+        await session.merge(ptid)
     await session.flush()
 
 

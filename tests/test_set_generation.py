@@ -302,17 +302,21 @@ class TestGeneticSetGenerator:
 # ═══════════════════════════════════════════════════════════
 
 
-def _feature_kwargs(track_id: int, run_id: int, *, key_code: int = 0) -> dict:
-    """Minimal valid feature kwargs for a track."""
+def _feature_kwargs(track_id: int, run_id: int, *, key_code: int = 0, index: int = 0) -> dict:
+    """Minimal valid feature kwargs for a track.
+
+    Uses ``index`` (0-based sequence) instead of ``track_id`` for derived values
+    to avoid CHECK constraint violations when track_id is large (session-scoped engine).
+    """
     return {
         "track_id": track_id,
         "run_id": run_id,
-        "bpm": 128.0 + track_id * 2,
+        "bpm": 128.0 + index * 2,
         "tempo_confidence": 0.9,
         "bpm_stability": 0.95,
         "lufs_i": -8.0,
         "rms_dbfs": -12.0,
-        "energy_mean": 0.5 + 0.05 * track_id,
+        "energy_mean": 0.5 + 0.02 * index,
         "energy_max": 0.8,
         "energy_std": 0.05,
         "key_code": key_code,
@@ -330,9 +334,9 @@ async def _seed_tracks_with_features(
     session: AsyncSession, count: int = 5
 ) -> tuple[int, list[int]]:
     """Seed a DjSet, tracks, keys, run, and features. Returns (set_id, track_ids)."""
-    # Keys (need at least key_code=0)
+    # Keys (need at least key_code=0) — use merge() to avoid IntegrityError with shared engine
     key = Key(key_code=0, pitch_class=0, mode=0, name="Cm")
-    session.add(key)
+    await session.merge(key)
 
     # Tracks
     tracks = [Track(title=f"Track {i}", duration_ms=300000) for i in range(count)]
@@ -345,8 +349,8 @@ async def _seed_tracks_with_features(
     await session.flush()
 
     # Features
-    for t in tracks:
-        feat = TrackAudioFeaturesComputed(**_feature_kwargs(t.track_id, run.run_id))
+    for i, t in enumerate(tracks):
+        feat = TrackAudioFeaturesComputed(**_feature_kwargs(t.track_id, run.run_id, index=i))
         session.add(feat)
 
     # DjSet

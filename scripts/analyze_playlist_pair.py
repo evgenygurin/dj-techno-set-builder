@@ -429,11 +429,11 @@ async def main() -> None:
         print(f"  Deleted: {stats['track_counts']['deleted']} tracks")
 
         print("\nFEATURE COVERAGE:")
-        main_features = stats['feature_coverage']['main_with_features']
-        main_pct = stats['feature_coverage']['main_percentage']
+        main_features = stats["feature_coverage"]["main_with_features"]
+        main_pct = stats["feature_coverage"]["main_percentage"]
         print(f"  Main: {main_features} ({main_pct}%)")
-        deleted_features = stats['feature_coverage']['deleted_with_features']
-        deleted_pct = stats['feature_coverage']['deleted_percentage']
+        deleted_features = stats["feature_coverage"]["deleted_with_features"]
+        deleted_pct = stats["feature_coverage"]["deleted_percentage"]
         print(f"  Deleted: {deleted_features} ({deleted_pct}%)")
 
         if (
@@ -453,7 +453,7 @@ async def main() -> None:
         print(
             f"  Main compilation rate: {stats['metadata_signals']['main_compilation_rate']:.1f}%"
         )
-        deleted_comp_rate = stats['metadata_signals']['deleted_compilation_rate']
+        deleted_comp_rate = stats["metadata_signals"]["deleted_compilation_rate"]
         print(f"  Deleted compilation rate: {deleted_comp_rate:.1f}%")
 
         print("\nUSER FEEDBACK:")

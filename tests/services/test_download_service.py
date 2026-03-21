@@ -100,9 +100,9 @@ class TestDownloadService:
         self, session: AsyncSession, tmp_path: Path
     ) -> None:
         """_download_single_track downloads file and creates DjLibraryItem."""
-        # Create provider
+        # Create provider — use merge() to avoid IntegrityError with session-scoped engine
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
-        session.add(provider)
+        await session.merge(provider)
         await session.flush()
 
         # Create track
@@ -137,8 +137,8 @@ class TestDownloadService:
         assert success is True
         assert size == 2048
 
-        # Verify file exists
-        expected_path = tmp_path / "1_nova.mp3"
+        # Verify file exists (track_id is dynamic with session-scoped engine)
+        expected_path = tmp_path / f"{track.track_id}_nova.mp3"
         assert expected_path.exists()
 
         # Verify DjLibraryItem created
@@ -153,9 +153,9 @@ class TestDownloadService:
         self, session: AsyncSession, tmp_path: Path
     ) -> None:
         """_download_single_track retries after network error."""
-        # Create provider
+        # Create provider — use merge() to avoid IntegrityError with session-scoped engine
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
-        session.add(provider)
+        await session.merge(provider)
         await session.flush()
 
         # Create track
@@ -197,9 +197,9 @@ class TestDownloadService:
         self, session: AsyncSession, tmp_path: Path
     ) -> None:
         """_download_single_track returns (False, 0) after max retries."""
-        # Create provider
+        # Create provider — use merge() to avoid IntegrityError with session-scoped engine
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
-        session.add(provider)
+        await session.merge(provider)
         await session.flush()
 
         # Create track
@@ -233,9 +233,9 @@ class TestDownloadService:
         self, session: AsyncSession, tmp_path: Path
     ) -> None:
         """download_tracks_batch skips tracks with existing file_path."""
-        # Create provider
+        # Create provider — use merge() to avoid IntegrityError with session-scoped engine
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
-        session.add(provider)
+        await session.merge(provider)
         await session.flush()
 
         # Create tracks
@@ -265,9 +265,9 @@ class TestDownloadService:
         self, session: AsyncSession, tmp_path: Path
     ) -> None:
         """download_tracks_batch handles partial failures correctly."""
-        # Create provider
+        # Create provider — use merge() to avoid IntegrityError with session-scoped engine
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
-        session.add(provider)
+        await session.merge(provider)
         await session.flush()
 
         # Create tracks

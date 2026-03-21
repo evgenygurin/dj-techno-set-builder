@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import pytest
-from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.mcp.platforms.protocol import (
@@ -78,44 +77,40 @@ class InMemoryPlatform:
 
 @pytest.fixture
 async def seed_sync_data(session: AsyncSession) -> None:
-    """Seed test data: provider, tracks, playlist, provider_track_ids."""
-    await session.execute(
-        insert(Provider).values(provider_id=99, provider_code="fake", name="Fake Platform")
-    )
-    await session.execute(
-        insert(Track).values(
-            [
-                {"track_id": 1, "title": "Alpha", "duration_ms": 300000, "status": 0},
-                {"track_id": 2, "title": "Beta", "duration_ms": 300000, "status": 0},
-                {"track_id": 3, "title": "Gamma", "duration_ms": 300000, "status": 0},
-            ]
-        )
-    )
-    await session.execute(
-        insert(DjPlaylist).values(
-            playlist_id=10,
+    """Seed test data: provider, tracks, playlist, provider_track_ids.
+
+    Uses merge() + high IDs to avoid collisions with session-scoped engine.
+    """
+    await session.merge(Provider(provider_id=99, provider_code="fake", name="Fake Platform"))
+    await session.flush()
+    for t in [
+        Track(track_id=80001, title="Alpha", duration_ms=300000, status=0),
+        Track(track_id=80002, title="Beta", duration_ms=300000, status=0),
+        Track(track_id=80003, title="Gamma", duration_ms=300000, status=0),
+    ]:
+        await session.merge(t)
+    await session.flush()
+    await session.merge(
+        DjPlaylist(
+            playlist_id=80010,
             name="Test Playlist",
             source_of_truth="local",
             platform_ids={"fake": "remote_1"},
         )
     )
-    await session.execute(
-        insert(DjPlaylistItem).values(
-            [
-                {"playlist_id": 10, "track_id": 1, "sort_index": 0},
-                {"playlist_id": 10, "track_id": 2, "sort_index": 1},
-            ]
-        )
-    )
-    await session.execute(
-        insert(ProviderTrackId).values(
-            [
-                {"track_id": 1, "provider_id": 99, "provider_track_id": "f_100"},
-                {"track_id": 2, "provider_id": 99, "provider_track_id": "f_200"},
-                {"track_id": 3, "provider_id": 99, "provider_track_id": "f_300"},
-            ]
-        )
-    )
+    await session.flush()
+    for item in [
+        DjPlaylistItem(playlist_item_id=80100, playlist_id=80010, track_id=80001, sort_index=0),
+        DjPlaylistItem(playlist_item_id=80101, playlist_id=80010, track_id=80002, sort_index=1),
+    ]:
+        await session.merge(item)
+    await session.flush()
+    for ptid in [
+        ProviderTrackId(id=80201, track_id=80001, provider_id=99, provider_track_id="f_100"),
+        ProviderTrackId(id=80202, track_id=80002, provider_id=99, provider_track_id="f_200"),
+        ProviderTrackId(id=80203, track_id=80003, provider_id=99, provider_track_id="f_300"),
+    ]:
+        await session.merge(ptid)
     await session.flush()
 
 
@@ -123,7 +118,7 @@ class TestFullSyncFlow:
     async def test_local_to_remote_sync(self, session: AsyncSession, seed_sync_data: None) -> None:
         """Local playlist -> push to remote platform."""
         platform = InMemoryPlatform()
-        platform.playlists["remote_1"] = ["f_200"]  # remote has only track 2
+        platform.playlists["remote_1"] = ["f_200"]  # remote has only track 80002
 
         playlist_svc = DjPlaylistService(
             DjPlaylistRepository(session),
@@ -133,7 +128,7 @@ class TestFullSyncFlow:
         engine = SyncEngine(playlist_svc=playlist_svc, track_mapper=mapper)
 
         result = await engine.sync(
-            playlist_id=10,
+            playlist_id=80010,
             platform=platform,
             direction=SyncDirection.LOCAL_TO_REMOTE,
         )
@@ -156,12 +151,12 @@ class TestFullSyncFlow:
         engine = SyncEngine(playlist_svc=playlist_svc, track_mapper=mapper)
 
         result = await engine.sync(
-            playlist_id=10,
+            playlist_id=80010,
             platform=platform,
             direction=SyncDirection.REMOTE_TO_LOCAL,
         )
 
-        assert result.added_to_local == 1  # f_300 (track 3) added
+        assert result.added_to_local == 1  # f_300 (track 80003) added
         assert result.removed_from_local == 0  # remote has all local tracks
 
     async def test_bidirectional_sync(self, session: AsyncSession, seed_sync_data: None) -> None:
@@ -177,7 +172,7 @@ class TestFullSyncFlow:
         engine = SyncEngine(playlist_svc=playlist_svc, track_mapper=mapper)
 
         result = await engine.sync(
-            playlist_id=10,
+            playlist_id=80010,
             platform=platform,
             direction=SyncDirection.BIDIRECTIONAL,
         )
