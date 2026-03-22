@@ -123,7 +123,7 @@ def _generate_cheat_sheet(
     lufs_vals = [tr["lufs"] for tr in tracks if tr.get("lufs")]
     lufs_lo = min(lufs_vals) if lufs_vals else -12
     lufs_hi = max(lufs_vals) if lufs_vals else -5
-    total_s = sum(tr.get("duration_s", 0) for tr in tracks)
+    total_s = sum(tr.get("duration_s") or 0 for tr in tracks)
     avg_sc = [s.total for s in scores if s.total > 0]
     avg_score = sum(avg_sc) / len(avg_sc) if avg_sc else 0
 
@@ -139,9 +139,9 @@ def _generate_cheat_sheet(
     for tr in tracks:
         pos = tr["position"]
         title = tr.get("title", "?")[:27]
-        bpm = tr.get("bpm", 0)
-        key = tr.get("key", "?")
-        lufs = tr.get("lufs", 0)
+        bpm = tr.get("bpm") or 0
+        key = tr.get("key") or "?"
+        lufs = tr.get("lufs") or 0
         ebar = _energy_bar(lufs, lufs_lo, lufs_hi)
 
         lines.append(f" {pos:2d}  {title:<27s} {bpm:5.0f}  {key:>3s}  [{ebar}] {lufs:.0f}")
@@ -283,7 +283,7 @@ def _write_json_guide(
 ) -> str:
     """Generate JSON export."""
     bpms = [tr["bpm"] for tr in tracks if tr.get("bpm")]
-    total_s = sum(tr.get("duration_s", 0) for tr in tracks)
+    total_s = sum(tr.get("duration_s") or 0 for tr in tracks)
     guide = {
         "set_name": set_name,
         "track_count": len(tracks),
