@@ -18,12 +18,14 @@ from app.mcp.resolve import resolve_local_id
 from app.mcp.tools._scoring_helpers import score_consecutive_transitions
 from app.mcp.types import (
     ClassifyResult,
+    DistributeResult,
     GapDescription,
     LibraryGapResult,
     MoodDistribution,
     SetReviewResult,
     WeakTransition,
 )
+from app.schemas.playlists import DjPlaylistCreate, DjPlaylistItemCreate
 from app.services.features import AudioFeaturesService
 from app.services.playlists import DjPlaylistService
 from app.services.set_curation import SetCurationService
@@ -374,3 +376,116 @@ def register_curation_tools(mcp: FastMCP) -> None:
             "no_features": no_features,
             "failures": failures,
         }
+
+    # -- Subgenre display names for playlist creation/lookup --
+    subgenre_display: dict[str, str] = {
+        "ambient_dub": "Techno: Ambient Dub",
+        "dub_techno": "Techno: Dub Techno",
+        "minimal": "Techno: Minimal",
+        "detroit": "Techno: Detroit",
+        "melodic_deep": "Techno: Melodic Deep",
+        "progressive": "Techno: Progressive",
+        "hypnotic": "Techno: Hypnotic",
+        "driving": "Techno: Driving",
+        "tribal": "Techno: Tribal",
+        "breakbeat": "Techno: Breakbeat",
+        "peak_time": "Techno: Peak Time",
+        "acid": "Techno: Acid",
+        "raw": "Techno: Raw",
+        "industrial": "Techno: Industrial",
+        "hard_techno": "Techno: Hard Techno",
+    }
+
+    @mcp.tool(tags={"curation"}, timeout=300)
+    async def distribute_to_subgenres(
+        playlist_id: int,
+        ctx: Context,
+        features_svc: AudioFeaturesService = Depends(get_features_service),
+        playlist_svc: DjPlaylistService = Depends(get_playlist_service),
+    ) -> DistributeResult:
+        """Classify all playlist tracks by mood and distribute to subgenre playlists.
+
+        Uses the 15-subgenre mood classifier to categorize each track,
+        then adds it to the corresponding local subgenre playlist.
+        Tracks already in their target playlist are skipped.
+        Missing subgenre playlists are created automatically.
+
+        Args:
+            playlist_id: Source playlist ID to distribute from.
+        """
+        # Stage 1: load playlist items and features
+        await ctx.info("Stage 1/3 — loading playlist tracks and features...")
+        await ctx.report_progress(progress=0, total=3)
+
+        items_result = await playlist_svc.list_items(playlist_id, offset=0, limit=5000)
+        track_ids = {item.track_id for item in items_result.items}
+
+        all_features = await features_svc.list_all()
+
+        # Stage 2: classify tracks
+        await ctx.info("Stage 2/3 — classifying tracks by mood...")
+        await ctx.report_progress(progress=1, total=3)
+
+        svc = SetCurationService()
+        playlist_features = [f for f in all_features if f.track_id in track_ids]
+        classified = svc.classify_features(playlist_features)
+
+        no_features = len(track_ids) - len(classified)
+        distribution: dict[str, int] = {}
+        for mood in classified.values():
+            distribution[mood.value] = distribution.get(mood.value, 0) + 1
+
+        # Stage 3: route to subgenre playlists
+        await ctx.info("Stage 3/3 — routing tracks to subgenre playlists...")
+        await ctx.report_progress(progress=2, total=3)
+
+        # Build mood -> target playlist mapping
+        all_playlists = await playlist_svc.list(offset=0, limit=200)
+        name_to_playlist: dict[str, int] = {p.name: p.playlist_id for p in all_playlists.items}
+
+        mood_to_playlist_id: dict[str, int] = {}
+        for mood_val, display_name in subgenre_display.items():
+            if display_name in name_to_playlist:
+                mood_to_playlist_id[mood_val] = name_to_playlist[display_name]
+            else:
+                new_pl = await playlist_svc.create(DjPlaylistCreate(name=display_name))
+                mood_to_playlist_id[mood_val] = new_pl.playlist_id
+
+        # Load existing items for target playlists to skip duplicates
+        existing_tracks: dict[int, set[int]] = {}
+        for pl_id in mood_to_playlist_id.values():
+            pl_items = await playlist_svc.list_items(pl_id, offset=0, limit=5000)
+            existing_tracks[pl_id] = {i.track_id for i in pl_items.items}
+
+        added = 0
+        already = 0
+        total_tracks = len(classified)
+
+        for i, (track_id, mood) in enumerate(classified.items()):
+            if i % 50 == 0 and total_tracks > 50:
+                await ctx.info(f"Routing track {i + 1}/{total_tracks}...")
+
+            target_pl_id = mood_to_playlist_id[mood.value]
+            existing = existing_tracks.get(target_pl_id, set())
+
+            if track_id in existing:
+                already += 1
+                continue
+
+            sort_idx = len(existing)
+            await playlist_svc.add_item(
+                target_pl_id,
+                DjPlaylistItemCreate(track_id=track_id, sort_index=sort_idx),
+            )
+            existing.add(track_id)
+            added += 1
+
+        await ctx.report_progress(progress=3, total=3)
+
+        return DistributeResult(
+            total_classified=len(classified),
+            no_features=no_features,
+            distribution=distribution,
+            added_to_playlists=added,
+            already_in_playlist=already,
+        )

@@ -8,6 +8,7 @@ __all__ = [
     "ClassifyResult",
     "CurateCandidate",
     "CurateSetResult",
+    "DistributeResult",
     "GapDescription",
     "LibraryGapResult",
     "MoodDistribution",
@@ -89,3 +90,13 @@ class LibraryGapResult(BaseModel):
     mood_distribution: list[MoodDistribution]
     gaps: list[GapDescription]
     recommendations: list[str]
+
+
+class DistributeResult(BaseModel):
+    """Result of distributing tracks to subgenre playlists."""
+
+    total_classified: int
+    no_features: int
+    distribution: dict[str, int]
+    added_to_playlists: int
+    already_in_playlist: int
