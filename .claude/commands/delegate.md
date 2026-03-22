@@ -35,7 +35,7 @@
 /delegate Исправить все mypy ошибки в app/services/set_generation.py
 
 # Рефакторинг
-/delegate Извлечь общий паттерн фильтрации из TrackRepository и PlaylistRepository
+/delegate Извлечь общий паттерн фильтрации из TrackRepository и DjPlaylistRepository
 
 # Документация
 /delegate Добавить docstrings к публичным методам app/services/transition_scoring.py

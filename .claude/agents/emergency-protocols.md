@@ -54,7 +54,7 @@ sqlite3 "$DJ_DB_PATH" "PRAGMA integrity_check;"
 sqlite3 "$DJ_DB_PATH" "PRAGMA journal_mode;"
 
 # 5. Если locked — покажи какие процессы держат файл
-fuser "$DJ_DB_PATH" 2>/dev/null && echo "↑ Эти PID держат DB. Убей вручную: kill <PID>"
+lsof "$DJ_DB_PATH" 2>/dev/null && echo "↑ Эти PID держат DB. Убей вручную: kill <PID>"
 ```
 
 **Частые причины**: iCloud sync держит lock, два процесса пишут одновременно, WAL file повреждён.
