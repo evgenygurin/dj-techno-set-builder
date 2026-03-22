@@ -99,6 +99,43 @@ def register_prompts(mcp: FastMCP) -> None:
         ]
 
     @mcp.prompt
+    def expand_playlist_pipeline(
+        playlist_id: str,
+        target_count: int = 50,
+        seed_count: int = 3,
+    ) -> list[Message]:
+        """Expand a playlist: discover similar → import → analyze → distribute."""
+        return [
+            Message(
+                role="user",
+                content=(
+                    f"Expand playlist {playlist_id} to {target_count} tracks.\n\n"
+                    "Follow this pipeline:\n\n"
+                    f"**Phase 1 — Audit:** `dj_audit_playlist(playlist_id={playlist_id})`\n"
+                    "Report current quality: passed/failed/no_features.\n\n"
+                    f"**Phase 2 — Discover:** Pick {seed_count} seed tracks from "
+                    "the playlist (use `dj_filter_tracks` to find tracks with "
+                    "highest kick + onset). For each seed:\n"
+                    "  `dj_discover_candidates(seed_track_id=<ym_id>, "
+                    "batch_size=20, exclude_track_ids=[already_in_playlist])`\n\n"
+                    "**Phase 3 — Import:** For new candidates:\n"
+                    f"  `dj_populate_from_ym(playlist_id={playlist_id}, "
+                    "ym_kind=<source>)` or create tracks individually.\n\n"
+                    "**Phase 4 — Download + Analyze:** For each new track:\n"
+                    "  `dj_download_tracks(track_ids=[...])` then\n"
+                    "  `dj_analyze_track(track_id=...)` for audio features.\n\n"
+                    f"**Phase 5 — Re-audit:** `dj_audit_playlist({playlist_id})`\n"
+                    "Remove tracks failing quality criteria.\n\n"
+                    f"**Phase 6 — Classify:** `dj_distribute_to_subgenres("
+                    f"playlist_id={playlist_id})`\n"
+                    "Show distribution across 15 subgenres.\n\n"
+                    "Report totals after each phase. Stop when target reached "
+                    "or no more candidates found."
+                ),
+            ),
+        ]
+
+    @mcp.prompt
     def improve_set(
         set_id: str,
         version_id: str,
