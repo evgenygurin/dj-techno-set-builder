@@ -191,7 +191,11 @@ async def _do_sync_set_from_ym(
 def register_sync_tools(mcp: FastMCP) -> None:
     """Register sync tools on the MCP server."""
 
-    @mcp.tool(tags={"sync"}, timeout=600)
+    @mcp.tool(
+        tags={"sync"},
+        timeout=600,
+        annotations={"destructiveHint": True, "openWorldHint": True},
+    )
     async def sync_playlist(
         playlist_id: int,
         ctx: Context,
@@ -213,7 +217,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
             force: Skip confirmation prompt (for CLI/batch mode).
         """
         # Confirm destructive sync directions
-        if not force and direction in ("local_to_remote", "bidirectional") and ctx is not None:
+        if not force and direction in ("local_to_remote", "bidirectional"):
             confirmed = await confirm_action(
                 ctx,
                 f"Sync playlist {playlist_id} ({direction}) to {platform}? "
@@ -294,7 +298,11 @@ def register_sync_tools(mcp: FastMCP) -> None:
             "status": "linked",
         }
 
-    @mcp.tool(tags={"sync", "yandex"}, timeout=600)
+    @mcp.tool(
+        tags={"sync", "yandex"},
+        timeout=600,
+        annotations={"destructiveHint": True, "openWorldHint": True},
+    )
     async def sync_set_to_ym(
         set_ref: str | int,
         ctx: Context,
@@ -317,7 +325,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
             raise ValueError(msg)
 
         # Confirm push to YM
-        if not force and ctx is not None:
+        if not force:
             confirmed = await confirm_action(
                 ctx,
                 f"Push set {set_id} to Yandex Music? This will create/overwrite a YM playlist.",
@@ -365,7 +373,11 @@ def register_sync_tools(mcp: FastMCP) -> None:
         except NotFoundError:
             return {"status": "error", "reason": f"Set {set_id} not found"}
 
-    @mcp.tool(tags={"sync", "yandex"}, timeout=600)
+    @mcp.tool(
+        tags={"sync", "yandex"},
+        timeout=600,
+        annotations={"destructiveHint": True, "openWorldHint": True},
+    )
     async def batch_sync_sets_to_ym(
         set_ids: list[int],
         ctx: Context,
@@ -388,9 +400,8 @@ def register_sync_tools(mcp: FastMCP) -> None:
         failed = 0
 
         for i, set_id in enumerate(set_ids):
-            if ctx is not None:
-                await ctx.report_progress(progress=i, total=len(set_ids))
-                await ctx.info(f"Syncing set {set_id} ({i + 1}/{len(set_ids)})...")
+            await ctx.report_progress(progress=i, total=len(set_ids))
+            await ctx.info(f"Syncing set {set_id} ({i + 1}/{len(set_ids)})...")
 
             try:
                 # Get set and latest version
@@ -507,10 +518,9 @@ def register_sync_tools(mcp: FastMCP) -> None:
             if i < len(set_ids) - 1:
                 await asyncio.sleep(1.5)
 
-        if ctx is not None:
-            await ctx.report_progress(
-                progress=len(set_ids),
-                total=len(set_ids),
-            )
+        await ctx.report_progress(
+            progress=len(set_ids),
+            total=len(set_ids),
+        )
 
         return {"synced": synced, "failed": failed, "results": results}

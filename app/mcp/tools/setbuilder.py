@@ -125,7 +125,7 @@ async def _run_greedy_build(
 def register_setbuilder_tools(mcp: FastMCP) -> None:
     """Register set builder tools on the MCP server."""
 
-    @mcp.tool(tags={"setbuilder"}, timeout=300)
+    @mcp.tool(tags={"setbuilder"}, timeout=300, annotations={"openWorldHint": True})
     async def build_set(
         playlist_ref: str | int,
         set_name: str,

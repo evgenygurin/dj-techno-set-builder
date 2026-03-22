@@ -352,7 +352,7 @@ async def _sync_to_ym(
 def register_delivery_tools(mcp: FastMCP) -> None:
     """Register deliver_set tool on the MCP server."""
 
-    @mcp.tool(tags={"setbuilder"}, timeout=300)
+    @mcp.tool(tags={"setbuilder"}, timeout=300, annotations={"idempotentHint": True})
     async def deliver_set(
         set_ref: str | int,
         version_id: int,

@@ -20,7 +20,7 @@ from app.utils.audio.camelot import key_code_to_camelot
 def register_discovery_tools(mcp: FastMCP) -> None:
     """Register discovery tools on the MCP server."""
 
-    @mcp.tool(tags={"discovery"})
+    @mcp.tool(tags={"discovery"}, annotations={"openWorldHint": True})
     async def find_similar_tracks(
         playlist_ref: str | int,
         ctx: Context,

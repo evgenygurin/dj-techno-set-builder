@@ -109,7 +109,7 @@ def register_features_tools(mcp: FastMCP) -> None:
 
         return await wrap_detail(features, session)
 
-    @mcp.tool(tags={"crud", "features"})
+    @mcp.tool(tags={"crud", "features"}, annotations={"idempotentHint": True})
     async def save_features(
         track_ref: str | int,
         features_json: str,
