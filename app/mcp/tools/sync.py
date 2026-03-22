@@ -190,10 +190,10 @@ def register_sync_tools(mcp: FastMCP) -> None:
     @mcp.tool(tags={"sync"}, timeout=600)
     async def sync_playlist(
         playlist_id: int,
+        ctx: Context,
         platform: str = "ym",
         direction: str = "bidirectional",
         force: bool = False,
-        ctx: Context | None = None,
         sync_engine: SyncEngine = Depends(get_sync_engine),
         registry: PlatformRegistry = Depends(get_platform_registry),
     ) -> dict[str, object]:
@@ -230,7 +230,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
     async def set_source_of_truth(
         playlist_id: int,
         source: str,
-        ctx: Context | None = None,
+        ctx: Context,
         playlist_svc: DjPlaylistService = Depends(get_playlist_service),
     ) -> dict[str, object]:
         """Configure which side is the source of truth for a playlist.
@@ -261,7 +261,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
         playlist_id: int,
         platform: str,
         platform_playlist_id: str,
-        ctx: Context | None = None,
+        ctx: Context,
         playlist_svc: DjPlaylistService = Depends(get_playlist_service),
     ) -> dict[str, object]:
         """Link a local playlist to a platform playlist for syncing.
@@ -293,8 +293,8 @@ def register_sync_tools(mcp: FastMCP) -> None:
     @mcp.tool(tags={"sync", "yandex"}, timeout=600)
     async def sync_set_to_ym(
         set_id: int,
+        ctx: Context,
         force: bool = False,
-        ctx: Context | None = None,
         set_svc: DjSetService = Depends(get_set_service),
         sync_engine: SyncEngine = Depends(get_sync_engine),
         registry: PlatformRegistry = Depends(get_platform_registry),
@@ -332,7 +332,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
     @mcp.tool(tags={"sync", "yandex"}, timeout=600)
     async def sync_set_from_ym(
         set_id: int,
-        ctx: Context | None = None,
+        ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
         sync_engine: SyncEngine = Depends(get_sync_engine),
         registry: PlatformRegistry = Depends(get_platform_registry),
@@ -359,8 +359,8 @@ def register_sync_tools(mcp: FastMCP) -> None:
     @mcp.tool(tags={"sync", "yandex"}, timeout=600)
     async def batch_sync_sets_to_ym(
         set_ids: list[int],
+        ctx: Context,
         force: bool = True,
-        ctx: Context | None = None,
         set_svc: DjSetService = Depends(get_set_service),
         session: AsyncSession = Depends(get_session),
         ym_client: YandexMusicClient = Depends(get_ym_client),
@@ -483,7 +483,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
                 )
                 synced += 1
 
-            except Exception:
+            except Exception:  # broad: skip failed set, process rest
                 logger.exception("Failed to sync set %d", set_id)
                 results.append(
                     {
