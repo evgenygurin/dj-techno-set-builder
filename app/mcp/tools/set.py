@@ -405,7 +405,20 @@ def register_set_tools(mcp: FastMCP) -> None:
 
         set_id = ref.local_id
         svc = _make_svc(session)
-        dj_set = await svc.get(set_id)
+        try:
+            dj_set = await svc.get(set_id)
+        except NotFoundError:
+            return SetCheatSheet(
+                set_id=set_id,
+                version_id=0,
+                set_name="",
+                tracks=[],
+                transitions=[],
+                summary=TransitionSummary(
+                    total=0, hard_conflicts=0, weak=0, avg_score=0.0, min_score=0.0
+                ),
+                text=f"Set {set_id} not found",
+            )
 
         # Resolve version
         if version_id is None:
