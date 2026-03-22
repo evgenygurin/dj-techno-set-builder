@@ -43,8 +43,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Documentation meta-rules**: добавлена секция Official Documentation Requirement
 - **MCP rules**: добавлена ссылка на официальную MCP документацию
 - **`.env.example`**: добавлен `DJ_DB_PATH` для sqlite-db MCP сервера
+- **Documentation sync**: tool counts verified via runtime (52 DJ + 28 YM + 4 transforms = 84 total); db-schema.md regenerated; audio modules 21→22 (greedy_chain); Pydantic types 36→37 (DistributeResult)
+- **CHANGELOG format**: standardized to Keep a Changelog (removed non-standard "Previously Added", merged duplicate "Changed")
+- **macOS compatibility rules**: added to documentation.md (lsof not fuser, stat -f not stat -c)
 
 ### Fixed
+
+- **`ctx: Context` defaults**: fixed 7 MCP tools with `ctx: Context | None = None` → `ctx: Context` (download.py, sync.py ×6)
+- **Broad exceptions narrowed**: 4 `except Exception` in curation_discovery.py → `except (httpx.HTTPError, TimeoutError, ValueError)`
+- **Hardcoded `provider_id=4`**: replaced with `_YM_PROVIDER_ID` constant in 9 locations (curation_discovery.py, playlist.py, sync.py, complete_workflow.py)
+- **Stale tool names**: fixed `ym_search_tracks` → `ym_search_yandex_music` in prompts (runtime bug); `dj_get_track_details` → `dj_get_track`, `dj_get_playlist_status` → `dj_get_playlist` in docs
+- **`make mcp-list` crash**: removed `--skip-env` from mcp-list/mcp-call targets (YM client init fails without .env)
+- **CI PYTHONPATH**: removed hardcoded `python3.13` path (no longer needed with `_compat.py` TypeForm patch)
+- **Missing configs**: added `DJ_LIBRARY_PATH` to `.env.example`; added `DATABASE_URL` + `DJ_LIBRARY_PATH` to `fastmcp.json` deployment env
+- **`.gitignore`**: added `CLAUDE.local.md`
+- **`find_similar_tracks`**: marked DEPRECATED (always returns 0 candidates — real pipeline in `discover_candidates`/`expand_playlist_full`)
+- **mypy status**: updated from "12 pre-existing errors" to "0 errors" across 5 documentation files
 
 - **mypy config**: added `librosa.*` to `ignore_missing_imports` to fix CI lint failures
 - **API duplicate queries**: removed duplicate `features_repo.list_all()` call in `SetGenerationService`
