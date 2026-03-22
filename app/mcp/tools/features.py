@@ -20,6 +20,7 @@ from app.mcp.dependencies import get_session
 from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
+from app.mcp.types import ActionResponse, EntityDetailResponse, EntityListResponse
 from app.repositories.audio_features import AudioFeaturesRepository
 from app.repositories.tracks import TrackRepository
 from app.services.features import AudioFeaturesService
@@ -35,7 +36,7 @@ def register_features_tools(mcp: FastMCP) -> None:
         bpm_min: float | None = None,
         bpm_max: float | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> EntityListResponse:
         """List tracks that have computed audio features.
 
         Returns TrackSummary with BPM/key/energy populated from features.
@@ -85,7 +86,7 @@ def register_features_tools(mcp: FastMCP) -> None:
     async def get_features(
         track_ref: str | int,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> EntityDetailResponse:
         """Get full audio features for a track (Level 3: Full, ~2 KB).
 
         Returns all computed audio parameters: BPM, key, loudness, energy,
@@ -114,7 +115,7 @@ def register_features_tools(mcp: FastMCP) -> None:
         track_ref: str | int,
         features_json: str,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> ActionResponse:
         """Persist computed audio features for a track.
 
         Use after analyze_track() to save the computed result to DB.

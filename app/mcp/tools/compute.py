@@ -5,8 +5,6 @@ Agent decides when to persist results using save_features / create_set.
 
 from __future__ import annotations
 
-import json
-
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
@@ -26,7 +24,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
         track_ref: str | None = None,
         audio_path: str | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> dict[str, object]:
         """Run full audio analysis pipeline on a track. Returns features WITHOUT saving.
 
         Accepts either track_ref (resolves to local file) or direct audio_path.
@@ -87,16 +85,13 @@ def register_compute_tools(mcp: FastMCP) -> None:
                 "spectral_rolloff": features.spectral.rolloff_85_hz,
             }
 
-            # Return computed features as JSON (agent calls save_features to persist)
-            return json.dumps(
-                {
-                    "track_ref": track_ref,
-                    "audio_path": file_path,
-                    "features": features_dict,
-                    "hint": "Call save_features(track_ref, features_json) to persist",
-                },
-                ensure_ascii=False,
-            )
+            # Return computed features (agent calls save_features to persist)
+            return {
+                "track_ref": track_ref,
+                "audio_path": file_path,
+                "features": features_dict,
+                "hint": "Call save_features(track_ref, features_json) to persist",
+            }
 
         except ImportError as e:
             raise ToolError(
@@ -118,7 +113,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
         energy_arc: str = "classic",
         exclude_track_ids: list[int] | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> dict[str, object]:
         """Compute optimal track ordering WITHOUT saving to DB.
 
         Runs GA optimization on tracks from a playlist. Returns the
@@ -180,7 +175,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
             # Cleanup temp set
             await set_svc.delete(temp_set.set_id)
 
-            return json.dumps(result, ensure_ascii=False)
+            return result
 
         except (NotFoundError, ValidationError, ValueError) as e:
             raise ToolError(f"Set computation failed: {e}") from None

@@ -6,7 +6,6 @@ Delegates to the existing format-specific implementations in export_tools.py.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from fastmcp import FastMCP
@@ -29,7 +28,7 @@ def register_unified_export_tools(mcp: FastMCP) -> None:
         format: str = "json",
         base_path: str = "/Music",
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> dict[str, object]:
         """Export a DJ set version in the requested format.
 
         Unified export: one tool for all formats (m3u, json, rekordbox).
@@ -78,7 +77,7 @@ def register_unified_export_tools(mcp: FastMCP) -> None:
             "track_count": len(items),
             "content": content,
         }
-        return json.dumps(result, ensure_ascii=False)
+        return result
 
 
 async def _export_m3u(

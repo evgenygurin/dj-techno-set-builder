@@ -28,7 +28,7 @@ from app.mcp.entity_finder import PlaylistFinder
 from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
-from app.mcp.types import PlaylistDetail
+from app.mcp.types import ActionResponse, EntityDetailResponse, EntityListResponse, PlaylistDetail
 from app.models.dj import DjPlaylistItem
 from app.models.ingestion import ProviderTrackId
 from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
@@ -78,7 +78,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
         cursor: str | None = None,
         search: str | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> EntityListResponse:
         """List playlists with optional text search.
 
         Returns paginated PlaylistSummary list + library stats.
@@ -107,7 +107,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
     async def get_playlist(
         playlist_ref: str | int,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> EntityDetailResponse | EntityListResponse:
         """Get playlist details by ref. Text refs return match list.
 
         Args:
@@ -134,7 +134,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
         name: str,
         source_app: int | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> ActionResponse:
         """Create a new playlist in the local database.
 
         Args:
@@ -157,7 +157,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
         playlist_ref: str | int,
         name: str | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> ActionResponse:
         """Update playlist fields by ref.
 
         Args:
@@ -186,7 +186,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
     async def delete_playlist(
         playlist_ref: str | int,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> ActionResponse:
         """Delete a playlist by ref.
 
         Args:

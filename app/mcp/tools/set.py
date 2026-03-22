@@ -31,6 +31,9 @@ from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
 from app.mcp.types import (
+    ActionResponse,
+    EntityDetailResponse,
+    EntityListResponse,
     SetCheatSheet,
     SetDetail,
     SetTrackItem,
@@ -148,7 +151,7 @@ def register_set_tools(mcp: FastMCP) -> None:
         cursor: str | None = None,
         search: str | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> EntityListResponse:
         """List DJ sets with optional text search.
 
         Args:
@@ -179,7 +182,7 @@ def register_set_tools(mcp: FastMCP) -> None:
     async def get_set(
         set_ref: str | int,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> EntityDetailResponse | EntityListResponse:
         """Get set details by ref. Text refs return match list.
 
         Args:
@@ -209,7 +212,7 @@ def register_set_tools(mcp: FastMCP) -> None:
         template_name: str | None = None,
         source_playlist_id: int | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> ActionResponse:
         """Create a new DJ set, optionally populated with tracks.
 
         If track_ids provided, creates set + version + items in one call.
@@ -257,7 +260,7 @@ def register_set_tools(mcp: FastMCP) -> None:
         name: str | None = None,
         description: str | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> ActionResponse:
         """Update set fields by ref.
 
         Args:
@@ -287,7 +290,7 @@ def register_set_tools(mcp: FastMCP) -> None:
     async def delete_set(
         set_ref: str | int,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> ActionResponse:
         """Delete a DJ set by ref.
 
         Args:

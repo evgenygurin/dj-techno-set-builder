@@ -21,7 +21,7 @@ from app.mcp.entity_finder import TrackFinder
 from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
-from app.mcp.types import TrackDetail
+from app.mcp.types import ActionResponse, EntityDetailResponse, EntityListResponse, TrackDetail
 from app.repositories.audio_features import AudioFeaturesRepository
 from app.repositories.tracks import TrackRepository
 from app.schemas.tracks import TrackCreate, TrackUpdate
@@ -62,7 +62,7 @@ def register_track_tools(mcp: FastMCP) -> None:
         cursor: str | None = None,
         search: str | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> EntityListResponse:
         """List tracks with optional text search.
 
         Returns paginated TrackSummary list + library stats.
@@ -90,7 +90,7 @@ def register_track_tools(mcp: FastMCP) -> None:
     async def get_track(
         track_ref: str | int,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> EntityDetailResponse | EntityListResponse:
         """Get track details by ref.
 
         Exact refs (local:42, 42) return full TrackDetail.
@@ -120,7 +120,7 @@ def register_track_tools(mcp: FastMCP) -> None:
         title: str,
         duration_ms: int,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> ActionResponse:
         """Create a new track in the local database.
 
         Args:
@@ -144,7 +144,7 @@ def register_track_tools(mcp: FastMCP) -> None:
         title: str | None = None,
         duration_ms: int | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> ActionResponse:
         """Update track fields by ref.
 
         Args:
@@ -176,7 +176,7 @@ def register_track_tools(mcp: FastMCP) -> None:
     async def delete_track(
         track_ref: str | int,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> ActionResponse:
         """Delete a track by ref.
 
         Args:

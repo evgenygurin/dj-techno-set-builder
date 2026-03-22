@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
+from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.mcp.dependencies import get_session
@@ -15,6 +15,7 @@ from app.mcp.library_stats import get_library_stats
 from app.mcp.pagination import encode_cursor, paginate_params
 from app.mcp.refs import parse_ref
 from app.mcp.types import (
+    EntityListResponse,
     MatchStats,
     PaginationInfo,
     SearchResponse,
@@ -35,7 +36,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         limit: int = 20,
         cursor: str | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> SearchResponse:
         """Universal search across all entities and platforms.
 
         Searches local DB (tracks, playlists, sets, artists) by fuzzy text match.
@@ -48,7 +49,7 @@ def register_search_tools(mcp: FastMCP) -> None:
             cursor: Pagination cursor from previous response.
         """
         if not query or not query.strip():
-            return json.dumps({"results": [], "total": 0, "error": "query cannot be empty"})
+            raise ToolError("query cannot be empty")
 
         offset, clamped_limit = paginate_params(cursor=cursor, limit=limit)
         ref = parse_ref(query)
@@ -96,7 +97,7 @@ def register_search_tools(mcp: FastMCP) -> None:
             library=library,
             pagination=PaginationInfo(limit=clamped_limit, has_more=has_more, cursor=next_cursor),
         )
-        return json.dumps(response.model_dump(exclude_none=True), ensure_ascii=False)
+        return response
 
     @mcp.tool(tags={"search"}, annotations={"readOnlyHint": True})
     async def filter_tracks(
@@ -116,7 +117,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         limit: int = 50,
         cursor: str | None = None,
         session: AsyncSession = Depends(get_session),
-    ) -> str:
+    ) -> EntityListResponse:
         """Filter tracks by audio parameters (BPM, key, energy, spectral).
 
         Uses SQL-level filtering — efficient for large libraries.
