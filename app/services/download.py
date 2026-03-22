@@ -157,6 +157,9 @@ class DownloadService:
     ) -> DownloadResult:
         """Download multiple tracks with retry and statistics.
 
+        Runs sequentially — YM rate limiter enforces 1.5s between requests,
+        and the shared DB session (SQLite) doesn't support concurrent writes.
+
         Args:
             track_ids: List of track IDs to download
             prefer_bitrate: Preferred bitrate in kbps (default: 320)

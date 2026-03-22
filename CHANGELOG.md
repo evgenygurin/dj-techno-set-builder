@@ -60,6 +60,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **DI bypass in delivery.py** (Issue #64, P0-2): `_sync_to_ym()` now receives session via DI instead of importing `session_factory` directly
 - **BaseRepository.update() field validation** (Issue #64, P0-3): validates field names against model columns, rejects unknown fields with `ValueError`
 - **Secrets in repr** (Issue #64, P0-5): added `repr=False` to `yandex_music_token`, `anthropic_api_key`, `sentry_dsn` in Settings
+- **Broad except narrowing** (Issue #64, P0-4): narrowed 9 `except Exception` to specific types in services, MCP tools, routers
+- **GA artist variety** (Issue #64, P1-7): wired `artist_id` from `track_artists` into GA fitness — variety scoring now functional
+- **YM rate limit lock** (Issue #64, P1-10): added `asyncio.Lock` to `_rate_limit()` preventing concurrent bypass
+- **BaseRepository.get_by_ids()** (Issue #64, P1-8): batch-fetch by PK with `pk.in_()` — prevents N+1 queries
+- **TypeForm consolidation** (Issue #64, P2-13): single source in `_compat.py`, called from `app/__init__.py`; removed `typing_extensions_patch.py`
+- **SetGenerationService logging** (Issue #64, P3-22): added entry/result logging to `generate()`
+- **Outdated TODO** (Issue #64, P3-24): updated `_build_transition_matrix` docstring — no longer marked as TODO
 
 ## [0.2.0] - 2026-02-15
 

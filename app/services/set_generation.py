@@ -118,6 +118,10 @@ class SetGenerationService(BaseService):
             NotFoundError: If set_id doesn't exist
             ValidationError: If no tracks with features available
         """
+        self.logger.info(
+            "generate: set_id=%d, config=%s", set_id, data.model_dump(exclude_none=True)
+        )
+
         # Verify set exists
         dj_set = await self.set_repo.get_by_id(set_id)
         if not dj_set:
@@ -237,6 +241,12 @@ class SetGenerationService(BaseService):
             constraints=constraints,
         )
         result = gen.run()
+        self.logger.info(
+            "GA complete: score=%.4f, tracks=%d, generations=%d",
+            result.score,
+            len(result.track_ids),
+            result.generations_run,
+        )
 
         # Create set version
         version = await self.version_repo.create(
@@ -282,11 +292,11 @@ class SetGenerationService(BaseService):
         )
 
     def _build_transition_matrix(self, tracks: list[TrackData]) -> np.ndarray:
-        """Build a simple transition quality matrix.
+        """Build a simple BPM+key transition matrix (lightweight fallback).
 
-        TODO: Replace with TransitionScoringService for real scoring.
-
-        For now: higher score if BPM difference is small and keys are compatible.
+        The primary path uses ``_build_transition_matrix_scored`` which calls
+        ``TransitionScoringService`` for full 6-component scoring. This method
+        exists as a cheap fallback when features are unavailable.
         """
         n = len(tracks)
         matrix = np.zeros((n, n), dtype=np.float64)

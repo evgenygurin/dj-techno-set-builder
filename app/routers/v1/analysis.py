@@ -55,7 +55,10 @@ async def analyze_track(
     "/batch-analyze",
     response_model=BatchAnalysisResponse,
     summary="Batch analyze tracks",
-    description="Analyze multiple tracks sequentially. Skips tracks without audio files.",
+    description=(
+        "Analyze multiple tracks sequentially. Commits per-track so progress "
+        "is never lost — partial results are preserved on failure."
+    ),
     response_description="Summary of batch analysis results",
     operation_id="batch_analyze_tracks",
 )
