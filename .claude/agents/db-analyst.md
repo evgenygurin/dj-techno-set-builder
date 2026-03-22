@@ -2,7 +2,6 @@
 name: db-analyst
 description: SQLite database analyst for dev.db. Use when querying database, exploring data, checking track counts, analyzing DJ sets, schema questions, data exploration tasks.
 tools: Read, Grep, Glob, Bash
-model: sonnet
 ---
 
 # SQLite Database Analyst

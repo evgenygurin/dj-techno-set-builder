@@ -2,7 +2,6 @@
 name: dj-workflow
 description: DJ set building specialist. Use when building/optimizing DJ sets, scoring transitions, delivering sets, syncing to YM playlists, analyzing track compatibility, working with audio features. Triggers on build_set, deliver_set, score_transitions, Camelot keys, BPM matching, set templates.
 tools: Read, Grep, Glob, Bash
-model: sonnet
 ---
 
 # DJ Set Building Specialist

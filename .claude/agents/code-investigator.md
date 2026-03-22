@@ -2,7 +2,6 @@
 name: code-investigator
 description: Codebase research specialist. Use when finding where something is implemented, understanding code flow, tracing data paths, researching patterns, answering "where is X" or "how does Y work" questions. Read-only investigation, never edits files.
 tools: Read, Grep, Glob, Bash
-model: sonnet
 ---
 
 # Codebase Research Specialist
@@ -18,7 +17,7 @@ Schemas   Errors     Models
 
 MCP Gateway (FastMCP 3.0)
   ├── Yandex Music (namespace "ym") — ~30 OpenAPI tools
-  └── DJ Workflows (namespace "dj") — 23 hand-written tools
+  └── DJ Workflows (namespace "dj") — 41 hand-written tools
 ```
 
 ## Key Directories
