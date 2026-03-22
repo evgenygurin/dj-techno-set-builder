@@ -5,222 +5,98 @@ description: Use when adding a new MCP tool, registering tools in gateway, creat
 
 # MCP Tool Development
 
-## Назначение
+Разработка DJ Workflow инструментов в `app/mcp/tools/`. Паттерны и ловушки.
 
-Разработка новых DJ Workflow инструментов в `app/mcp/tools/`. Этот скилл описывает реальную структуру, паттерны и ловушки — не теорию, а то, что работает.
+## Точка входа
 
----
-
-## Точка входа — определи по контексту
-
-| Задача | С чего начать |
-|--------|---------------|
-| Новый read-only инструмент (анализ, статистика) | → `app/mcp/tools/features.py` или `search.py` как образец |
-| Инструмент с долгой операцией (>5 сек) | → `app/mcp/tools/delivery.py` — образец visible-stages |
-| Новый CRUD (создать/обновить/удалить) | → `app/mcp/tools/set.py` или `track.py` |
-| Инструмент с YM API | → `app/mcp/tools/sync.py` + `app/clients/yandex_music.py` |
-| Внешний вызов через elicitation | → `app/mcp/elicitation.py` |
-
----
+| Задача | Образец |
+|--------|---------|
+| Read-only инструмент | `features.py`, `search.py` |
+| Долгая операция (>5 сек) | `delivery.py` (visible-stages) |
+| CRUD | `set.py`, `track.py` |
+| YM API | `sync.py` + `app/clients/yandex_music.py` |
 
 ## Структура нового инструмента
 
 ```python
 # app/mcp/tools/mymodule.py
-
-from __future__ import annotations
 from fastmcp import FastMCP
 from fastmcp.server.context import Context
-from fastmcp.dependencies import Depends
+from fastmcp.dependencies import Depends  # НЕ FastAPI Depends!
 from app.mcp.dependencies import get_track_service
-from app.mcp.types import TrackDetails  # или создай новый Pydantic-тип в types/
 
 def register_my_tools(mcp: FastMCP) -> None:
-
     @mcp.tool(annotations={"readOnlyHint": True}, tags={"analysis"})
     async def my_tool(
-        track_id: int,              # видно в MCP-клиенте
-        ctx: Context,               # инжектится FastMCP, НИКОГДА не делай ctx: Context = None
-        svc: TrackService = Depends(get_track_service),  # инжектится, скрыто от клиента
-    ) -> TrackDetails:              # Pydantic-тип → structured_content
-        await ctx.info("Processing...")
-        track = await svc.get(track_id)
-        if not track:
-            raise ValueError(f"Track {track_id} not found")
-        return TrackDetails(...)
+        track_id: int,
+        ctx: Context,  # НИКОГДА ctx: Context = None
+        svc: TrackService = Depends(get_track_service),
+    ) -> MyResultType:
+        ...
 ```
 
----
+## Регистрация
 
-## DI провайдеры (`app/mcp/dependencies.py`)
+1. `register_my_tools(mcp)` в `app/mcp/tools/server.py`
+2. Pydantic return type в `app/mcp/types/` → `structured_content`
+3. B008 per-file-ignore в `pyproject.toml`
 
-8 провайдеров, все готовы к использованию:
+## DI провайдеры (9 шт)
 
-| Depends | Возвращает |
-|---------|-----------|
-| `get_session` | `AsyncSession` |
-| `get_track_service` | `TrackService` |
-| `get_playlist_service` | `PlaylistService` |
-| `get_features_service` | `FeaturesService` |
-| `get_analysis_service` | `AnalysisOrchestrator` |
-| `get_set_service` | `DjSetService` |
-| `get_set_generation_service` | `SetGenerationService` |
-| `get_transition_service` | `TransitionScoringService` |
-| `get_ym_client` | `YandexMusicClient` |
+`get_session`, `get_track_service`, `get_playlist_service`, `get_features_service`, `get_analysis_service`, `get_set_service`, `get_set_generation_service`, `get_transition_service`, `get_ym_client`.
 
----
-
-## Регистрация нового модуля
-
-1. Создай функцию `register_my_tools(mcp: FastMCP) -> None:` в `app/mcp/tools/mymodule.py`
-2. Добавь импорт в `app/mcp/tools/server.py`:
-   ```python
-   from app.mcp.tools.mymodule import register_my_tools
-   # в create_workflow_mcp():
-   register_my_tools(mcp)
-   ```
-3. **Ruff B008**: `Depends()` в аргументах по умолчанию → добавь в `pyproject.toml`:
-   ```toml
-   [tool.ruff.lint.per-file-ignores]
-   "app/mcp/tools/mymodule.py" = ["B008"]
-   ```
-
----
-
-## Типы возврата (`app/mcp/types/`)
-
-Все инструменты возвращают Pydantic-модели. FastMCP кладёт поля НАПРЯМУЮ в `structured_content`:
+## Тестирование
 
 ```python
-# structured_content["set_id"] ← правильно
-# structured_content["result"]["set_id"] ← неправильно!
-```
-
-Текущие типы: `PlaylistStatus`, `TrackDetails`, `ImportResult`, `AnalysisResult`, `SimilarTracksResult`, `SearchStrategy`, `SetBuildResult`, `TransitionScoreResult`, `ExportResult`, `DeliveryResult`.
-
-Создавай новый тип в `app/mcp/types/workflows.py` или `app/mcp/types/analysis.py`.
-
----
-
-## Visible-stages паттерн (для операций > 5 сек)
-
-```python
-@mcp.tool(tags={"setbuilder"}, timeout=300)
-async def long_operation(ctx: Context, ...) -> ResultModel:
-    # Stage 1: быстро, обратимо
-    await ctx.info("Stage 1/3 — проверка...")
-    await ctx.report_progress(progress=0, total=3)
-    result = await check_something()
-
-    if result.has_problem:
-        from app.mcp.elicitation import resolve_conflict
-        decision = await resolve_conflict(ctx, "Продолжить?", options=["continue", "abort"])
-        if decision != "continue":
-            return ResultModel(status="aborted", ...)
-
-    # Stage 2: мутация (необратимо)
-    await ctx.info("Stage 2/3 — запись файлов...")
-    await ctx.report_progress(progress=1, total=3)
-    await write_files(...)
-
-    # Stage 3: опциональный внешний сервис
-    await ctx.info("Stage 3/3 — синхронизация...")
-    await ctx.report_progress(progress=2, total=3)
-    await sync_to_ym(...)
-
-    await ctx.report_progress(progress=3, total=3)
-    return ResultModel(status="ok", ...)
-```
-
----
-
-## Tags и видимость
-
-| Tag | Видимость | Назначение |
-|-----|-----------|------------|
-| `analysis` | По умолчанию | read-only анализ |
-| `discovery` | По умолчанию | Поиск похожих |
-| `setbuilder` | По умолчанию | Построение сетов |
-| `sync`, `yandex` | По умолчанию | YM синхронизация |
-| `import`, `download` | По умолчанию | Импорт треков |
-| `curation` | По умолчанию | Курирование |
-| `admin` | По умолчанию | Управление |
-| `heavy` | **Скрыт** | Тяжёлые вычисления (активация через `activate_heavy_mode`) |
-
----
-
-## Тестирование нового инструмента
-
-### Минимальный набор (для каждого нового инструмента)
-
-```python
-# tests/mcp/test_workflow_mymodule.py
-
-async def test_my_tool_registered(workflow_mcp: FastMCP):
+# Метаданные (без DB)
+async def test_registered(workflow_mcp):
     tools = await workflow_mcp.list_tools()
     assert "my_tool" in {t.name for t in tools}
 
-async def test_my_tool_has_correct_tags(workflow_mcp: FastMCP):
-    tools = await workflow_mcp.list_tools()
-    tool = next(t for t in tools if t.name == "my_tool")
-    assert "analysis" in tool.tags
-
-async def test_gateway_has_dj_my_tool(gateway_mcp: FastMCP):
-    tools = await gateway_mcp.list_tools()
-    assert "dj_my_tool" in {t.name for t in tools}
-```
-
-### Интеграционный тест (с DB)
-
-```python
-async def test_my_tool_with_db(workflow_mcp_with_db: FastMCP, engine):
-    # Сидируй через engine, НЕ через session_factory!
+# Интеграция (с DB) — сидируй через engine!
+async def test_with_db(workflow_mcp_with_db, engine):
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as session:
-        track = Track(title="Test", duration_ms=300_000, status=0)
-        session.add(track)
-        await session.commit()
-
+    # ... seed data ...
     async with Client(workflow_mcp_with_db) as client:
-        raw = await client.call_tool("my_tool", {"track_id": track.track_id})
-
-    sc = raw.structured_content
-    assert sc["track_id"] == track.track_id
-    assert not raw.is_error
+        raw = await client.call_tool("my_tool", {...})
+    assert raw.structured_content["field"] == expected  # НЕ sc["result"]["field"]
 ```
-
----
 
 ## Частые ошибки
 
-| Ошибка | Причина | Решение |
-|--------|---------|---------|
-| `ctx: Context = None` | FastMCP не принимает опциональный ctx | Всегда `ctx: Context` без дефолта |
-| `f"#EXTM3U"` → ruff warning | f-string без интерполяции | Убрать `f` префикс |
-| `keys = [t.get("key") for t in tracks]` → mypy `list[Any \| None]` | `.get()` возвращает `None` | Walrus: `[k for t in tracks if (k := t.get("key")) is not None]` |
-| `session_factory()` в тестах | Сидирует в реальную базу, а не тестовую | `async_sessionmaker(engine)` |
-| `sc["result"]["field"]` в тестах | FastMCP не оборачивает в `result` | `sc["field"]` напрямую |
-| B008 ruff | `Depends()` в дефолтных аргументах | Добавь per-file-ignores в pyproject.toml |
+| Ошибка | Решение |
+|--------|---------|
+| `ctx: Context = None` | Всегда `ctx: Context` без дефолта |
+| `sc["result"]["field"]` | `sc["field"]` напрямую |
+| `session_factory()` в тестах | `async_sessionmaker(engine)` |
+
+## Чеклист PR
+
+- [ ] Зарегистрирован в `server.py`
+- [ ] `readOnlyHint: True` для read-only
+- [ ] Возвращает Pydantic-модель
+- [ ] B008 в per-file-ignores
+- [ ] Тесты: регистрация + gateway namespacing
+- [ ] `make check` прошёл
+
+Подробности: `.claude/rules/mcp.md`.
 
 ---
 
-## Быстрое тестирование через CLI (без перезапуска сервера)
+## Iron Law
 
-```bash
-make mcp-call TOOL=dj_my_tool ARGS='{"track_id": 42}'
-# Первая строка — echo команды make, JSON со второй строки
-make mcp-call TOOL=dj_my_tool ARGS='{"track_id": 42}' | sed '1d' | jq .
+```text
+NO TOOL REGISTRATION WITHOUT PYDANTIC RETURN TYPE AND TEST
 ```
 
----
+Инструмент без Pydantic return type не генерирует `structured_content`. Инструмент без теста ломается молча при gateway namespacing.
 
-## Чеклист для PR
+## Red Flags
 
-- [ ] Инструмент зарегистрирован в `server.py`
-- [ ] `ctx: Context` без дефолтного значения
-- [ ] Возвращает Pydantic-модель (не dict)
-- [ ] `readOnlyHint: True` для read-only инструментов
-- [ ] B008 добавлен в per-file-ignores если используется Depends
-- [ ] Тесты: регистрация + тег + gateway namespacing
-- [ ] Тест: интеграционный (если инструмент работает с DB)
-- [ ] `make check` прошёл (ruff + mypy + pytest)
+| Отговорка | Реальность |
+|-----------|------------|
+| "Верну просто строку" | `structured_content` требует Pydantic модель — строка = raw text, не structured |
+| "ctx: Context = None подойдёт" | FastMCP инъектирует ctx автоматически — дефолт None сломает инъекцию |
+| "sc['result']['field']" | FastMCP кладёт поля напрямую в `structured_content`, НЕ в `result` обёртку |
+| "Тест потом напишу" | Gateway namespacing (`dj_` prefix) не проверится без теста |
+| "Возьму FastAPI Depends" | MCP использует `fastmcp.dependencies.Depends` — другой Depends! |

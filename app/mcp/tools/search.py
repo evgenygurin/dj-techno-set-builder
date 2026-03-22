@@ -47,6 +47,9 @@ def register_search_tools(mcp: FastMCP) -> None:
             limit: Max results per category (default 20, max 100).
             cursor: Pagination cursor from previous response.
         """
+        if not query or not query.strip():
+            return json.dumps({"results": [], "total": 0, "error": "query cannot be empty"})
+
         offset, clamped_limit = paginate_params(cursor=cursor, limit=limit)
         ref = parse_ref(query)
 
@@ -103,11 +106,18 @@ def register_search_tools(mcp: FastMCP) -> None:
         key_code_max: int | None = None,
         energy_min: float | None = None,
         energy_max: float | None = None,
+        kick_min: float | None = None,
+        kick_max: float | None = None,
+        hp_ratio_min: float | None = None,
+        hp_ratio_max: float | None = None,
+        centroid_min: float | None = None,
+        centroid_max: float | None = None,
+        camelot_keys: list[str] | None = None,
         limit: int = 50,
         cursor: str | None = None,
         session: AsyncSession = Depends(get_session),
     ) -> str:
-        """Filter tracks by audio parameters (BPM, key_code, energy).
+        """Filter tracks by audio parameters (BPM, key, energy, spectral).
 
         Uses SQL-level filtering — efficient for large libraries.
         Returns paginated track list with BPM/key/energy populated.
@@ -119,6 +129,13 @@ def register_search_tools(mcp: FastMCP) -> None:
             key_code_max: Maximum key_code (0-23).
             energy_min: Minimum energy_mean (0.0-1.0, e.g. 0.3).
             energy_max: Maximum energy_mean (0.0-1.0, e.g. 0.8).
+            kick_min: Minimum kick_prominence (0.0-1.0).
+            kick_max: Maximum kick_prominence (0.0-1.0).
+            hp_ratio_min: Minimum harmonic/percussive ratio (unbounded, avg ~2.2).
+            hp_ratio_max: Maximum harmonic/percussive ratio (e.g. 8.0).
+            centroid_min: Minimum spectral centroid in Hz (e.g. 300).
+            centroid_max: Maximum spectral centroid in Hz (e.g. 5000).
+            camelot_keys: Filter by Camelot keys, e.g. ["4A","5A","4B"].
             limit: Max results (default 50, max 100).
             cursor: Pagination cursor.
         """
@@ -143,6 +160,13 @@ def register_search_tools(mcp: FastMCP) -> None:
             key_codes=key_codes,
             energy_min=energy_min,
             energy_max=energy_max,
+            kick_min=kick_min,
+            kick_max=kick_max,
+            hp_ratio_min=hp_ratio_min,
+            hp_ratio_max=hp_ratio_max,
+            centroid_min=centroid_min,
+            centroid_max=centroid_max,
+            camelot_keys=camelot_keys,
             offset=offset,
             limit=clamped,
         )

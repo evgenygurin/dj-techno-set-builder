@@ -6,8 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-22
+
 ### Added
 
+- **Iron Laws**: все 5 скиллов дополнены Iron Law + Rationalization Table + Red Flags по паттерну obra/superpowers
+- **Agent `emergency-protocols`**: диагностика MCP/DB/iCloud/CI проблем с triage-таблицей
+- **Agent `pr-reviewer`**: двухстадийный review PR от Codegen агентов (spec compliance → code quality)
+- **Command `/setup-check`**: верификация окружения (DB, MCP, env vars, deps, iCloud)
+- **Command `/delegate` улучшен**: 5 примеров типичных задач для делегирования
 - **Data refresh scripts**: `scripts/refresh_data.py` (audio features + sections), `scripts/refresh_ym_metadata.py` (YM metadata), `scripts/rescore_sets.py` (transition scores)
 - **Makefile refresh targets**: `make refresh-features`, `make refresh-sections`, `make refresh-scores`, `make refresh-ym`, `make refresh-all`, `make refresh-dry`
 - **Skills restructured**: 4 project skills переведены в официальный формат `.claude/skills/<name>/SKILL.md` с YAML frontmatter (`name`, `description`) — теперь model-invoked автоматически по контексту
@@ -27,17 +34,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Skills дисциплина**: каждый скилл теперь содержит жёсткое ограничение (Iron Law) и таблицу типичных отговорок
+- **Memory `superpowers-patterns.md`**: обновлён с полным анализом v5.0.5 — Iron Laws, CSO, Two-Stage Review, Skill Chaining
 - **Cleanup**: removed completed TODOs, added script data files to .gitignore
 - **Mood classifier**: expanded from 6 to 15 subgenres with weighted fuzzy scoring; narrowed driving/hypnotic Gaussians (sigma=0.15) to prevent catch-all dominance
 - **audio.md**: added "Mood classifier (15 subgenres)" section with discriminators table, anti-catch-all penalties, subgenre playlists info
-- **CLAUDE.md**: секция Workflow skills обновлена; добавлены `db-schema.md`, `make db-schema`, заметка про 12 pre-existing mypy errors; таблицы ссылок на docs.anthropic.com и docs.codegen.com
+- **CLAUDE.md**: секция Workflow skills обновлена; добавлены `db-schema.md`, `make db-schema`; таблицы ссылок на docs.anthropic.com и docs.codegen.com; mypy status updated (12 errors → 0)
 - **database.md**: добавлена секция "Schema reference" с правилами регенерации `db-schema.md`
 - **Episodic Memory**: добавлено обязательное правило использования `episodic-memory:search-conversations` при старте сессии
 - **Documentation meta-rules**: добавлена секция Official Documentation Requirement
 - **MCP rules**: добавлена ссылка на официальную MCP документацию
 - **`.env.example`**: добавлен `DJ_DB_PATH` для sqlite-db MCP сервера
+- **Documentation sync**: tool counts verified via runtime (52 DJ + 28 YM + 4 transforms = 84 total); db-schema.md regenerated; audio modules 21→22 (greedy_chain); Pydantic types 36→37 (DistributeResult)
+- **CHANGELOG format**: standardized to Keep a Changelog (removed non-standard "Previously Added", merged duplicate "Changed")
+- **macOS compatibility rules**: added to documentation.md (lsof not fuser, stat -f not stat -c)
 
 ### Fixed
+
+- **`ctx: Context` defaults**: fixed 7 MCP tools with `ctx: Context | None = None` → `ctx: Context` (download.py, sync.py ×6)
+- **Broad exceptions narrowed**: 4 `except Exception` in curation_discovery.py → `except (httpx.HTTPError, TimeoutError, ValueError)`
+- **Hardcoded `provider_id=4`**: replaced with `_YM_PROVIDER_ID` constant in 9 locations (curation_discovery.py, playlist.py, sync.py, complete_workflow.py)
+- **Stale tool names**: fixed `ym_search_tracks` → `ym_search_yandex_music` in prompts (runtime bug); `dj_get_track_details` → `dj_get_track`, `dj_get_playlist_status` → `dj_get_playlist` in docs
+- **`make mcp-list` crash**: removed `--skip-env` from mcp-list/mcp-call targets (YM client init fails without .env)
+- **CI PYTHONPATH**: removed hardcoded `python3.13` path (no longer needed with `_compat.py` TypeForm patch)
+- **Missing configs**: added `DJ_LIBRARY_PATH` to `.env.example`; added `DATABASE_URL` + `DJ_LIBRARY_PATH` to `fastmcp.json` deployment env
+- **`.gitignore`**: added `CLAUDE.local.md`
+- **`find_similar_tracks`**: marked DEPRECATED (always returns 0 candidates — real pipeline in `discover_candidates`/`expand_playlist_full`)
+- **mypy status**: updated from "12 pre-existing errors" to "0 errors" across 5 documentation files
 
 - **mypy config**: added `librosa.*` to `ignore_missing_imports` to fix CI lint failures
 - **API duplicate queries**: removed duplicate `features_repo.list_all()` call in `SetGenerationService`
@@ -67,6 +90,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **TypeForm consolidation** (Issue #64, P2-13): single source in `_compat.py`, called from `app/__init__.py`; removed `typing_extensions_patch.py`
 - **SetGenerationService logging** (Issue #64, P3-22): added entry/result logging to `generate()`
 - **Outdated TODO** (Issue #64, P3-24): updated `_build_transition_matrix` docstring — no longer marked as TODO
+- **Docs sync with code** (Issue #64, P1-1): fixed 6 incorrect tool names in skills/agents (`dj_get_track_details` → `dj_get_track`, `dj_search_by_criteria` → `dj_filter_tracks`, `dj_compute_audio_features` → `dj_analyze_track`); updated tool counts 41→44 across CLAUDE.md, mcp.md, agents; fixed "6 mood categories" → "15" in dj-workflow agent
+- **Skills token budget** (Issue #64): reduced 3 oversized skills to CSO-compliant sizes — audio-analysis (922→362 words), mcp-tool-dev (938→318), delegated-development (1055→351). Eliminated duplication with `.claude/rules/` files
 
 ## [0.2.0] - 2026-02-15
 

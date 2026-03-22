@@ -33,7 +33,8 @@ description: Use when building DJ sets, scoring transitions, delivering sets, sy
 dj_search(query)                    → tracks[] с BPM/key/energy
 dj_filter_tracks(bpm_min, bpm_max)  → tracks[] по параметрам
 dj_get_playlist(playlist_ref)       → playlist с items[]
-dj_get_track_details(track_ref)     → audio features трека
+dj_get_track(track_ref)              → метаданные трека
+dj_get_features(track_ref)           → audio features трека
 dj_score_transitions(set_ref, version_id) → TransitionScoreResult[]
 ```
 
@@ -107,4 +108,28 @@ YM playlist: kind={ym_playlist_kind}  ← если sync_to_ym
 - Не запускать `dj_deliver_set` без `version_id` — нужна конкретная версия
 - Не синхронизировать в YM без явного согласия пользователя
 - Не пересобирать сет без причины — если `avg_score ≥ 0.75`, он скорее всего хорош
-- Не вызывать `dj_compute_audio_features` без нужды — тяжёлая операция, только по запросу
+- Не вызывать `dj_analyze_track` без нужды — тяжёлая операция, требует `dj_activate_heavy_mode`
+
+---
+
+## Iron Law
+
+```text
+NO SET DELIVERY WITHOUT SCORING ALL TRANSITIONS
+```
+
+Каждый `dj_build_set` ОБЯЗАН завершиться `dj_score_transitions` → `dj_deliver_set`. Незавершённый сет — потерянная работа.
+
+## Red Flags — СТОП и вернись к процессу
+
+Если ловишь себя на мыслях:
+
+| Отговорка | Реальность |
+|-----------|------------|
+| "Score потом" | Без scoring cheat_sheet не содержит рекомендации по переходам |
+| "Deliver необязателен" | Без deliver нет файлов — M3U8, cheat_sheet, MP3 копии не создаются |
+| "avg_score и так нормальный" | Средний score скрывает 1-2 hard conflicts — всегда проверяй отдельные переходы |
+| "YM sync сделаю позже" | Если пользователь просил sync — делай сразу, потом забудешь version_id |
+| "Пересоберу сет с нуля" | `rebuild_set` с pinned/excluded сохраняет хорошие решения — не выбрасывай GA результат |
+
+**ВСЕ эти мысли означают: СТОП. Вернись к полному циклу build → score → deliver.**

@@ -50,14 +50,14 @@ app/mcp/
 ## Gateway composition
 
 `create_dj_mcp()` in `app/mcp/gateway.py`:
-- Mounts **Yandex Music** sub-server at namespace `"ym"` (~30 tools from OpenAPI)
-- Mounts **DJ Tools** sub-server at namespace `"dj"` (41 hand-written tools)
+- Mounts **Yandex Music** sub-server at namespace `"ym"` (28 tools from OpenAPI)
+- Mounts **DJ Tools** sub-server at namespace `"dj"` (52 hand-written tools)
 - Adds `PromptsAsTools` + `ResourcesAsTools` transforms for tool-only MCP clients
-- Total: ~75 tools (30 YM + 41 DJ + 4 transforms)
+- Total: 84 tools (28 YM + 52 DJ + 4 transforms)
 
 ## DJ Workflow tools (namespace "dj")
 
-41 tools across 14 modules + server.py:
+52 tools across 16 modules + server.py:
 
 | Tool | Tags | Read-only | Description |
 |------|------|-----------|-------------|
@@ -97,11 +97,19 @@ app/mcp/
 | `classify_tracks` | curation | Yes | Classify all tracks by 15 mood categories |
 | `analyze_library_gaps` | curation | Yes | Analyze library for gaps relative to a template |
 | `review_set` | curation, setbuilder | Yes | Review set: weak transitions, suggestions |
+| `audit_playlist` | curation | Yes | Audit playlist tracks against techno criteria |
+| `distribute_to_subgenres` | curation | No | Distribute tracks to 15 subgenre playlists |
+| `discover_candidates` | discovery, curation | No | Find similar tracks via YM recommendations |
+| `expand_playlist_discover` | discovery, curation | No | Discover + filter candidates in one call |
+| `expand_playlist_full` | discovery, curation | No | Full expand: discover + import + add to playlist |
+| `populate_from_ym` | crud, playlist | No | Populate local playlist from YM playlist |
+| `score_track_pairs` | setbuilder | Yes | Score specific track pair transitions |
 | `sync_playlist` | sync | No | Bidirectional sync between local playlist and platform |
 | `set_source_of_truth` | sync | No | Configure source of truth for a playlist |
 | `link_playlist` | sync | No | Link local playlist to platform playlist |
 | `sync_set_to_ym` | sync, yandex | No | Push DJ set to YM as playlist |
 | `sync_set_from_ym` | sync, yandex | No | Read feedback from YM, detect changes |
+| `batch_sync_sets_to_ym` | sync, yandex | No | Batch-push multiple sets to YM |
 | `activate_heavy_mode` | admin | No | Enable heavy analysis tools |
 | `activate_ym_raw` | admin | No | Enable raw Yandex Music API tools |
 | `list_platforms` | admin | Yes | List configured music platforms |
@@ -170,7 +178,7 @@ Heavy tools (tagged `"heavy"`) are hidden by default via `mcp.disable(tags={"hea
 - `improve_set` — score transitions -> adjust -> re-score
 - `deliver_set_workflow` — score -> write files -> YM sync (with checkpoint on hard conflicts)
 
-Each returns `list[Message]` with step-by-step instructions referencing namespaced tool names (e.g. `dj_get_playlist_status`, `ym_search_tracks`).
+Each returns `list[Message]` with step-by-step instructions referencing namespaced tool names (e.g. `dj_get_playlist`, `ym_search_yandex_music`).
 
 ## Resources
 
@@ -182,14 +190,14 @@ Resources use FastMCP DI (`Depends`) for service injection, same as tools.
 
 ## Structured output
 
-All DJ tools return typed Pydantic models (36 types across 4 files in `app/mcp/types/`):
+All DJ tools return typed Pydantic models (37 types across 4 files in `app/mcp/types/`):
 
 | File | Count | Key types |
 |------|-------|-----------|
 | `entities.py` | 7 | TrackSummary, TrackDetail, PlaylistSummary, PlaylistDetail, SetSummary, SetDetail, ArtistSummary |
 | `responses.py` | 8 | PaginationInfo, MatchStats, LibraryStats, SearchResponse, FindResult, EntityListResponse, EntityDetailResponse, ActionResponse |
 | `workflows.py` | 13 | SimilarTracksResult, SearchStrategy, SetBuildResult, TransitionScoreResult, ExportResult, SetTrackItem, SetVersionSummary, SetCheatSheet, DeliveryResult, TransitionSummary, AdjustmentPlan, SwapSuggestion, ReorderSuggestion |
-| `curation.py` | 8 | ClassifyResult, MoodDistribution, CurateCandidate, CurateSetResult, WeakTransition, SetReviewResult, GapDescription, LibraryGapResult |
+| `curation.py` | 9 | ClassifyResult, MoodDistribution, CurateCandidate, CurateSetResult, WeakTransition, SetReviewResult, GapDescription, LibraryGapResult, DistributeResult |
 
 Return type annotation → `structuredContent` in MCP protocol response.
 
@@ -246,7 +254,6 @@ async def long_op(ctx: Context, ...) -> ResultModel:
 - **Pydantic return → `structured_content` shape**: FastMCP кладёт поля модели напрямую в `structured_content`, НЕ в `{"result": ...}`. Тест: `sc = raw.structured_content; assert sc["field"] == expected`.
 - **MCP test seeding**: `workflow_mcp_with_db` патчит `app.mcp.dependencies.session_factory`. Seed данных — только через `engine` fixture: `factory = async_sessionmaker(engine); async with factory() as s: s.add(...)`.
 - **`DjSetVersion` PK**: поле называется `set_version_id`, не `version_id`.
-- **Pre-existing mypy errors (12)**: `wrap_list`/`unified_export`/`compute`/`sync/track_mapper` — не наши, не трогать.
 - **B008 ruff rule**: `Depends()` in default args triggers B008. Solved with per-file-ignores in `pyproject.toml`:
   ```toml
   [tool.ruff.lint.per-file-ignores]
@@ -260,7 +267,7 @@ async def long_op(ctx: Context, ...) -> ResultModel:
 - **mypy + fastmcp**: `fastmcp` is in `ignore_missing_imports` since it lacks type stubs.
 - **MCP tests — two layers**: (1) Metadata tests verify tool names/tags/annotations via `mcp.list_tools()`. (2) Client integration tests use `Client(server)` for in-memory tool invocation. Both use shared fixtures from `tests/mcp/conftest.py`.
 - **Server in fixture, Client in test body**: Don't open `Client` in fixtures — create server in fixture, open `Client` context manager inside test functions.
-- **Stub tools testable without DB**: `import_playlist` and `import_tracks` are stubs — no database needed. DB-dependent tools need session mocking.
+- **DB-independent tools**: read-only tools without DI don't need database fixtures. DB-dependent tools need session mocking via `workflow_mcp_with_db`.
 
 ## Testing
 
@@ -314,7 +321,7 @@ Installation into MCP clients:
 **CLI quick reference:**
 ```bash
 make mcp-list                                                    # ~75 tools
-make mcp-call TOOL=dj_get_track_details ARGS='{"track_id": 45}' # call tool
+make mcp-call TOOL=dj_get_track ARGS='{"track_ref": "45"}'       # call tool
 make mcp-dev                                                     # HTTP :9100 + reload
 make mcp-inspect                                                 # Inspector :6274
 ```

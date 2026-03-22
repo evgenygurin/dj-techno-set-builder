@@ -69,10 +69,11 @@ def test_generate_cheat_sheet_basic():
     ]
     scores = [_make_score(0.92)]
     sheet = _generate_cheat_sheet("Test Set", tracks, scores)
-    assert "CHEAT SHEET: Test Set" in sheet
+    assert "Test Set" in sheet
     assert "Alpha" in sheet
     assert "Beta" in sheet
-    assert "8A→9A" in sheet
+    assert "8A" in sheet
+    assert "9A" in sheet
 
 
 def test_generate_cheat_sheet_flags_weak():
@@ -80,9 +81,9 @@ def test_generate_cheat_sheet_flags_weak():
         {"position": 1, "track_id": 1, "title": "A", "bpm": 140.0},
         {"position": 2, "track_id": 2, "title": "B", "bpm": 142.0},
     ]
-    scores = [_make_score(0.5)]  # < 0.85 → !!!
+    scores = [_make_score(0.5)]  # < 0.85 → !
     sheet = _generate_cheat_sheet("Test", tracks, scores)
-    assert "!!!" in sheet
+    assert "!" in sheet
 
 
 # ── Registration tests ──────────────────────────────────────────────────────
@@ -109,6 +110,7 @@ async def test_deliver_set_parameters(workflow_mcp: FastMCP):
     props = set(tool.parameters.get("properties", {}).keys())
     assert "set_ref" in props
     assert "version_id" in props
+    assert "skip_conflicts" in props
     assert "sync_to_ym" in props
     assert "ym_user_id" in props
     assert "ym_playlist_title" in props

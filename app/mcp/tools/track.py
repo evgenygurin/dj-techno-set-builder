@@ -15,6 +15,7 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.errors import NotFoundError
 from app.mcp.converters import track_to_detail, track_to_summary
 from app.mcp.dependencies import get_session
 from app.mcp.entity_finder import TrackFinder
@@ -88,7 +89,7 @@ def register_track_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "track"}, annotations={"readOnlyHint": True})
     async def get_track(
-        track_ref: str,
+        track_ref: str | int,
         session: AsyncSession = Depends(get_session),
     ) -> str:
         """Get track details by ref.
@@ -140,7 +141,7 @@ def register_track_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "track"})
     async def update_track(
-        track_ref: str,
+        track_ref: str | int,
         title: str | None = None,
         duration_ms: int | None = None,
         session: AsyncSession = Depends(get_session),
@@ -161,7 +162,10 @@ def register_track_tools(mcp: FastMCP) -> None:
 
         svc = TrackService(TrackRepository(session))
         update_data = TrackUpdate(title=title, duration_ms=duration_ms)
-        await svc.update(ref.local_id, update_data)
+        try:
+            await svc.update(ref.local_id, update_data)
+        except NotFoundError:
+            return json.dumps({"error": f"Track {ref.local_id} not found"})
 
         detail = await _build_track_detail(ref.local_id, session)
         return await wrap_action(
@@ -173,7 +177,7 @@ def register_track_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "track"})
     async def delete_track(
-        track_ref: str,
+        track_ref: str | int,
         session: AsyncSession = Depends(get_session),
     ) -> str:
         """Delete a track by ref.
@@ -189,7 +193,10 @@ def register_track_tools(mcp: FastMCP) -> None:
             )
 
         svc = TrackService(TrackRepository(session))
-        await svc.delete(ref.local_id)
+        try:
+            await svc.delete(ref.local_id)
+        except NotFoundError:
+            return json.dumps({"error": f"Track {ref.local_id} not found"})
 
         return await wrap_action(
             success=True,

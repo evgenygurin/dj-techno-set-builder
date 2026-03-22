@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -91,70 +92,83 @@ def _build_transition_summary(scores: list[TransitionScoreResult]) -> Transition
     )
 
 
+def _score_bar(score: float) -> str:
+    """Render score as a compact 5-char visual bar."""
+    if score <= 0:
+        return "XXXXX"
+    filled = round(score * 5)
+    return "#" * filled + "." * (5 - filled)
+
+
+def _energy_bar(lufs: float, lo: float, hi: float) -> str:
+    """Render LUFS as a 10-char energy meter relative to set range."""
+    if hi == lo:
+        return "=" * 10
+    ratio = (lufs - lo) / (hi - lo)
+    filled = max(0, min(10, round(ratio * 10)))
+    return "=" * filled + "-" * (10 - filled)
+
+
 def _generate_cheat_sheet(
     set_name: str,
     tracks: list[dict[str, Any]],
     scores: list[TransitionScoreResult],
 ) -> str:
-    """Generate a plain-text cheat sheet for the DJ booth."""
-    # Build transition lookup: (from_id, to_id) → score
+    """Generate a compact infographic cheat sheet for the DJ booth."""
     tx_by_from: dict[int, TransitionScoreResult] = {s.from_track_id: s for s in scores}
 
+    bpms = [tr["bpm"] for tr in tracks if tr.get("bpm")]
+    bpm_min = min(bpms) if bpms else 0
+    bpm_max = max(bpms) if bpms else 0
+    lufs_vals = [tr["lufs"] for tr in tracks if tr.get("lufs")]
+    lufs_lo = min(lufs_vals) if lufs_vals else -12
+    lufs_hi = max(lufs_vals) if lufs_vals else -5
+    total_s = sum(tr.get("duration_s") or 0 for tr in tracks)
+    avg_sc = [s.total for s in scores if s.total > 0]
+    avg_score = sum(avg_sc) / len(avg_sc) if avg_sc else 0
+
     lines = [
-        "=" * 80,
-        f"CHEAT SHEET: {set_name}",
-        "=" * 80,
-        f"{'#':<4} {'Track':<30} {'BPM':>7} {'Key':>4} {'LUFS':>6}  → Next Transition",
-        "-" * 80,
+        f"{set_name}",
+        f"{len(tracks)} tracks  {total_s // 3600}h{(total_s % 3600) // 60:02d}m"
+        f"  BPM {bpm_min:.0f}-{bpm_max:.0f}"
+        f"  avg {avg_score:.2f} [{_score_bar(avg_score)}]",
+        "",
+        "  #  TRACK                       BPM  KEY  ENERGY",
     ]
 
     for tr in tracks:
         pos = tr["position"]
-        title = tr.get("title", f"Track {tr['track_id']}")
-        bpm = f"{tr['bpm']:.1f}" if tr.get("bpm") else "—"
-        key = tr.get("key", "—")
-        lufs = f"{tr['lufs']:.1f}" if tr.get("lufs") else "—"
+        title = tr.get("title", "?")[:27]
+        bpm = tr.get("bpm") or 0
+        key = tr.get("key") or "?"
+        lufs = tr.get("lufs") or 0
+        ebar = _energy_bar(lufs, lufs_lo, lufs_hi)
+
+        lines.append(f" {pos:2d}  {title:<27s} {bpm:5.0f}  {key:>3s}  [{ebar}] {lufs:.0f}")
 
         tx = tx_by_from.get(tr["track_id"])
-        if tx is None:
-            tx_str = "— (last track)"
-        elif tx.total == 0.0:
-            tx_str = f"0.000 [{tx.recommended_type or '—'}]  # no features or hard conflict"
-        else:
-            flag = " !!!" if tx.total < _WEAK_THRESHOLD else "    "
-            tx_str = f"{tx.total:.3f} [{tx.recommended_type or '—'}]{flag}"
-            if tx.reason:
-                tx_str += f"  # {tx.reason}"
+        if tx is not None and tx.total > 0:
+            warn = " !" if tx.total < _WEAK_THRESHOLD else ""
+            bar = _score_bar(tx.total)
+            typ = tx.recommended_type or "?"
+            alt = f"/{tx.alt_type}" if tx.alt_type else ""
+            meta = ""
+            if tx.bpm_delta and abs(tx.bpm_delta) > 0.5:
+                meta += f" bpm{tx.bpm_delta:+.0f}"
+            if tx.from_key and tx.to_key and tx.from_key != tx.to_key:
+                meta += f" {tx.from_key}>{tx.to_key}"
+            lines.append(f"     [{bar}] {tx.total:.2f}{warn}  {typ}{alt}{meta}")
+        elif tx is not None:
+            lines.append("     [XXXXX] 0.00 !  CONFLICT")
 
-        lines.append(f"{pos:02d}.  {title:<30} {bpm:>7} {key:>4} {lufs:>6}  {tx_str}")
-
-    lines += [
-        "=" * 80,
-        "",
-        "TRANSITION TYPES:",
-        "  drum_cut  — hard cut on downbeat (kick→kick)",
-        "  drum_swap — replace kick loop under outgoing track",
-        "  eq        — gradual freq blend, use high/low-pass EQ",
-        "  blend     — full overlap mix",
-        "",
-        "!!! = weak transition (score < 0.85), handle with care",
-        "",
-    ]
-
-    # Harmonic chain
-    keys: list[str] = [k for tr in tracks if (k := tr.get("key")) is not None]
+    # Footer
+    keys = [k for tr in tracks if (k := tr.get("key"))]
+    lines += ["", "-" * 50]
     if keys:
-        lines.append("HARMONIC CHAIN:")
-        lines.append("  " + "→".join(keys))
-        lines.append("")
-
-    bpms = [tr["bpm"] for tr in tracks if tr.get("bpm")]
+        lines.append("Keys  " + " ".join(keys))
     if bpms:
-        lines.append(f"BPM ARC: {min(bpms):.1f} → {max(bpms):.1f}")
-
-    total_s = sum(tr.get("duration_s", 0) for tr in tracks)
-    if total_s:
-        lines.append(f"DURATION: {total_s // 3600}h {(total_s % 3600) // 60}min")
+        safe_lo = max(bpm_min - 2, 120)
+        lines.append(f"BPM   {bpm_min:.0f}-{bpm_max:.0f}  safe {safe_lo:.0f}-{bpm_max + 2:.0f}")
 
     return "\n".join(lines) + "\n"
 
@@ -163,10 +177,23 @@ async def _collect_track_data(
     items: list[Any],
     track_svc: TrackService,
     features_svc: AudioFeaturesService,
+    session: AsyncSession | None = None,
 ) -> list[dict[str, Any]]:
     """Collect per-track metadata + audio features for export."""
     track_ids = [item.track_id for item in items]
     artists_map = await track_svc.get_track_artists(track_ids)
+
+    # Batch-load file paths from dj_library_items
+    file_path_map: dict[int, str] = {}
+    if session is not None:
+        from app.models.dj import DjLibraryItem
+
+        stmt = select(DjLibraryItem.track_id, DjLibraryItem.file_path).where(
+            DjLibraryItem.track_id.in_(track_ids),
+            DjLibraryItem.file_path.is_not(None),
+        )
+        rows = await session.execute(stmt)
+        file_path_map = {r[0]: r[1] for r in rows if r[1]}
 
     tracks: list[dict[str, Any]] = []
     for pos, item in enumerate(items, 1):
@@ -186,9 +213,47 @@ async def _collect_track_data(
             with contextlib.suppress(ValueError):
                 entry["key"] = key_code_to_camelot(feat.key_code)
 
+        if item.track_id in file_path_map:
+            entry["file_path"] = file_path_map[item.track_id]
+
         tracks.append(entry)
 
     return tracks
+
+
+def _is_icloud_stub(path: Path) -> bool:
+    """Check if a file is an iCloud stub (not fully downloaded)."""
+    try:
+        st = path.stat()
+        return hasattr(st, "st_blocks") and st.st_blocks * 512 < st.st_size * 0.9
+    except OSError:
+        return True
+
+
+def _copy_mp3_files(tracks: list[dict[str, Any]], out_dir: Path) -> tuple[int, int]:
+    """Copy MP3 files from library to output dir with numbered names.
+
+    Returns:
+        (copied, skipped) counts.
+    """
+    copied = skipped = 0
+    for tr in tracks:
+        src_str = tr.get("file_path")
+        if not src_str:
+            skipped += 1
+            continue
+        src = Path(src_str)
+        if not src.exists() or _is_icloud_stub(src):
+            skipped += 1
+            continue
+        title = tr.get("title", f"Track {tr['track_id']}")
+        artists = tr.get("artists", "")
+        display = f"{artists} - {title}" if artists else title
+        safe = sanitize_filename(display).strip(". ")
+        dest = out_dir / f"{tr['position']:03d}. {safe}.mp3"
+        shutil.copy2(src, dest)
+        copied += 1
+    return copied, skipped
 
 
 def _write_m3u8(set_name: str, tracks: list[dict[str, Any]]) -> str:
@@ -218,7 +283,7 @@ def _write_json_guide(
 ) -> str:
     """Generate JSON export."""
     bpms = [tr["bpm"] for tr in tracks if tr.get("bpm")]
-    total_s = sum(tr.get("duration_s", 0) for tr in tracks)
+    total_s = sum(tr.get("duration_s") or 0 for tr in tracks)
     guide = {
         "set_name": set_name,
         "track_count": len(tracks),
@@ -292,6 +357,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         set_ref: str | int,
         version_id: int,
         ctx: Context,
+        skip_conflicts: bool = False,
         sync_to_ym: bool = False,
         ym_user_id: int | None = None,
         ym_playlist_title: str | None = None,
@@ -319,6 +385,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         Args:
             set_ref: DJ set ref (int, "42", or "local:42").
             version_id: Set version to deliver.
+            skip_conflicts: Skip hard-conflict checkpoint (for CLI/batch mode).
             sync_to_ym: Push set to Yandex Music as a playlist.
             ym_user_id: YM user ID (required when sync_to_ym=True).
             ym_playlist_title: YM playlist title (default: "{set_name} [set]").
@@ -350,29 +417,36 @@ def register_delivery_tools(mcp: FastMCP) -> None:
             conflict_lines = "\n".join(
                 f"  • {c.from_title} → {c.to_title} (score=0.0)" for c in conflicts[:10]
             )
-            decision = await resolve_conflict(
-                ctx,
-                f"Found {len(conflicts)} hard conflict(s) — tracks with no audio features "
-                f"or Camelot distance ≥ 5:\n{conflict_lines}\n\nContinue delivery anyway?",
-                options=["continue", "abort"],
-            )
-            if decision == "abort" or decision is None:
-                return DeliveryResult(
-                    set_id=set_id,
-                    version_id=version_id,
-                    set_name=set_name,
-                    output_dir="",
-                    files_written=[],
-                    transitions=summary,
-                    status="aborted",
+            if skip_conflicts:
+                await ctx.info(
+                    f"Skipping conflict checkpoint ({len(conflicts)} hard conflicts) "
+                    f"— skip_conflicts=True"
                 )
+            else:
+                decision = await resolve_conflict(
+                    ctx,
+                    f"Found {len(conflicts)} hard conflict(s) — tracks with no audio "
+                    f"features or Camelot distance ≥ 5:\n{conflict_lines}\n\n"
+                    f"Continue delivery anyway?",
+                    options=["continue", "abort"],
+                )
+                if decision == "abort" or decision is None:
+                    return DeliveryResult(
+                        set_id=set_id,
+                        version_id=version_id,
+                        set_name=set_name,
+                        output_dir="",
+                        files_written=[],
+                        transitions=summary,
+                        status="aborted",
+                    )
 
         # ── Stage 2: Write files ──────────────────────────────────────────────
         await ctx.report_progress(progress=1, total=3)
         items_list = await set_svc.list_items(version_id, offset=0, limit=500)
         items = sorted(items_list.items, key=lambda i: i.sort_index)
 
-        tracks = await _collect_track_data(items, track_svc, features_svc)
+        tracks = await _collect_track_data(items, track_svc, features_svc, session)
 
         out_dir = _output_dir(set_name)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -393,7 +467,14 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         cheat_path.write_text(_generate_cheat_sheet(set_name, tracks, scores), encoding="utf-8")
         files_written.append(cheat_path.name)
 
-        await ctx.info(f"Written: {', '.join(files_written)}")
+        mp3_copied, mp3_skipped = _copy_mp3_files(tracks, out_dir)
+        if mp3_copied:
+            await ctx.info(
+                f"Written: {', '.join(files_written)} + {mp3_copied} MP3 files"
+                f" ({mp3_skipped} skipped — no file or iCloud stub)"
+            )
+        else:
+            await ctx.info(f"Written: {', '.join(files_written)} (no MP3 files copied)")
         if weak:
             await ctx.info(
                 f"Note: {len(weak)} weak transitions marked with !!! in cheat_sheet.txt"
@@ -430,6 +511,8 @@ def register_delivery_tools(mcp: FastMCP) -> None:
             output_dir=str(out_dir),
             files_written=files_written,
             transitions=summary,
+            mp3_copied=mp3_copied,
+            mp3_skipped=mp3_skipped,
             ym_playlist_kind=ym_kind,
             status="ok",
         )

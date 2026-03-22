@@ -29,7 +29,7 @@ from app.services.base import BaseService
 from app.services.yandex_music_client import ParsedYmTrack, YandexMusicClient, parse_ym_track
 from app.utils.text_sort import sort_key
 
-_PROVIDER_CODE = "yandex_music"
+_PROVIDER_CODE = "ym"
 
 logger = logging.getLogger(__name__)
 

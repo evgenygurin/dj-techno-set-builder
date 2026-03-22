@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from app.clients.yandex_music import YandexMusicClient as YMApiClient
 from app.config import settings
 from app.mcp.platforms.registry import PlatformRegistry
 from app.mcp.platforms.yandex import YandexMusicAdapter
@@ -26,9 +27,13 @@ def create_platform_registry() -> PlatformRegistry:
             token=settings.yandex_music_token,
             user_id=settings.yandex_music_user_id,
         )
+        api_client = YMApiClient(
+            token=settings.yandex_music_token,
+        )
         adapter = YandexMusicAdapter(
             client=ym_client,
             user_id=settings.yandex_music_user_id,
+            api_client=api_client,
         )
         registry.register(adapter)
         logger.info("Registered YandexMusic adapter (user=%s)", settings.yandex_music_user_id)

@@ -269,13 +269,13 @@ mcp-inspect:
 	$(UV) run fastmcp dev inspector $(MCP_SPEC) --ui-port 6274 --reload --reload-dir $(APP)/mcp
 
 mcp-list:
-	$(UV) run fastmcp list --command "$(UV) run fastmcp run $(MCP_SPEC) --skip-env"
+	$(UV) run fastmcp list --command "$(UV) run fastmcp run $(MCP_SPEC)"
 
 mcp-call:
 ifndef TOOL
-	$(error Укажи инструмент: make mcp-call TOOL=dj_get_track_details ARGS='{"track_id": 45}')
+	$(error Укажи инструмент: make mcp-call TOOL=dj_get_track ARGS='{"track_ref": "45"}')
 endif
-	$(UV) run fastmcp call --command "$(UV) run fastmcp run $(MCP_SPEC) --skip-env" --target $(TOOL) --input-json '$(ARGS)'
+	$(UV) run fastmcp call --command "$(UV) run fastmcp run $(MCP_SPEC)" --target $(TOOL) --input-json '$(ARGS)'
 
 mcp-install-desktop:
 	$(UV) run fastmcp install claude-desktop $(MCP_SPEC) --name dj-techno --env-file .env --with-editable .

@@ -25,4 +25,23 @@
 
 Используй `delegated-development` skill для полного workflow, промптов и quality gates.
 
+## Примеры задач
+
+```text
+# Тесты
+/delegate Добавить тесты для classify_tracks в tests/mcp/test_workflow_curation.py
+
+# Lint/mypy
+/delegate Исправить все mypy ошибки в app/services/set_generation.py
+
+# Рефакторинг
+/delegate Извлечь общий паттерн фильтрации из TrackRepository и DjPlaylistRepository
+
+# Документация
+/delegate Добавить docstrings к публичным методам app/services/transition_scoring.py
+
+# Новый MCP tool
+/delegate Добавить MCP tool get_transition_details(from_track_id, to_track_id) в app/mcp/tools/setbuilder.py
+```
+
 Задача для делегирования: **$ARGUMENTS**

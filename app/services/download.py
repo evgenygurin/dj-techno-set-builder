@@ -80,7 +80,7 @@ class DownloadService:
             select(ProviderTrackId.provider_track_id)
             .join(Provider)
             .where(ProviderTrackId.track_id == track_id)
-            .where(Provider.provider_code == "yandex")
+            .where(Provider.provider_code == "ym")
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -133,7 +133,7 @@ class DownloadService:
                 logger.info(f"Downloaded track {track.track_id} ({size} bytes)")
                 return (True, size)
 
-            except Exception as e:
+            except Exception as e:  # broad: network + IO retry loop
                 if attempt < max_retries - 1:
                     delay = 2**attempt  # Exponential backoff: 1s, 2s, 4s
                     logger.warning(

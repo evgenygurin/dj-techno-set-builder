@@ -55,7 +55,7 @@ def register_prompts(mcp: FastMCP) -> None:
                     f"'{genre}' genre with a '{energy_arc}' energy arc, starting "
                     "from zero.\n\n"
                     "Please follow these steps:\n"
-                    "1. Use `ym_search_tracks` to search Yandex Music for tracks "
+                    "1. Use `ym_search_yandex_music` to search Yandex Music for tracks "
                     f"matching the '{genre}' genre.\n"
                     "2. Use `dj_create_track` to add the found tracks to "
                     "the local database.\n"
@@ -94,6 +94,43 @@ def register_prompts(mcp: FastMCP) -> None:
                     "2. **Write files** — M3U8, JSON guide, cheat_sheet.txt.\\n"
                     "3. **YM sync** — creates a Yandex Music playlist (if requested).\\n\\n"
                     "After delivery, report the output_dir and transition summary."
+                ),
+            ),
+        ]
+
+    @mcp.prompt
+    def expand_playlist_pipeline(
+        playlist_id: str,
+        target_count: int = 50,
+        seed_count: int = 3,
+    ) -> list[Message]:
+        """Expand a playlist: discover similar → import → analyze → distribute."""
+        return [
+            Message(
+                role="user",
+                content=(
+                    f"Expand playlist {playlist_id} to {target_count} tracks.\n\n"
+                    "Follow this pipeline:\n\n"
+                    f"**Phase 1 — Audit:** `dj_audit_playlist(playlist_id={playlist_id})`\n"
+                    "Report current quality: passed/failed/no_features.\n\n"
+                    f"**Phase 2 — Discover:** Pick {seed_count} seed tracks from "
+                    "the playlist (use `dj_filter_tracks` to find tracks with "
+                    "highest kick + onset). For each seed:\n"
+                    "  `dj_discover_candidates(seed_track_id=<ym_id>, "
+                    "batch_size=20, exclude_track_ids=[already_in_playlist])`\n\n"
+                    "**Phase 3 — Import:** For new candidates:\n"
+                    f"  `dj_populate_from_ym(playlist_id={playlist_id}, "
+                    "ym_kind=<source>)` or create tracks individually.\n\n"
+                    "**Phase 4 — Download + Analyze:** For each new track:\n"
+                    "  `dj_download_tracks(track_ids=[...])` then\n"
+                    "  `dj_analyze_track(track_id=...)` for audio features.\n\n"
+                    f"**Phase 5 — Re-audit:** `dj_audit_playlist({playlist_id})`\n"
+                    "Remove tracks failing quality criteria.\n\n"
+                    f"**Phase 6 — Classify:** `dj_distribute_to_subgenres("
+                    f"playlist_id={playlist_id})`\n"
+                    "Show distribution across 15 subgenres.\n\n"
+                    "Report totals after each phase. Stop when target reached "
+                    "or no more candidates found."
                 ),
             ),
         ]

@@ -31,6 +31,10 @@ def register_discovery_tools(mcp: FastMCP) -> None:
     ) -> SimilarTracksResult:
         """Find tracks similar to those in a playlist using LLM-assisted search.
 
+        DEPRECATED: This tool always returns 0 candidates. The actual discovery
+        pipeline is implemented in `discover_candidates` and `expand_playlist_full`
+        in curation_discovery.py. Use those instead.
+
         Analyses the playlist's audio profile (BPM range, keys, energy) and
         uses ctx.sample() to generate a smart search strategy.  Falls back
         to a basic profile summary when the MCP client does not support

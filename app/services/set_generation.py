@@ -26,6 +26,10 @@ from app.utils.audio.set_generator import (
 )
 from app.utils.audio.set_templates import SetSlot, TemplateName, get_template
 
+# Default track count when neither template nor explicit count is provided.
+# Prevents runaway GA on large playlists (O(n^3) complexity).
+_DEFAULT_SET_SIZE = 20
+
 
 def _build_matrix_two_tier(
     scorer: TransitionScoringService,
@@ -205,6 +209,15 @@ class SetGenerationService(BaseService):
             # Set track_count from template if not explicitly specified
             if data.track_count is None and template.target_track_count > 0:
                 data_track_count = template.target_track_count
+
+        # Safety cap: without template or explicit track_count, default to 20
+        # to prevent runaway GA on large playlists (O(n^3) complexity)
+        if data_track_count is None and not template_slots:
+            data_track_count = _DEFAULT_SET_SIZE
+            self.logger.info(
+                "No template/track_count — defaulting to %d tracks",
+                data_track_count,
+            )
 
         # Configure GA — rebalance weights when template is active
         config = GAConfig(

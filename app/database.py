@@ -44,7 +44,7 @@ async def _seed_providers() -> None:
         await repo.get_or_create(provider_id=1, code="spotify", name="Spotify")
         await repo.get_or_create(provider_id=2, code="soundcloud", name="SoundCloud")
         await repo.get_or_create(provider_id=3, code="beatport", name="Beatport")
-        await repo.get_or_create(provider_id=4, code="yandex_music", name="Yandex Music")
+        await repo.get_or_create(provider_id=4, code="ym", name="Yandex Music")
         await session.commit()
 
 

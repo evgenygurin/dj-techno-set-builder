@@ -1117,7 +1117,7 @@ async def import_candidate(candidate: Candidate) -> None:
     """Import candidate to local DB if not exists."""
     async with session_factory() as session:
         prov_row = await session.execute(
-            text("SELECT provider_id FROM providers WHERE provider_code = 'yandex'")
+            text("SELECT provider_id FROM providers WHERE provider_code = 'ym'")
         )
         provider_id = prov_row.scalar()
         if not provider_id:
@@ -1836,7 +1836,7 @@ async def main() -> None:
                 text(
                     "SELECT pt.provider_track_id FROM provider_track_ids pt"
                     " JOIN providers p ON p.provider_id = pt.provider_id"
-                    " WHERE p.provider_code = 'yandex'"
+                    " WHERE p.provider_code = 'ym'"
                 )
             )
             db_ym_ids = {row[0] for row in rows}

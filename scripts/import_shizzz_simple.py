@@ -48,7 +48,7 @@ TRACKS = [
 
 async def get_or_create_provider(session: AsyncSession) -> int:
     """Get or create Yandex Music provider."""
-    stmt = select(Provider).where(Provider.provider_code == "yandex")
+    stmt = select(Provider).where(Provider.provider_code == "ym")
     result = await session.execute(stmt)
     provider = result.scalar_one_or_none()
 
@@ -62,7 +62,7 @@ async def get_or_create_provider(session: AsyncSession) -> int:
 
     new_provider = Provider(
         provider_id=max_id + 1,
-        provider_code="yandex",
+        provider_code="ym",
         name="Yandex Music",
     )
     session.add(new_provider)

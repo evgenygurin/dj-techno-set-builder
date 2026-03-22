@@ -86,7 +86,7 @@ async def seed_providers(session: AsyncSession) -> None:
         (1, "spotify", "Spotify"),
         (2, "soundcloud", "SoundCloud"),
         (3, "beatport", "Beatport"),
-        (4, "yandex_music", "Yandex Music"),
+        (4, "ym", "Yandex Music"),
     ]:
         await session.merge(Provider(provider_id=pid, provider_code=code, name=name))
     await session.flush()

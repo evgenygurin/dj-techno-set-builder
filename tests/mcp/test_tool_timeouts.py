@@ -30,12 +30,14 @@ async def test_build_set_has_compute_timeout(workflow_mcp: FastMCP):
 
 
 async def test_score_tools_have_medium_timeout(workflow_mcp: FastMCP):
-    """Scoring tools should have 120s timeout."""
+    """Scoring tools should have 120s timeout, compute_set_order 600s."""
     tools = await workflow_mcp.list_tools()
-    score_names = {"score_transitions", "compute_set_order", "review_set"}
+    score_names = {"score_transitions", "review_set"}
     for tool in tools:
         if tool.name in score_names:
             assert tool.timeout == 120, f"{tool.name} timeout={tool.timeout}, expected 120"
+        if tool.name == "compute_set_order":
+            assert tool.timeout == 600, f"compute_set_order timeout={tool.timeout}, expected 600"
 
 
 async def test_analyze_track_has_compute_timeout(workflow_mcp: FastMCP):

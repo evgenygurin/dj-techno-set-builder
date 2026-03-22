@@ -14,6 +14,7 @@ from app.mcp.resources import register_resources
 # Phase 2: CRUD tools
 from app.mcp.tools.compute import register_compute_tools
 from app.mcp.tools.curation import register_curation_tools
+from app.mcp.tools.curation_discovery import register_curation_discovery_tools
 from app.mcp.tools.delivery import register_delivery_tools
 from app.mcp.tools.discovery import register_discovery_tools
 from app.mcp.tools.download import register_download_tools
@@ -101,6 +102,7 @@ def create_workflow_mcp() -> FastMCP:
     register_setbuilder_tools(mcp)
     register_export_tools(mcp)
     register_curation_tools(mcp)
+    register_curation_discovery_tools(mcp)
     register_sync_tools(mcp)
     register_delivery_tools(mcp)
 

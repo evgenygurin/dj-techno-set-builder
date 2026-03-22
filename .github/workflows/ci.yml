@@ -18,8 +18,6 @@ permissions:
 
 env:
   PYTHONUNBUFFERED: "1"
-  # Fix for typing-extensions import priority in CI environments
-  PYTHONPATH: ".venv/lib/python3.13/site-packages:$PYTHONPATH"
 
 jobs:
   lint-and-types:

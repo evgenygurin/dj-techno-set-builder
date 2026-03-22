@@ -76,6 +76,13 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         key_codes: list[int] | None = None,
         energy_min: float | None = None,
         energy_max: float | None = None,
+        kick_min: float | None = None,
+        kick_max: float | None = None,
+        hp_ratio_min: float | None = None,
+        hp_ratio_max: float | None = None,
+        centroid_min: float | None = None,
+        centroid_max: float | None = None,
+        camelot_keys: list[str] | None = None,
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[TrackAudioFeaturesComputed], int]:
@@ -86,6 +93,8 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         feature extraction runs.
         """
         from sqlalchemy import func as sa_func
+
+        from app.models.harmony import Key
 
         latest = self._latest_subquery()
 
@@ -105,6 +114,22 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
             base = base.where(self.model.energy_mean >= energy_min)
         if energy_max is not None:
             base = base.where(self.model.energy_mean <= energy_max)
+        if kick_min is not None:
+            base = base.where(self.model.kick_prominence >= kick_min)
+        if kick_max is not None:
+            base = base.where(self.model.kick_prominence <= kick_max)
+        if hp_ratio_min is not None:
+            base = base.where(self.model.hp_ratio >= hp_ratio_min)
+        if hp_ratio_max is not None:
+            base = base.where(self.model.hp_ratio <= hp_ratio_max)
+        if centroid_min is not None:
+            base = base.where(self.model.centroid_mean_hz >= centroid_min)
+        if centroid_max is not None:
+            base = base.where(self.model.centroid_mean_hz <= centroid_max)
+        if camelot_keys:
+            base = base.join(Key, self.model.key_code == Key.key_code).where(
+                Key.camelot.in_(camelot_keys)
+            )
 
         # Count distinct tracks matching criteria
         count_stmt = select(sa_func.count()).select_from(base.subquery())

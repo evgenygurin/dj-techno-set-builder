@@ -103,6 +103,12 @@ Every rules file should follow:
 | Session learnings, gotchas | Auto memory (`MEMORY.md`) |
 | History across sessions | Episodic Memory plugin (`episodic-memory:search-conversations`) |
 
+## CHANGELOG rules
+
+- **Standard sections only**: Added, Changed, Deprecated, Removed, Fixed, Security — no custom sections like "Previously Added"
+- **No duplicate sections**: each type appears once per release block
+- **macOS bash**: agents/skills bash snippets must use macOS-compatible tools (`lsof` not `fuser`, `stat -f` not `stat -c`)
+
 ## Updating rules
 
 When modifying the codebase:
