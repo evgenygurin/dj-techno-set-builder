@@ -37,6 +37,8 @@ from app.services.sets import DjSetService
 
 logger = logging.getLogger(__name__)
 
+_YM_PROVIDER_ID = 4  # providers.provider_id for Yandex Music
+
 _DIRECTION_MAP = {
     "local_to_remote": SyncDirection.LOCAL_TO_REMOTE,
     "remote_to_local": SyncDirection.REMOTE_TO_LOCAL,
@@ -420,7 +422,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
 
                 # Map local track_ids to YM IDs
                 stmt = select(ProviderTrackId).where(
-                    ProviderTrackId.provider_id == 4,
+                    ProviderTrackId.provider_id == _YM_PROVIDER_ID,
                     ProviderTrackId.track_id.in_(local_track_ids),
                 )
                 res = await session.execute(stmt)

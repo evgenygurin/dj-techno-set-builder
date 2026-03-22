@@ -36,6 +36,8 @@ from app.services.playlists import DjPlaylistService
 
 logger = logging.getLogger(__name__)
 
+_YM_PROVIDER_ID = 4  # providers.provider_id for Yandex Music
+
 
 def _make_svc(session: AsyncSession) -> DjPlaylistService:
     return DjPlaylistService(
@@ -238,7 +240,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
 
         # Match YM IDs to local track_ids via provider_track_ids
         stmt = select(ProviderTrackId).where(
-            ProviderTrackId.provider_id == 4,
+            ProviderTrackId.provider_id == _YM_PROVIDER_ID,
             ProviderTrackId.provider_track_id.in_(ym_ids),
         )
         result = await session.execute(stmt)
