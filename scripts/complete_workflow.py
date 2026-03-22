@@ -16,6 +16,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+_YM_PROVIDER_ID = 4  # providers.provider_id for Yandex Music
+
+
 class WorkflowOrchestrator:
     """Orchestrates complete techno set creation workflow."""
 
@@ -156,11 +159,11 @@ class WorkflowOrchestrator:
                         duration_ms=parsed.duration_ms or 0,
                     )
 
-                    # Create ProviderTrackId link (provider_id=4 is yandex_music)
+                    # Create ProviderTrackId link
                     session.add(
                         ProviderTrackId(
                             track_id=track.track_id,
-                            provider_id=4,  # yandex_music
+                            provider_id=_YM_PROVIDER_ID,
                             provider_track_id=parsed.yandex_track_id,
                         )
                     )

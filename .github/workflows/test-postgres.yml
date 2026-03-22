@@ -32,7 +32,6 @@ permissions:
 
 env:
   PYTHONUNBUFFERED: "1"
-  PYTHONPATH: ".venv/lib/python3.13/site-packages:$PYTHONPATH"
 
 jobs:
   test-postgres:
