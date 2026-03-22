@@ -106,7 +106,7 @@ async def main() -> None:
 
     async with session_factory() as session:
         # Get or create Yandex Music provider
-        provider_id = await get_or_create_provider(session, "yandex", "Yandex Music")
+        provider_id = await get_or_create_provider(session, "ym", "Yandex Music")
         print(f"Using provider_id={provider_id} for Yandex Music\n")
 
         imported_ids = []
