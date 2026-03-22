@@ -132,11 +132,14 @@ def register_features_tools(mcp: FastMCP) -> None:
         except json.JSONDecodeError as e:
             return json.dumps({"error": f"Invalid JSON: {e}"})
 
+        from sqlalchemy.exc import IntegrityError as SAIntegrityError
+
         features_repo = AudioFeaturesRepository(session)
 
         # Create ORM instance directly from JSON dict.
         # All NOT NULL model fields must be provided with defaults.
-        await features_repo.create(
+        try:
+            await features_repo.create(
             track_id=ref.local_id,
             run_id=features_data.get("run_id", 0),
             # Tempo
@@ -191,6 +194,13 @@ def register_features_tools(mcp: FastMCP) -> None:
             pulse_clarity=features_data.get("pulse_clarity"),
             kick_prominence=features_data.get("kick_prominence"),
         )
+        except SAIntegrityError:
+            await session.rollback()
+            run = features_data.get("run_id", 0)
+            return json.dumps({
+                "error": f"Features already exist for track {ref.local_id} (run_id={run})",
+                "hint": "Use a different run_id or delete existing features first",
+            })
 
         return await wrap_action(
             success=True,
