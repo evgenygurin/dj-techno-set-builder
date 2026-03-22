@@ -66,7 +66,7 @@ async def main() -> None:
     async with session_factory() as session:
         # Get yandex provider_id
         prov_row = await session.execute(
-            text("SELECT provider_id FROM providers WHERE provider_code = 'yandex'")
+            text("SELECT provider_id FROM providers WHERE provider_code = 'ym'")
         )
         provider_id = prov_row.scalar()
         if not provider_id:

@@ -31,7 +31,7 @@ from app.models.ingestion import ProviderTrackId
 from app.schemas.yandex_music import YmEnrichResponse
 from app.utils.text_sort import sort_key
 
-_PROVIDER_ID = 4  # yandex_music — see providers seed data
+_PROVIDER_ID = 4  # ym — see providers seed data
 _RATE_LIMIT_DELAY = 0.3  # seconds between YM API calls
 
 logger = logging.getLogger(__name__)

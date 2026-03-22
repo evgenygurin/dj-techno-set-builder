@@ -13,7 +13,7 @@ async def test_enrich_track_creates_genre_and_artist(
     """Enrichment creates Genre, Artist, Label, Release, and links them."""
     track = Track(title="Jouska — Octopus Neuroplasticity", duration_ms=347150)
     session.add(track)
-    provider = Provider(provider_id=4, provider_code="yandex_music", name="Yandex Music")
+    provider = Provider(provider_id=4, provider_code="ym", name="Yandex Music")
     session.add(provider)
     await session.flush()
 
@@ -53,7 +53,7 @@ async def test_enrich_track_empty_labels(session: AsyncSession) -> None:
     """Enrichment handles albums with empty labels array (problem #4)."""
     track = Track(title="Test Track", duration_ms=300000)
     session.add(track)
-    provider = Provider(provider_id=4, provider_code="yandex_music", name="Yandex Music")
+    provider = Provider(provider_id=4, provider_code="ym", name="Yandex Music")
     session.add(provider)
     await session.flush()
 
@@ -84,7 +84,7 @@ async def test_enrich_track_idempotent(session: AsyncSession) -> None:
     """Second enrichment of same track returns already_linked=True."""
     track = Track(title="Test", duration_ms=300000)
     session.add(track)
-    provider = Provider(provider_id=4, provider_code="yandex_music", name="Yandex Music")
+    provider = Provider(provider_id=4, provider_code="ym", name="Yandex Music")
     session.add(provider)
     await session.flush()
 
@@ -117,7 +117,7 @@ async def test_enrich_batch_auto_search(session: AsyncSession) -> None:
     """Batch enrichment auto-searches YM by parsing track title."""
     track = Track(title="Jouska — Octopus Neuroplasticity", duration_ms=347150)
     session.add(track)
-    provider = Provider(provider_id=4, provider_code="yandex_music", name="Yandex Music")
+    provider = Provider(provider_id=4, provider_code="ym", name="Yandex Music")
     session.add(provider)
     await session.flush()
 

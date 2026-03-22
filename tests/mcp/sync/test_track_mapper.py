@@ -15,7 +15,7 @@ from app.models.providers import Provider
 async def seed_data(session: AsyncSession) -> None:
     """Seed providers, tracks, and provider_track_ids."""
     # Provider — use merge() to handle pre-existing rows from other tests
-    await session.merge(Provider(provider_id=4, provider_code="yandex_music", name="Yandex Music"))
+    await session.merge(Provider(provider_id=4, provider_code="ym", name="Yandex Music"))
     await session.flush()
     # Tracks — use merge() to handle pre-existing rows
     for t in [
@@ -38,7 +38,7 @@ async def seed_data(session: AsyncSession) -> None:
 class TestDbTrackMapper:
     async def test_local_to_platform(self, session: AsyncSession, seed_data: None) -> None:
         mapper = DbTrackMapper(session)
-        result = await mapper.local_to_platform([1, 2, 3], "yandex_music")
+        result = await mapper.local_to_platform([1, 2, 3], "ym")
 
         assert result[1] == "ym_111"
         assert result[2] == "ym_222"
@@ -46,7 +46,7 @@ class TestDbTrackMapper:
 
     async def test_platform_to_local(self, session: AsyncSession, seed_data: None) -> None:
         mapper = DbTrackMapper(session)
-        result = await mapper.platform_to_local(["ym_111", "ym_222", "ym_999"], "yandex_music")
+        result = await mapper.platform_to_local(["ym_111", "ym_222", "ym_999"], "ym")
 
         assert result["ym_111"] == 1
         assert result["ym_222"] == 2
@@ -54,12 +54,12 @@ class TestDbTrackMapper:
 
     async def test_local_to_platform_empty(self, session: AsyncSession, seed_data: None) -> None:
         mapper = DbTrackMapper(session)
-        result = await mapper.local_to_platform([], "yandex_music")
+        result = await mapper.local_to_platform([], "ym")
         assert result == {}
 
     async def test_platform_to_local_empty(self, session: AsyncSession, seed_data: None) -> None:
         mapper = DbTrackMapper(session)
-        result = await mapper.platform_to_local([], "yandex_music")
+        result = await mapper.platform_to_local([], "ym")
         assert result == {}
 
     async def test_unknown_provider(self, session: AsyncSession, seed_data: None) -> None:

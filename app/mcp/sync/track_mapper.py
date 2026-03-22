@@ -24,7 +24,7 @@ class DbTrackMapper:
 
         Args:
             track_ids: Local DB track IDs.
-            platform: Provider code (e.g. "yandex_music", "spotify").
+            platform: Provider code (e.g. "ym", "spotify").
 
         Returns:
             Dict of {local_track_id: platform_track_id}.

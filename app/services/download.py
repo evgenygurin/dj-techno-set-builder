@@ -80,7 +80,7 @@ class DownloadService:
             select(ProviderTrackId.provider_track_id)
             .join(Provider)
             .where(ProviderTrackId.track_id == track_id)
-            .where(Provider.provider_code == "yandex")
+            .where(Provider.provider_code == "ym")
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()

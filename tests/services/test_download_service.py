@@ -63,7 +63,7 @@ class TestDownloadService:
     ) -> None:
         """_get_yandex_track_id returns YM track_id from provider_track_ids."""
         # Create provider (Yandex)
-        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        provider = Provider(provider_id=1, provider_code="ym", name="Yandex Music")
         session.add(provider)
         await session.flush()
 
@@ -101,7 +101,7 @@ class TestDownloadService:
     ) -> None:
         """_download_single_track downloads file and creates DjLibraryItem."""
         # Create provider — use merge() to avoid IntegrityError with session-scoped engine
-        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        provider = Provider(provider_id=1, provider_code="ym", name="Yandex Music")
         await session.merge(provider)
         await session.flush()
 
@@ -154,7 +154,7 @@ class TestDownloadService:
     ) -> None:
         """_download_single_track retries after network error."""
         # Create provider — use merge() to avoid IntegrityError with session-scoped engine
-        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        provider = Provider(provider_id=1, provider_code="ym", name="Yandex Music")
         await session.merge(provider)
         await session.flush()
 
@@ -198,7 +198,7 @@ class TestDownloadService:
     ) -> None:
         """_download_single_track returns (False, 0) after max retries."""
         # Create provider — use merge() to avoid IntegrityError with session-scoped engine
-        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        provider = Provider(provider_id=1, provider_code="ym", name="Yandex Music")
         await session.merge(provider)
         await session.flush()
 
@@ -234,7 +234,7 @@ class TestDownloadService:
     ) -> None:
         """download_tracks_batch skips tracks with existing file_path."""
         # Create provider — use merge() to avoid IntegrityError with session-scoped engine
-        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        provider = Provider(provider_id=1, provider_code="ym", name="Yandex Music")
         await session.merge(provider)
         await session.flush()
 
@@ -266,7 +266,7 @@ class TestDownloadService:
     ) -> None:
         """download_tracks_batch handles partial failures correctly."""
         # Create provider — use merge() to avoid IntegrityError with session-scoped engine
-        provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
+        provider = Provider(provider_id=1, provider_code="ym", name="Yandex Music")
         await session.merge(provider)
         await session.flush()
 

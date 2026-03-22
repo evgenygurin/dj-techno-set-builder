@@ -97,7 +97,7 @@ async def download_single_track(
                     select(ProviderTrackId.provider_track_id)
                     .join(Provider)
                     .where(ProviderTrackId.track_id == track_id)
-                    .where(Provider.provider_code == "yandex")
+                    .where(Provider.provider_code == "ym")
                 )
                 ym_id = (await session.execute(stmt)).scalar_one_or_none()
                 if not ym_id:
