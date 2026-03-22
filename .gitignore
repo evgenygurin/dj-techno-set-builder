@@ -126,6 +126,7 @@ in-memoria-vectors.db
 !.claude/agents/
 !.claude/commands/
 !.claude/CLAUDE.md
+CLAUDE.local.md
 
 dev.db-shm
 dev.db-wal

@@ -14,6 +14,8 @@
     "transport": "stdio",
     "log_level": "INFO",
     "env": {
+      "DATABASE_URL": "${DATABASE_URL}",
+      "DJ_LIBRARY_PATH": "${DJ_LIBRARY_PATH}",
       "YANDEX_MUSIC_TOKEN": "${YANDEX_MUSIC_TOKEN}",
       "YANDEX_MUSIC_USER_ID": "${YANDEX_MUSIC_USER_ID}",
       "YANDEX_MUSIC_BASE_URL": "${YANDEX_MUSIC_BASE_URL}"
