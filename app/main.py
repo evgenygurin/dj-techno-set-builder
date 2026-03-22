@@ -1,18 +1,14 @@
 from __future__ import annotations
 
-# Apply Python 3.13 compatibility patches BEFORE any other imports
-from app._compat import apply_python313_compatibility
+# Note: TypeForm compat patch applied in app/__init__.py (runs before this module)
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
-apply_python313_compatibility()
+import sentry_sdk
+from fastapi import FastAPI
 
-import logging  # noqa: E402
-from collections.abc import AsyncIterator  # noqa: E402
-from contextlib import asynccontextmanager  # noqa: E402
-
-import sentry_sdk  # noqa: E402
-from fastapi import FastAPI  # noqa: E402
-
-from app.config import settings  # noqa: E402
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 

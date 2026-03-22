@@ -10,7 +10,12 @@ _DEFAULT_BASE = "https://api.music.yandex.net:443"
 
 
 class YandexMusicClient:
-    """Thin async wrapper around Yandex Music REST API."""
+    """Thin async wrapper around Yandex Music REST API.
+
+    Note: a second, extended client exists at ``app/services/yandex_music_client.py``
+    with rate limiting, download support, and batch operations.
+    TODO(P2-14): Consolidate both into one client with optional features.
+    """
 
     def __init__(
         self,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from typing import Any
 
 
@@ -39,6 +38,9 @@ def _patch_typing_extensions() -> None:
 
 
 def apply_python313_compatibility() -> None:
-    """Apply all Python 3.13 compatibility patches."""
-    if sys.version_info >= (3, 13):
-        _patch_typing_extensions()
+    """Apply all compatibility patches (TypeForm shim for beartype/key-value).
+
+    Called unconditionally — the patch is idempotent and checks
+    whether TypeForm already exists before monkey-patching.
+    """
+    _patch_typing_extensions()

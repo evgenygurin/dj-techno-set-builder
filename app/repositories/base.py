@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Any
 
 from sqlalchemy import Select, func, select
@@ -20,6 +21,14 @@ class BaseRepository[ModelT: Base]:
         stmt = select(self.model).where(self._pk_column() == pk)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def get_by_ids(self, pks: Sequence[int]) -> list[ModelT]:
+        """Batch-fetch by primary key. Returns list in arbitrary order."""
+        if not pks:
+            return []
+        stmt = select(self.model).where(self._pk_column().in_(pks))
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def list(
         self,

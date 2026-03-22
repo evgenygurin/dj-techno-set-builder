@@ -35,6 +35,12 @@ logger = logging.getLogger(__name__)
 
 
 class ImportYandexService(BaseService):
+    """YM metadata enrichment service.
+
+    Lifecycle: create per-request, discard after use. Do NOT cache
+    as a long-lived singleton — the session would leak.
+    """
+
     def __init__(
         self,
         session: AsyncSession,

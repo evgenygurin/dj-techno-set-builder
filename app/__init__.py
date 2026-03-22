@@ -1,5 +1,5 @@
-# Import typing_extensions patch early to fix TypeForm compatibility issue
-import contextlib
+# Apply TypeForm compatibility patch early, before any import that
+# might trigger beartype → typing_extensions → TypeForm chain.
+from app._compat import apply_python313_compatibility
 
-with contextlib.suppress(ImportError):
-    import typing_extensions_patch  # noqa: F401
+apply_python313_compatibility()
