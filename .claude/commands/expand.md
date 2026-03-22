@@ -1,5 +1,5 @@
 ---
-description: "Fill YM playlist with verified techno tracks via fill_and_verify.py pipeline"
+description: "Расширить плейлист: discover → import → download → analyze → distribute"
 allowed-tools: ["Bash", "Read", "mcp__dj-techno__dj_get_playlist", "mcp__sqlite-db__read_query"]
 ---
 
