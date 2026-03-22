@@ -385,7 +385,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         """
         set_id = resolve_local_id(set_ref, "set")
         # Validate set exists
-        await set_svc.get(set_id)
+        try:
+            await set_svc.get(set_id)
+        except NotFoundError:
+            return []
 
         # Get ordered items
         items_list = await set_svc.list_items(

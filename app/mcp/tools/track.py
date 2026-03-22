@@ -15,6 +15,7 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.errors import NotFoundError
 from app.mcp.converters import track_to_detail, track_to_summary
 from app.mcp.dependencies import get_session
 from app.mcp.entity_finder import TrackFinder
@@ -189,7 +190,10 @@ def register_track_tools(mcp: FastMCP) -> None:
             )
 
         svc = TrackService(TrackRepository(session))
-        await svc.delete(ref.local_id)
+        try:
+            await svc.delete(ref.local_id)
+        except NotFoundError:
+            return json.dumps({"error": f"Track {ref.local_id} not found"})
 
         return await wrap_action(
             success=True,

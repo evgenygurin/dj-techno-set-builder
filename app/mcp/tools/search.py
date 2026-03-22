@@ -47,6 +47,9 @@ def register_search_tools(mcp: FastMCP) -> None:
             limit: Max results per category (default 20, max 100).
             cursor: Pagination cursor from previous response.
         """
+        if not query or not query.strip():
+            return json.dumps({"results": [], "total": 0, "error": "query cannot be empty"})
+
         offset, clamped_limit = paginate_params(cursor=cursor, limit=limit)
         ref = parse_ref(query)
 
