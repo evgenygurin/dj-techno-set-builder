@@ -162,7 +162,10 @@ def register_track_tools(mcp: FastMCP) -> None:
 
         svc = TrackService(TrackRepository(session))
         update_data = TrackUpdate(title=title, duration_ms=duration_ms)
-        await svc.update(ref.local_id, update_data)
+        try:
+            await svc.update(ref.local_id, update_data)
+        except NotFoundError:
+            return json.dumps({"error": f"Track {ref.local_id} not found"})
 
         detail = await _build_track_detail(ref.local_id, session)
         return await wrap_action(

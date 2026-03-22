@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.yandex_music import YandexMusicClient
 from app.config import settings
+from app.errors import NotFoundError
 from app.mcp.converters import playlist_to_summary
 from app.mcp.dependencies import get_session, get_ym_client
 from app.mcp.entity_finder import PlaylistFinder
@@ -168,7 +169,10 @@ def register_playlist_tools(mcp: FastMCP) -> None:
             return json.dumps({"error": "update requires exact ref", "ref": playlist_ref})
 
         svc = _make_svc(session)
-        await svc.update(ref.local_id, DjPlaylistUpdate(name=name))
+        try:
+            await svc.update(ref.local_id, DjPlaylistUpdate(name=name))
+        except NotFoundError:
+            return json.dumps({"error": f"Playlist {ref.local_id} not found"})
 
         detail = await _build_playlist_detail(ref.local_id, session)
         return await wrap_action(
@@ -193,7 +197,10 @@ def register_playlist_tools(mcp: FastMCP) -> None:
             return json.dumps({"error": "delete requires exact ref", "ref": playlist_ref})
 
         svc = _make_svc(session)
-        await svc.delete(ref.local_id)
+        try:
+            await svc.delete(ref.local_id)
+        except NotFoundError:
+            return json.dumps({"error": f"Playlist {ref.local_id} not found"})
 
         return await wrap_action(
             success=True,

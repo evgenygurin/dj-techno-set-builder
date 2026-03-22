@@ -100,7 +100,10 @@ async def _get_set_tracks_impl(
 
     # Resolve version
     if version_id is None:
-        versions = await svc.list_versions(set_id)
+        try:
+            versions = await svc.list_versions(set_id)
+        except NotFoundError:
+            return []
         if not versions.items:
             return []
         version_id = max(v.set_version_id for v in versions.items)
@@ -267,7 +270,10 @@ def register_set_tools(mcp: FastMCP) -> None:
             return json.dumps({"error": "update requires exact ref", "ref": set_ref})
 
         svc = _make_svc(session)
-        await svc.update(ref.local_id, DjSetUpdate(name=name, description=description))
+        try:
+            await svc.update(ref.local_id, DjSetUpdate(name=name, description=description))
+        except NotFoundError:
+            return json.dumps({"error": f"Set {ref.local_id} not found"})
 
         detail = await _build_set_detail(ref.local_id, session)
         return await wrap_action(
@@ -292,7 +298,10 @@ def register_set_tools(mcp: FastMCP) -> None:
             return json.dumps({"error": "delete requires exact ref", "ref": set_ref})
 
         svc = _make_svc(session)
-        await svc.delete(ref.local_id)
+        try:
+            await svc.delete(ref.local_id)
+        except NotFoundError:
+            return json.dumps({"error": f"Set {ref.local_id} not found"})
 
         return await wrap_action(
             success=True,
@@ -344,7 +353,10 @@ def register_set_tools(mcp: FastMCP) -> None:
             return []
 
         svc = _make_svc(session)
-        versions = await svc.list_versions(ref.local_id)
+        try:
+            versions = await svc.list_versions(ref.local_id)
+        except NotFoundError:
+            return []
         if not versions.items:
             return []
 
