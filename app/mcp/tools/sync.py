@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.clients.yandex_music import YandexMusicClient
 from app.config import settings
+from app.errors import NotFoundError
 from app.mcp.dependencies import (
     get_platform_registry,
     get_playlist_service,
@@ -27,6 +28,7 @@ from app.mcp.dependencies import (
 from app.mcp.elicitation import confirm_action
 from app.mcp.platforms.protocol import MusicPlatform
 from app.mcp.platforms.registry import PlatformRegistry
+from app.mcp.resolve import resolve_local_id
 from app.mcp.sync.diff import SyncDirection
 from app.mcp.sync.engine import SyncEngine, TrackMapper
 from app.models.ingestion import ProviderTrackId
@@ -294,7 +296,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"sync", "yandex"}, timeout=600)
     async def sync_set_to_ym(
-        set_id: int,
+        set_ref: str | int,
         ctx: Context,
         force: bool = False,
         set_svc: DjSetService = Depends(get_set_service),
@@ -306,9 +308,10 @@ def register_sync_tools(mcp: FastMCP) -> None:
         Creates or updates a YM playlist with the set's tracks.
 
         Args:
-            set_id: DJ set to sync to Yandex Music.
+            set_ref: DJ set ref (int, "42", or "local:42").
             force: Skip confirmation prompt (for CLI/batch mode).
         """
+        set_id = resolve_local_id(set_ref, "set")
         if not registry.is_connected("ym"):
             msg = "YM platform not connected"
             raise ValueError(msg)
@@ -333,7 +336,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"sync", "yandex"}, timeout=600)
     async def sync_set_from_ym(
-        set_id: int,
+        set_ref: str | int,
         ctx: Context,
         set_svc: DjSetService = Depends(get_set_service),
         sync_engine: SyncEngine = Depends(get_sync_engine),
@@ -344,19 +347,23 @@ def register_sync_tools(mcp: FastMCP) -> None:
         Compares set tracks with YM playlist to identify what changed.
 
         Args:
-            set_id: DJ set to sync feedback for.
+            set_ref: DJ set ref (int, "42", or "local:42").
         """
+        set_id = resolve_local_id(set_ref, "set")
         if not registry.is_connected("ym"):
             msg = "YM platform not connected"
             raise ValueError(msg)
         platform = registry.get("ym")
         mapper = sync_engine._mapper
-        return await _do_sync_set_from_ym(
-            set_id=set_id,
-            set_svc=set_svc,
-            track_mapper=mapper,
-            platform=platform,
-        )
+        try:
+            return await _do_sync_set_from_ym(
+                set_id=set_id,
+                set_svc=set_svc,
+                track_mapper=mapper,
+                platform=platform,
+            )
+        except NotFoundError:
+            return {"status": "error", "reason": f"Set {set_id} not found"}
 
     @mcp.tool(tags={"sync", "yandex"}, timeout=600)
     async def batch_sync_sets_to_ym(

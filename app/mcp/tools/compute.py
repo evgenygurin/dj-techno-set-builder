@@ -116,7 +116,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
         ) as e:
             return json.dumps({"error": f"Analysis failed: {e}"})
 
-    @mcp.tool(tags={"compute", "setbuilder"}, timeout=120)
+    @mcp.tool(tags={"compute", "setbuilder"}, timeout=600)
     async def compute_set_order(
         playlist_id: int,
         template: str | None = None,

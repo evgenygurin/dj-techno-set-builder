@@ -35,20 +35,20 @@ async def test_gateway_has_namespaced_sync_tools(gateway_mcp: FastMCP):
 
 
 async def test_sync_set_to_ym_params(workflow_mcp: FastMCP):
-    """sync_set_to_ym should accept set_id and force parameters."""
+    """sync_set_to_ym should accept set_ref and force parameters."""
     tools = await workflow_mcp.list_tools()
     tool = next(t for t in tools if t.name == "sync_set_to_ym")
     props = set(tool.parameters.get("properties", {}).keys())
-    assert "set_id" in props
+    assert "set_ref" in props
     assert "force" in props
 
 
 async def test_sync_set_from_ym_params(workflow_mcp: FastMCP):
-    """sync_set_from_ym should accept set_id parameter."""
+    """sync_set_from_ym should accept set_ref parameter."""
     tools = await workflow_mcp.list_tools()
     tool = next(t for t in tools if t.name == "sync_set_from_ym")
     props = set(tool.parameters.get("properties", {}).keys())
-    assert "set_id" in props
+    assert "set_ref" in props
 
 
 async def test_sync_playlist_params(workflow_mcp: FastMCP):

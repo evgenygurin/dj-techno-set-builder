@@ -543,7 +543,7 @@ async def test_sync_set_to_ym_elicitation_fail_closed(workflow_mcp_with_db: Fast
         set_id = int(set_data["message"].split("local:")[1])
 
         try:
-            raw = await c.call_tool("sync_set_to_ym", {"set_id": set_id})
+            raw = await c.call_tool("sync_set_to_ym", {"set_ref": set_id})
             data = _json(raw)
             # YM connected but elicitation not supported → cancelled
             assert data["status"] == "cancelled"
@@ -563,7 +563,7 @@ async def test_sync_set_from_ym_no_link(workflow_mcp_with_db: FastMCP):
 
         # Either YM not connected or set has no ym_playlist_id → ToolError
         with pytest.raises(fastmcp.exceptions.ToolError):
-            await c.call_tool("sync_set_from_ym", {"set_id": set_id})
+            await c.call_tool("sync_set_from_ym", {"set_ref": set_id})
 
 
 async def test_sync_playlist_not_connected(workflow_mcp_with_db: FastMCP):
@@ -642,7 +642,7 @@ async def test_sync_set_to_ym_with_mock_platform(_connection):
             set_data = _json(raw)
             set_id = int(set_data["message"].split("local:")[1])
 
-            raw = await c.call_tool("sync_set_to_ym", {"set_id": set_id})
+            raw = await c.call_tool("sync_set_to_ym", {"set_ref": set_id})
             data = _json(raw)
             # Elicitation fail-closed → cancelled, or if it gets through:
             # mock mapper returns no mapped IDs → create_playlist with 0 tracks
@@ -686,7 +686,7 @@ async def test_sync_set_from_ym_no_ym_playlist(_connection):
 
             # Set has no ym_playlist_id → should raise
             with pytest.raises(fastmcp.exceptions.ToolError):
-                await c.call_tool("sync_set_from_ym", {"set_id": set_id})
+                await c.call_tool("sync_set_from_ym", {"set_ref": set_id})
 
 
 # ---------------------------------------------------------------------------
