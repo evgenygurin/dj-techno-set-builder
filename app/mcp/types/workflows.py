@@ -72,6 +72,7 @@ class SetBuildResult(BaseModel):
     total_score: float
     avg_transition_score: float
     energy_curve: list[float] = []
+    auto_rebuild_iterations: int = 0
 
 
 class TransitionScoreResult(BaseModel):
@@ -168,5 +169,7 @@ class DeliveryResult(BaseModel):
     output_dir: str
     files_written: list[str]
     transitions: TransitionSummary
+    mp3_copied: int = 0
+    mp3_skipped: int = 0
     ym_playlist_kind: int | None = None
     status: str  # "ok" | "aborted" | "partial"

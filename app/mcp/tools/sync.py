@@ -97,32 +97,16 @@ async def _do_sync_set_to_ym(
                 await platform.remove_tracks_from_playlist(remote_playlist_id, remote_pl.track_ids)
             if ym_track_ids:
                 await platform.add_tracks_to_playlist(remote_playlist_id, ym_track_ids)
-        except NotImplementedError:
-            return {
-                "set_id": set_id,
-                "ym_playlist_id": remote_playlist_id,
-                "playlist_name": playlist_name,
-                "track_count": 0,
-                "unmapped_count": len(local_track_ids),
-                "status": "not_supported",
-                "error": "Platform does not support playlist write operations",
-                "warnings": ["sync_set_to_ym is not yet implemented"],
-            }
+        except NotImplementedError as exc:
+            msg = f"Platform does not support playlist write operations: {exc}"
+            raise ValueError(msg) from exc
     else:
         # Create new playlist
         try:
             remote_playlist_id = await platform.create_playlist(playlist_name, ym_track_ids)
-        except NotImplementedError:
-            return {
-                "set_id": set_id,
-                "ym_playlist_id": None,
-                "playlist_name": playlist_name,
-                "track_count": 0,
-                "unmapped_count": len(local_track_ids),
-                "status": "not_supported",
-                "error": "Platform does not support playlist creation",
-                "warnings": ["sync_set_to_ym is not yet implemented"],
-            }
+        except NotImplementedError as exc:
+            msg = f"Platform does not support playlist creation: {exc}"
+            raise ValueError(msg) from exc
 
     return {
         "set_id": set_id,

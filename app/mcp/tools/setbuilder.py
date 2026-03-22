@@ -38,6 +38,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         template: str | None = None,
         energy_arc: str = "classic",
         track_count: int | None = None,
+        min_transition_score: float = 0.0,
         exclude_track_ids: list[int] | None = None,
         set_svc: DjSetService = Depends(get_set_service),
         gen_svc: SetGenerationService = Depends(get_set_generation_service),
@@ -48,6 +49,10 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         template slots (mood, energy, BPM). Without template, GA picks
         track_count tracks (default 20) optimizing transitions.
 
+        When min_transition_score > 0, auto-rebuilds up to 3 times by
+        excluding the worst-transition track until all scores meet the
+        threshold or max iterations reached.
+
         Args:
             playlist_ref: Source playlist ref (int, "42", or "local:42").
             set_name: Name for the new DJ set.
@@ -56,8 +61,13 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                         roller, or wave.
             track_count: Number of tracks to select. Defaults to 20 without
                          template. With template, uses template slot count.
+            min_transition_score: Minimum acceptable transition score (0.0-1.0).
+                When > 0, auto-excludes weak-bridge tracks and re-runs GA
+                (max 3 iterations).
             exclude_track_ids: Track IDs to exclude from selection.
         """
+        max_auto_rebuild = 3
+
         playlist_id = resolve_local_id(playlist_ref, "playlist")
         # 1. Create DJ set
         await ctx.report_progress(progress=0, total=100)
@@ -72,15 +82,50 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             f"running GA with energy_arc={energy_arc}{tmpl_info}..."
         )
 
-        # 2. Generate optimal ordering via GA
-        request = SetGenerationRequest(
-            energy_arc_type=energy_arc,
-            playlist_id=playlist_id,
-            template_name=template,
-            track_count=track_count,
-            exclude_track_ids=exclude_track_ids,
-        )
-        gen_result = await gen_svc.generate(dj_set.set_id, request)
+        # 2. Generate optimal ordering via GA (with auto-rebuild loop)
+        excluded = list(exclude_track_ids or [])
+        gen_result = None
+        auto_iterations = 0
+
+        for attempt in range(max_auto_rebuild + 1):
+            request = SetGenerationRequest(
+                energy_arc_type=energy_arc,
+                playlist_id=playlist_id,
+                template_name=template,
+                track_count=track_count,
+                exclude_track_ids=excluded or None,
+            )
+            gen_result = await gen_svc.generate(dj_set.set_id, request)
+
+            if min_transition_score <= 0 or not gen_result.transition_scores:
+                break
+
+            # Check for weak transitions
+            min_score = min(gen_result.transition_scores)
+            if min_score >= min_transition_score:
+                break
+
+            if attempt >= max_auto_rebuild:
+                await ctx.info(
+                    f"Auto-rebuild: max iterations ({max_auto_rebuild}) reached, "
+                    f"min score={min_score:.3f}"
+                )
+                break
+
+            # Find worst transition and exclude the non-pinned track
+            worst_idx = gen_result.transition_scores.index(min_score)
+            # Exclude the "to" track of worst transition (track after the gap)
+            weak_track_id = gen_result.track_ids[worst_idx + 1]
+            excluded.append(weak_track_id)
+            auto_iterations += 1
+
+            await ctx.info(
+                f"Auto-rebuild {auto_iterations}/{max_auto_rebuild}: "
+                f"excluding track {weak_track_id} (score={min_score:.3f}), re-running GA..."
+            )
+
+        assert gen_result is not None
+
         await ctx.report_progress(progress=80, total=100)
 
         avg_score = 0.0
@@ -101,6 +146,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             total_score=gen_result.score,
             avg_transition_score=avg_score,
             energy_curve=[],
+            auto_rebuild_iterations=auto_iterations,
         )
 
     @mcp.tool(tags={"setbuilder"}, timeout=300)

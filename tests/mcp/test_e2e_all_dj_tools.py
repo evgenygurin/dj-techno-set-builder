@@ -647,7 +647,7 @@ async def test_sync_set_to_ym_with_mock_platform(_connection):
             # Elicitation fail-closed → cancelled, or if it gets through:
             # mock mapper returns no mapped IDs → create_playlist with 0 tracks
             assert "status" in data
-            assert data["status"] in ("cancelled", "synced", "not_supported")
+            assert data["status"] in ("cancelled", "synced")
 
 
 async def test_sync_set_from_ym_no_ym_playlist(_connection):

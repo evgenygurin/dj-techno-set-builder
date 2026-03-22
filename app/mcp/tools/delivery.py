@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -163,10 +164,23 @@ async def _collect_track_data(
     items: list[Any],
     track_svc: TrackService,
     features_svc: AudioFeaturesService,
+    session: AsyncSession | None = None,
 ) -> list[dict[str, Any]]:
     """Collect per-track metadata + audio features for export."""
     track_ids = [item.track_id for item in items]
     artists_map = await track_svc.get_track_artists(track_ids)
+
+    # Batch-load file paths from dj_library_items
+    file_path_map: dict[int, str] = {}
+    if session is not None:
+        from app.models.dj import DjLibraryItem
+
+        stmt = select(DjLibraryItem.track_id, DjLibraryItem.file_path).where(
+            DjLibraryItem.track_id.in_(track_ids),
+            DjLibraryItem.file_path.is_not(None),
+        )
+        rows = await session.execute(stmt)
+        file_path_map = {r[0]: r[1] for r in rows if r[1]}
 
     tracks: list[dict[str, Any]] = []
     for pos, item in enumerate(items, 1):
@@ -186,9 +200,47 @@ async def _collect_track_data(
             with contextlib.suppress(ValueError):
                 entry["key"] = key_code_to_camelot(feat.key_code)
 
+        if item.track_id in file_path_map:
+            entry["file_path"] = file_path_map[item.track_id]
+
         tracks.append(entry)
 
     return tracks
+
+
+def _is_icloud_stub(path: Path) -> bool:
+    """Check if a file is an iCloud stub (not fully downloaded)."""
+    try:
+        st = path.stat()
+        return hasattr(st, "st_blocks") and st.st_blocks * 512 < st.st_size * 0.9
+    except OSError:
+        return True
+
+
+def _copy_mp3_files(tracks: list[dict[str, Any]], out_dir: Path) -> tuple[int, int]:
+    """Copy MP3 files from library to output dir with numbered names.
+
+    Returns:
+        (copied, skipped) counts.
+    """
+    copied = skipped = 0
+    for tr in tracks:
+        src_str = tr.get("file_path")
+        if not src_str:
+            skipped += 1
+            continue
+        src = Path(src_str)
+        if not src.exists() or _is_icloud_stub(src):
+            skipped += 1
+            continue
+        title = tr.get("title", f"Track {tr['track_id']}")
+        artists = tr.get("artists", "")
+        display = f"{artists} - {title}" if artists else title
+        safe = sanitize_filename(display).strip(". ")
+        dest = out_dir / f"{tr['position']:03d}. {safe}.mp3"
+        shutil.copy2(src, dest)
+        copied += 1
+    return copied, skipped
 
 
 def _write_m3u8(set_name: str, tracks: list[dict[str, Any]]) -> str:
@@ -381,7 +433,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         items_list = await set_svc.list_items(version_id, offset=0, limit=500)
         items = sorted(items_list.items, key=lambda i: i.sort_index)
 
-        tracks = await _collect_track_data(items, track_svc, features_svc)
+        tracks = await _collect_track_data(items, track_svc, features_svc, session)
 
         out_dir = _output_dir(set_name)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -402,7 +454,14 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         cheat_path.write_text(_generate_cheat_sheet(set_name, tracks, scores), encoding="utf-8")
         files_written.append(cheat_path.name)
 
-        await ctx.info(f"Written: {', '.join(files_written)}")
+        mp3_copied, mp3_skipped = _copy_mp3_files(tracks, out_dir)
+        if mp3_copied:
+            await ctx.info(
+                f"Written: {', '.join(files_written)} + {mp3_copied} MP3 files"
+                f" ({mp3_skipped} skipped — no file or iCloud stub)"
+            )
+        else:
+            await ctx.info(f"Written: {', '.join(files_written)} (no MP3 files copied)")
         if weak:
             await ctx.info(
                 f"Note: {len(weak)} weak transitions marked with !!! in cheat_sheet.txt"
@@ -439,6 +498,8 @@ def register_delivery_tools(mcp: FastMCP) -> None:
             output_dir=str(out_dir),
             files_written=files_written,
             transitions=summary,
+            mp3_copied=mp3_copied,
+            mp3_skipped=mp3_skipped,
             ym_playlist_kind=ym_kind,
             status="ok",
         )
