@@ -1,6 +1,6 @@
 ---
-name: Delegated Development
-description: Режим разработки через Codegen cloud agents. Используй когда: пользователь просит делегировать задачу агенту, запустить Codegen, следить за агентом, ревью PR созданного агентом, параллельный запуск нескольких агентов. Триггеры: "делегируй", "запусти агента", "codegen", /delegate, "@codegen-sh", Codegen Bridge.
+name: delegated-development
+description: Use when delegating tasks to Codegen cloud agents, monitoring agent runs, reviewing agent PRs, or running multiple agents in parallel. Triggers on "delegate", "codegen", /delegate, "@codegen-sh", Codegen Bridge.
 ---
 
 # Delegated Development — Vertical Management System

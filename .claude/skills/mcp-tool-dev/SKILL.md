@@ -1,6 +1,6 @@
 ---
-name: MCP Tool Development
-description: Гайд по разработке новых DJ Workflow MCP-инструментов в app/mcp/tools/. Используй когда: добавляется новый MCP tool, нужно зарегистрировать инструмент в gateway, создать Pydantic-тип для structured_content, написать тесты для MCP tool. Триггеры: "новый инструмент", "добавить tool", app/mcp/tools/, FastMCP, register_tools.
+name: mcp-tool-dev
+description: Use when adding a new MCP tool, registering tools in gateway, creating Pydantic types for structured_content, or writing MCP tool tests. Triggers on app/mcp/tools/, FastMCP, register_tools, "new tool", "add instrument".
 ---
 
 # MCP Tool Development
