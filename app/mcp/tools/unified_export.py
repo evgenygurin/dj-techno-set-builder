@@ -7,6 +7,7 @@ Delegates to the existing format-specific implementations in export_tools.py.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
@@ -84,10 +85,15 @@ def register_unified_export_tools(mcp: FastMCP) -> None:
         return json.dumps(result, ensure_ascii=False)
 
 
-async def _export_m3u(dj_set, items, set_svc, track_svc, features_svc) -> str:  # type: ignore[no-untyped-def]
+async def _export_m3u(
+    dj_set: Any,
+    items: Any,
+    set_svc: Any,
+    track_svc: Any,
+    features_svc: Any,
+) -> str:
     """Generate M3U8 content."""
     import contextlib
-    from typing import Any
 
     from app.errors import NotFoundError
     from app.mcp.tools._scoring_helpers import sanitize_filename
@@ -140,11 +146,16 @@ async def _export_m3u(dj_set, items, set_svc, track_svc, features_svc) -> str:  
     return export_m3u(tracks_data, set_name=dj_set.name)
 
 
-async def _export_json(dj_set, items, set_svc, track_svc, features_svc) -> str:  # type: ignore[no-untyped-def]
+async def _export_json(
+    dj_set: Any,
+    items: Any,
+    set_svc: Any,
+    track_svc: Any,
+    features_svc: Any,
+) -> str:
     """Generate JSON guide content."""
     import contextlib
     import json as json_mod
-    from typing import Any
 
     from app.errors import NotFoundError
     from app.services.set_export import export_json_guide
@@ -193,7 +204,14 @@ async def _export_json(dj_set, items, set_svc, track_svc, features_svc) -> str: 
     return json_mod.dumps(guide_data, indent=2, ensure_ascii=False)
 
 
-async def _export_rekordbox(dj_set, items, track_svc, features_svc, base_path, session) -> str:  # type: ignore[no-untyped-def]
+async def _export_rekordbox(
+    dj_set: Any,
+    items: Any,
+    track_svc: Any,
+    features_svc: Any,
+    base_path: str,
+    session: Any,
+) -> str:
     """Generate Rekordbox XML content."""
     import contextlib
     from urllib.parse import quote

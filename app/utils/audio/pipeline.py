@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 from app.utils.audio._errors import AudioAnalysisError, AudioValidationError
@@ -15,10 +16,15 @@ from app.utils.audio.spectral import extract_spectral_features
 logger = logging.getLogger(__name__)
 
 
-def _run_stage(stage: str, path: str, fn: object, signal: AudioSignal) -> object:
+def _run_stage[T](
+    stage: str,
+    path: str,
+    fn: Callable[[AudioSignal], T],
+    signal: AudioSignal,
+) -> T:
     """Run an analysis stage, wrapping unexpected errors in AudioAnalysisError."""
     try:
-        return fn(signal)  # type: ignore[operator]
+        return fn(signal)
     except (AudioValidationError, FileNotFoundError):
         raise
     except Exception as exc:
@@ -74,18 +80,18 @@ def extract_all_features(
 
     logger.info(
         "Extraction complete: BPM=%.1f key=%s%s loudness=%.1f LUFS",
-        bpm_result.bpm,  # type: ignore[attr-defined]
-        key_result.key,  # type: ignore[attr-defined]
-        key_result.scale[0],  # type: ignore[attr-defined]
-        loudness_result.lufs_i,  # type: ignore[attr-defined]
+        bpm_result.bpm,
+        key_result.key,
+        key_result.scale[0],
+        loudness_result.lufs_i,
     )
 
     return TrackFeatures(
-        bpm=bpm_result,  # type: ignore[arg-type]
-        key=key_result,  # type: ignore[arg-type]
-        loudness=loudness_result,  # type: ignore[arg-type]
-        band_energy=band_energy_result,  # type: ignore[arg-type]
-        spectral=spectral_result,  # type: ignore[arg-type]
-        beats=beats_result,  # type: ignore[arg-type]
-        mfcc=mfcc_result,  # type: ignore[arg-type]
+        bpm=bpm_result,
+        key=key_result,
+        loudness=loudness_result,
+        band_energy=band_energy_result,
+        spectral=spectral_result,
+        beats=beats_result,
+        mfcc=mfcc_result,
     )

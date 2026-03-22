@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -43,19 +43,20 @@ class YandexMusicClient:
         client = await self._client()
         resp = await client.get(f"{self._base}{path}", headers=self._headers(), params=params)
         resp.raise_for_status()
-        return resp.json()  # type: ignore[no-any-return]
+        return cast(dict[str, Any], resp.json())
 
     async def _post_form(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
         client = await self._client()
         resp = await client.post(f"{self._base}{path}", headers=self._headers(), data=data)
         resp.raise_for_status()
-        return resp.json()  # type: ignore[no-any-return]
+        return cast(dict[str, Any], resp.json())
 
     # --- Public API ---
 
     async def search_tracks(self, query: str, *, page: int = 0) -> list[dict[str, Any]]:
         data = await self._get("/search", text=query, type="track", page=page)
-        return data.get("result", {}).get("tracks", {}).get("results", [])  # type: ignore[no-any-return]
+        tracks = data.get("result", {}).get("tracks", {}).get("results", [])
+        return cast(list[dict[str, Any]], tracks)
 
     async def fetch_tracks(self, track_ids: list[str]) -> dict[str, dict[str, Any]]:
         data = await self._post_form("/tracks", {"track-ids": ",".join(track_ids)})

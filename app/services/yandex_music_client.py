@@ -8,7 +8,7 @@ import time
 import urllib.parse
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -109,7 +109,7 @@ class YandexMusicClient(BaseService):
         client = await self._client()
         resp = await client.get(url, headers=self._headers())
         resp.raise_for_status()
-        return resp.json()  # type: ignore[no-any-return]
+        return cast(dict[str, Any], resp.json())
 
     async def close(self) -> None:
         if self._http:
@@ -122,7 +122,8 @@ class YandexMusicClient(BaseService):
         """Search YM for tracks. Returns list of raw track dicts."""
         url = f"{_YM_BASE}/search?text={urllib.parse.quote(query)}&type=track&page=0"
         data = await self._get_json(url)
-        return data.get("result", {}).get("tracks", {}).get("results", [])  # type: ignore[no-any-return]
+        tracks = data.get("result", {}).get("tracks", {}).get("results", [])
+        return cast(list[dict[str, Any]], tracks)
 
     # --- Playlist ---
 
@@ -130,12 +131,12 @@ class YandexMusicClient(BaseService):
         """Fetch all tracks from a playlist."""
         url = f"{_YM_BASE}/users/{user_id}/playlists/{kind}"
         data = await self._get_json(url)
-        return data.get("result", {}).get("tracks", [])  # type: ignore[no-any-return]
+        return cast(list[dict[str, Any]], data.get("result", {}).get("tracks", []))
 
     async def fetch_user_playlists(self, user_id: str) -> list[dict[str, Any]]:
         url = f"{_YM_BASE}/users/{user_id}/playlists/list"
         data = await self._get_json(url)
-        return data.get("result", [])  # type: ignore[no-any-return]
+        return cast(list[dict[str, Any]], data.get("result", []))
 
     # --- Batch track metadata ---
 
@@ -149,7 +150,7 @@ class YandexMusicClient(BaseService):
             data={"track-ids": ",".join(track_ids)},
         )
         resp.raise_for_status()
-        return resp.json().get("result", [])  # type: ignore[no-any-return]
+        return cast(list[dict[str, Any]], resp.json().get("result", []))
 
     # --- Download (3-step flow) ---
 

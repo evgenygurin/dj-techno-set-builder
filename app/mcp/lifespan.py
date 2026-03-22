@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastmcp.server.lifespan import lifespan
 
@@ -82,7 +82,7 @@ def _shutdown_otel(provider: TracerProvider | None) -> None:
 
 
 @lifespan
-async def mcp_lifespan(server):  # type: ignore[no-untyped-def]
+async def mcp_lifespan(server: Any):  # type: ignore[no-untyped-def]  # fastmcp @lifespan generator
     """Initialize observability resources on MCP server start.
 
     Yields context dict accessible via ctx.lifespan_context in tools.

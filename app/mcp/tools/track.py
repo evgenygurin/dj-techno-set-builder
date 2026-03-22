@@ -21,15 +21,14 @@ from app.mcp.entity_finder import TrackFinder
 from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
+from app.mcp.types import TrackDetail
 from app.repositories.audio_features import AudioFeaturesRepository
 from app.repositories.tracks import TrackRepository
 from app.schemas.tracks import TrackCreate, TrackUpdate
 from app.services.tracks import TrackService
 
 
-async def _build_track_detail(
-    track_id: int, session: AsyncSession
-) -> track_to_detail.__class__ | None:  # type: ignore[name-defined]
+async def _build_track_detail(track_id: int, session: AsyncSession) -> TrackDetail | None:
     """Fetch all related data and build TrackDetail."""
     repo = TrackRepository(session)
     features_repo = AudioFeaturesRepository(session)

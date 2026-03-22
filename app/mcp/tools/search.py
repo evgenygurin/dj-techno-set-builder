@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
@@ -49,7 +50,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         offset, clamped_limit = paginate_params(cursor=cursor, limit=limit)
         ref = parse_ref(query)
 
-        results: dict[str, list[dict]] = {}  # type: ignore[type-arg]
+        results: dict[str, list[dict[str, Any]]] = {}
         total_matches: dict[str, int] = {}
 
         track_repo = TrackRepository(session)

@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncIterator
 
 import pytest
@@ -15,36 +16,41 @@ from app.main import create_app
 from app.models import Base
 
 
+def _is_sqlite(url: str) -> bool:
+    return url.startswith("sqlite")
+
+
 @pytest.fixture(scope="session")
 async def engine():
-    """Session-scoped engine with StaticPool for in-memory SQLite.
+    """Session-scoped engine — in-memory SQLite (default) or PostgreSQL.
 
-    StaticPool ensures every ``engine.connect()`` returns the same
-    underlying DBAPI connection, so tables created once are visible
-    to all tests.  Tables are created once at session start and
-    dropped at session end — no per-test DDL overhead.
+    When DATABASE_URL env var is set (e.g. in CI), uses that URL
+    instead of in-memory SQLite.  SQLite-specific event listeners
+    (isolation_level, BEGIN) are only registered for SQLite.
 
-    The ``isolation_level`` / ``do_begin`` event listeners disable
-    pysqlite's implicit transaction handling so that SQLAlchemy can
-    issue explicit ``BEGIN`` statements.  This is required for
-    ``SAVEPOINT`` / ``ROLLBACK`` to work correctly with SQLite.
-    See: https://docs.sqlalchemy.org/en/20/dialects/sqlite.html#serializable-isolation-savepoints-transactional-ddl
+    StaticPool is used for SQLite to ensure single-connection sharing.
+    PostgreSQL uses default pooling.
     """
-    eng = create_async_engine(
-        "sqlite+aiosqlite://",
-        echo=False,
-        poolclass=StaticPool,
-    )
+    db_url = os.environ.get("DATABASE_URL", "sqlite+aiosqlite://")
+    is_sqlite = _is_sqlite(db_url)
 
-    @event.listens_for(eng.sync_engine, "connect")
-    def _set_sqlite_pragma(dbapi_conn, connection_record):
-        """Disable pysqlite's implicit transaction handling."""
-        dbapi_conn.isolation_level = None
+    engine_kwargs: dict = {"echo": False}
+    if is_sqlite:
+        engine_kwargs["poolclass"] = StaticPool
 
-    @event.listens_for(eng.sync_engine, "begin")
-    def _do_begin(conn):
-        """Emit our own BEGIN to match the explicit ROLLBACK."""
-        conn.exec_driver_sql("BEGIN")
+    eng = create_async_engine(db_url, **engine_kwargs)
+
+    if is_sqlite:
+
+        @event.listens_for(eng.sync_engine, "connect")
+        def _set_sqlite_pragma(dbapi_conn, connection_record):
+            """Disable pysqlite's implicit transaction handling."""
+            dbapi_conn.isolation_level = None
+
+        @event.listens_for(eng.sync_engine, "begin")
+        def _do_begin(conn):
+            """Emit our own BEGIN to match the explicit ROLLBACK."""
+            conn.exec_driver_sql("BEGIN")
 
     async with eng.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
