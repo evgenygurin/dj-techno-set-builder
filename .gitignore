@@ -1,3 +1,6 @@
+# direnv
+.envrc
+
 # Python
 __pycache__/
 *.py[cod]
@@ -93,7 +96,6 @@ dmypy.json
 .ruff_cache/
 
 # docs/
-docs/plans/
 
 # Data (keep API specs tracked)
 data/*
@@ -116,7 +118,20 @@ in-memoria-vectors.db
 
 # Override global gitignore for project-level configs
 !.mcp.json
+!.claude/
+.claude/*
+!.claude/settings.json
+!.claude/rules/
+!.claude/skills/
+!.claude/agents/
+!.claude/commands/
+!.claude/CLAUDE.md
 
 dev.db-shm
 dev.db-wal
 .worktrees/
+.playlist_map.json
+
+# Script data files
+scripts/.subgenre_playlists.json
+scripts/.playlist_map.json

@@ -9,12 +9,22 @@ class DjPlaylistCreate(BaseSchema):
     name: str = Field(min_length=1, max_length=500)
     parent_playlist_id: int | None = None
     source_app: int | None = Field(default=None, ge=1, le=5)
+    source_of_truth: str = Field(
+        default="local",
+        pattern=r"^(local|ym|spotify|beatport|soundcloud)$",
+    )
+    platform_ids: dict[str, str] | None = None
 
 
 class DjPlaylistUpdate(BaseSchema):
     name: str | None = Field(default=None, min_length=1, max_length=500)
     parent_playlist_id: int | None = None
     source_app: int | None = Field(default=None, ge=1, le=5)
+    source_of_truth: str | None = Field(
+        default=None,
+        pattern=r"^(local|ym|spotify|beatport|soundcloud)$",
+    )
+    platform_ids: dict[str, str] | None = None
 
 
 class DjPlaylistRead(BaseSchema):
@@ -22,6 +32,8 @@ class DjPlaylistRead(BaseSchema):
     name: str
     parent_playlist_id: int | None
     source_app: int | None
+    source_of_truth: str
+    platform_ids: dict[str, str] | None
     created_at: datetime
 
 

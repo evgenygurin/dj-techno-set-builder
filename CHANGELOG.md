@@ -8,15 +8,65 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Документация: добавлен раздел про MCP/OpenAI контекст и рекомендованный базовый набор MCP-серверов (безопасность/принципы доступа) в `docs/data-inventory.md`.
+- **Data refresh scripts**: `scripts/refresh_data.py` (audio features + sections), `scripts/refresh_ym_metadata.py` (YM metadata), `scripts/rescore_sets.py` (transition scores)
+- **Makefile refresh targets**: `make refresh-features`, `make refresh-sections`, `make refresh-scores`, `make refresh-ym`, `make refresh-all`, `make refresh-dry`
+- **Skills restructured**: 4 project skills переведены в официальный формат `.claude/skills/<name>/SKILL.md` с YAML frontmatter (`name`, `description`) — теперь model-invoked автоматически по контексту
+- **`/delegate` slash command**: `.claude/commands/delegate.md` — запуск Codegen cloud агента из чата
+- **Sub-agents**: `.claude/agents/` — 3 специализированных субагента: `db-analyst`, `code-investigator`, `dj-workflow`
+- **PostToolUse hooks**: авто-форматирование Python через `ruff format` после Write/Edit + регенерация `db-schema.md` при изменении моделей
+- **Energy arc adherence**: `SetCurationService.compute_energy_arc_adherence()` — energy arc scoring for DJ sets
+- **Delegated Development skill v2**: vertical AI agent management with Codegen Bridge
+- **Codegen Orchestration GHA**: `@codegen-sh` dispatch from PR comments
+- **GHA Security scanning**: Bandit + Safety in CI, non-blocking
+- **DB schema dump**: `scripts/dump_db_schema.py` + `make db-schema` — auto-generates `.claude/rules/db-schema.md`
+- **Claude Code project config**: `.claude/settings.json` with codegen-bridge marketplace
+- **SQLite MCP server**: `sqlite-db` in `.mcp.json` — direct SQL access to dev.db
+- **In-Memoria MCP server**: added to `.mcp.json` as project-level stdio server
+- **Documentation rule**: mandatory CHANGELOG + docs update after every change (`.claude/rules/documentation.md`)
+- **Git workflow rules**: project-specific (`.claude/rules/git.md`) — Linear integration, domain scopes, branching model
+
+### Changed
+
+- **Cleanup**: removed completed TODOs, added script data files to .gitignore
+- **Mood classifier**: expanded from 6 to 15 subgenres with weighted fuzzy scoring; narrowed driving/hypnotic Gaussians (sigma=0.15) to prevent catch-all dominance
+- **audio.md**: added "Mood classifier (15 subgenres)" section with discriminators table, anti-catch-all penalties, subgenre playlists info
+- **CLAUDE.md**: секция Workflow skills обновлена; добавлены `db-schema.md`, `make db-schema`, заметка про 12 pre-existing mypy errors; таблицы ссылок на docs.anthropic.com и docs.codegen.com
+- **database.md**: добавлена секция "Schema reference" с правилами регенерации `db-schema.md`
+- **Episodic Memory**: добавлено обязательное правило использования `episodic-memory:search-conversations` при старте сессии
+- **Documentation meta-rules**: добавлена секция Official Documentation Requirement
+- **MCP rules**: добавлена ссылка на официальную MCP документацию
+- **`.env.example`**: добавлен `DJ_DB_PATH` для sqlite-db MCP сервера
 
 ### Fixed
 
-- **ORM Schema Consistency** (BPM-1): Fixed 5 critical default value mismatches between SQLAlchemy models and SQL DDL
-  - Added `server_default` for boolean fields: `dj_beatgrid.is_variable_tempo`, `is_canonical`
-  - Added `server_default` for status fields: `tracks.status`, `feature_extraction_runs.status`, `transition_runs.status`
-  - Added `server_default` for `track_audio_features_computed` fields: `is_atonal`, `is_variable_tempo`, `computed_from_asset_type`
-  - Improved schema consistency from 79.5% to 90.9% coverage (40/44 tables perfect matches)
+- **mypy config**: added `librosa.*` to `ignore_missing_imports` to fix CI lint failures
+- **API duplicate queries**: removed duplicate `features_repo.list_all()` call in `SetGenerationService`
+- **hardcoded provider ID**: replaced magic number `_PROVIDER_ID = 4` with dynamic lookup from DB
+- **CI workflows**: Fixed YAML syntax by quoting 'on' keyword in GitHub Actions workflows
+- **test_filter_tracks_by_energy**: fixed test to use correct energy_mean values (0.0-1.0 scale) instead of LUFS range
+- **NULL beat features**: deleted 98 v1.0 pipeline rows with NULL beat features; re-analyzed via `refresh_data.py` with v2.1b6 pipeline
+- **Hooks**: убран `NotebookEdit` из matcher, убран `2>/dev/null` для видимости ошибок
+- **Skills discovery**: старые плоские `.md` файлы перенесены в `SKILL.md` в директориях
+- **Rules loading**: создан `.claude/CLAUDE.md` с `@`-импортами для всех `.claude/rules/*.md`
+- **Ruff lint fix**: 122→0 violations in scripts/ and migrations/
+- **DB data cleanup**: removed orphan features, duplicate tracks from dev.db
+- **Router count**: CLAUDE.md + api.md updated 13→15 (actual count)
+- **sqlite-db MCP server**: fixed `${VAR}` expansion — wrapped in `sh -c` with explicit `env` block
+- **ORM Schema Consistency** (BPM-1): Fixed 5 critical default value mismatches between SQLAlchemy models and SQL DDL; improved consistency from 79.5% to 90.9%
+- **numpy compatibility**: pinned `numpy<2.4` in pyproject.toml — numba (via librosa) incompatible with NumPy 2.4
+- **Test pollution (23 failures → 0)**: replaced `insert()` with `merge()` in 7 test files to handle pre-existing rows from session-scoped engine; used `index`-based feature values instead of `track_id` to avoid CHECK constraint violations; made count assertions relative
+- **typing_extensions_patch.py**: fixed 14 ruff violations (whitespace, imports, PEP 695, SIM102)
+- **SQL injection in delivery.py** (Issue #64, P0-1): replaced f-string SQL with ORM `select().where(.in_())` query
+- **DI bypass in delivery.py** (Issue #64, P0-2): `_sync_to_ym()` now receives session via DI instead of importing `session_factory` directly
+- **BaseRepository.update() field validation** (Issue #64, P0-3): validates field names against model columns, rejects unknown fields with `ValueError`
+- **Secrets in repr** (Issue #64, P0-5): added `repr=False` to `yandex_music_token`, `anthropic_api_key`, `sentry_dsn` in Settings
+- **Broad except narrowing** (Issue #64, P0-4): narrowed 9 `except Exception` to specific types in services, MCP tools, routers
+- **GA artist variety** (Issue #64, P1-7): wired `artist_id` from `track_artists` into GA fitness — variety scoring now functional
+- **YM rate limit lock** (Issue #64, P1-10): added `asyncio.Lock` to `_rate_limit()` preventing concurrent bypass
+- **BaseRepository.get_by_ids()** (Issue #64, P1-8): batch-fetch by PK with `pk.in_()` — prevents N+1 queries
+- **TypeForm consolidation** (Issue #64, P2-13): single source in `_compat.py`, called from `app/__init__.py`; removed `typing_extensions_patch.py`
+- **SetGenerationService logging** (Issue #64, P3-22): added entry/result logging to `generate()`
+- **Outdated TODO** (Issue #64, P3-24): updated `_build_transition_matrix` docstring — no longer marked as TODO
 
 ## [0.2.0] - 2026-02-15
 

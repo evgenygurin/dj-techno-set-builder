@@ -1,0 +1,77 @@
+{
+  "ambient_dub": {
+    "ym_kind": "1286",
+    "db_playlist_id": 9,
+    "name": "Techno: Ambient Dub"
+  },
+  "dub_techno": {
+    "ym_kind": "1287",
+    "db_playlist_id": 10,
+    "name": "Techno: Dub Techno"
+  },
+  "minimal": {
+    "ym_kind": "1288",
+    "db_playlist_id": 11,
+    "name": "Techno: Minimal"
+  },
+  "detroit": {
+    "ym_kind": "1289",
+    "db_playlist_id": 12,
+    "name": "Techno: Detroit"
+  },
+  "melodic_deep": {
+    "ym_kind": "1290",
+    "db_playlist_id": 13,
+    "name": "Techno: Melodic Deep"
+  },
+  "progressive": {
+    "ym_kind": "1291",
+    "db_playlist_id": 14,
+    "name": "Techno: Progressive"
+  },
+  "hypnotic": {
+    "ym_kind": "1292",
+    "db_playlist_id": 15,
+    "name": "Techno: Hypnotic"
+  },
+  "driving": {
+    "ym_kind": "1293",
+    "db_playlist_id": 16,
+    "name": "Techno: Driving"
+  },
+  "tribal": {
+    "ym_kind": "1294",
+    "db_playlist_id": 17,
+    "name": "Techno: Tribal"
+  },
+  "breakbeat": {
+    "ym_kind": "1295",
+    "db_playlist_id": 18,
+    "name": "Techno: Breakbeat"
+  },
+  "peak_time": {
+    "ym_kind": "1296",
+    "db_playlist_id": 19,
+    "name": "Techno: Peak Time"
+  },
+  "acid": {
+    "ym_kind": "1297",
+    "db_playlist_id": 20,
+    "name": "Techno: Acid"
+  },
+  "raw": {
+    "ym_kind": "1298",
+    "db_playlist_id": 21,
+    "name": "Techno: Raw"
+  },
+  "industrial": {
+    "ym_kind": "1299",
+    "db_playlist_id": 22,
+    "name": "Techno: Industrial"
+  },
+  "hard_techno": {
+    "ym_kind": "1300",
+    "db_playlist_id": 23,
+    "name": "Techno: Hard Techno"
+  }
+}

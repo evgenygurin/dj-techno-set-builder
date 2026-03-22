@@ -9,6 +9,10 @@ WORKERS  ?= 4
 MCP_PORT ?= 9100
 MCP_SPEC := app/mcp/gateway.py:create_dj_mcp
 
+# Fix for typing-extensions import priority issues in some environments
+VENV_PYTHONPATH := .venv/lib/python3.13/site-packages
+UV_RUN := PYTHONPATH="$(VENV_PYTHONPATH):$(PYTHONPATH)" $(UV) run
+
 # Docker compose file combinations
 DC       := docker compose
 DC_DEV   := $(DC) -f compose.yaml -f compose.dev.yaml
@@ -19,9 +23,11 @@ DC_PROD  := $(DC) -f compose.yaml -f compose.prod.yaml
         lint ruff ruff-fix format mypy check \
         test test-v test-k test-file coverage \
         run run-prod kill \
-        db db-upgrade db-downgrade db-revision db-history db-current db-reset \
+        db db-upgrade db-downgrade db-revision db-history db-current db-reset db-schema \
         docker-local docker-dev docker-prod docker-down docker-logs docker-ps docker-shell docker-test \
         mcp-dev mcp-inspect mcp-list mcp-call mcp-install-desktop mcp-install-code \
+        refresh-features refresh-sections refresh-scores refresh-ym refresh-all refresh-dry \
+        cli cli-info cli-tracks cli-sets cli-build \
         all ci
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -71,6 +77,7 @@ help:
 	@echo "  db-history     История миграций"
 	@echo "  db-current     Текущая ревизия"
 	@echo "  db-reset       Откатить ВСЕ миграции до base"
+	@echo "  db-schema      Дамп схемы БД в .claude/rules/db-schema.md"
 	@echo ""
 	@echo "  Docker"
 	@echo "  ─────────────────────────────────────"
@@ -109,10 +116,9 @@ dev:
 	$(UV) sync --frozen --all-groups
 
 clean:
-	rm -rf build/ dist/ *.egg-info/ .coverage htmlcov/ .pytest_cache/ .ruff_cache/ .mypy_cache/ __pycache__/ */__pycache__/ */*/__pycache__/
-	find . -type d -name "__pycache__" -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pyo" -delete
+	find . -type d -name "__pycache__" -not -path "./.venv/*" -print -delete 2>/dev/null || true
+	find . -type f \( -name "*.pyc" -o -name "*.pyo" \) -not -path "./.venv/*" -delete
+	rm -rf build/ dist/ *.egg-info/ .coverage htmlcov/ .pytest_cache/ .ruff_cache/ .mypy_cache/
 	find . -type f -name "*.pyd" -delete
 	find . -type f -name ".coverage" -delete
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
@@ -127,7 +133,7 @@ lint: ruff mypy
 	@$(UV) run ruff format --check $(APP) $(TESTS)
 
 ruff:
-	$(UV) run ruff check $(APP) $(TESTS)
+	$(UV_RUN) ruff check $(APP) $(TESTS)
 
 ruff-fix:
 	$(UV) run ruff check --fix $(APP) $(TESTS)
@@ -137,7 +143,7 @@ format:
 	$(UV) run ruff format $(APP) $(TESTS)
 
 mypy:
-	$(UV) run mypy $(APP)
+	$(UV_RUN) mypy $(APP)
 
 check: lint test
 
@@ -146,19 +152,22 @@ check: lint test
 # ═════════════════════════════════════════════════════════════════════════════
 
 test:
-	$(UV) run pytest
+	$(UV_RUN) pytest
+
+test-all:
+	$(UV_RUN) pytest -m "" -v
 
 test-v:
-	$(UV) run pytest -v
+	$(UV_RUN) pytest -v
 
 test-k:
-	$(UV) run pytest -v -k "$(MATCH)"
+	$(UV_RUN) pytest -v -k "$(MATCH)"
 
 test-file:
-	$(UV) run pytest -v $(F)
+	$(UV_RUN) pytest -v $(F)
 
 coverage:
-	$(UV) run pytest --cov=$(APP) $(TESTS)/ --cov-report=term --cov-report=html
+	$(UV_RUN) pytest --cov=$(APP) $(TESTS)/ --cov-report=term --cov-report=html
 	@echo "HTML-отчёт: htmlcov/index.html"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -216,6 +225,9 @@ db-reset:
 	@echo "Откат ВСЕХ миграций до base..."
 	$(UV) run alembic downgrade base
 
+db-schema:
+	$(UV) run python scripts/dump_db_schema.py
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Docker
 # ═════════════════════════════════════════════════════════════════════════════
@@ -270,6 +282,52 @@ mcp-install-desktop:
 
 mcp-install-code:
 	$(UV) run fastmcp install claude-code $(MCP_SPEC) --name dj-techno --env-file .env --with-editable .
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Data Refresh
+# ═════════════════════════════════════════════════════════════════════════════
+
+refresh-features:
+	$(UV) run python scripts/refresh_data.py --mode features --workers 4
+
+refresh-sections:
+	$(UV) run python scripts/refresh_data.py --mode sections
+
+refresh-scores:
+	$(UV) run python scripts/rescore_sets.py
+
+refresh-ym:
+	$(UV) run python scripts/refresh_ym_metadata.py --mode all
+
+refresh-all: refresh-ym refresh-features refresh-sections refresh-scores
+	@echo "All data refreshed"
+
+refresh-dry:
+	$(UV) run python scripts/refresh_data.py --mode all --dry-run
+	$(UV) run python scripts/refresh_ym_metadata.py --mode all --dry-run
+	$(UV) run python scripts/rescore_sets.py --dry-run
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CLI
+# ═════════════════════════════════════════════════════════════════════════════
+
+cli:
+	$(UV) run dj --help
+
+cli-info:
+	$(UV) run dj info
+
+cli-tracks:
+	$(UV) run dj tracks list
+
+cli-sets:
+	$(UV) run dj sets list
+
+cli-build:
+ifndef SET_ARGS
+	$(error Укажи аргументы: make cli-build SET_ARGS="3 'My Set' --template classic_60")
+endif
+	$(UV) run dj build set $(SET_ARGS)
 
 # ═════════════════════════════════════════════════════════════════════════════
 # CI / All

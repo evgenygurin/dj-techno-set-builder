@@ -13,7 +13,7 @@ paths:
 
 ## Audio utils
 
-`app/utils/audio/` — pure-function layer (no DB/ORM deps), 19 modules:
+`app/utils/audio/` — pure-function layer (no DB/ORM deps), 21 files (16 functional modules + `_types.py`, `_errors.py`, `feature_conversion.py`, `__init__.py`):
 
 | Module | Function | Output | Description |
 |--------|----------|--------|-------------|
@@ -32,8 +32,9 @@ paths:
 | `set_generator` | `generate_set()` | `SetResult` | GA for optimal track ordering |
 | `mfcc` | `extract_mfcc()` | `MfccResult` | 13 mean MFCC coefficients (librosa) |
 | `pipeline` | `extract_all_features()` | `AllFeatures` | Orchestrator — runs all analyses |
-| `mood_classifier` | `classify_track()` | `MoodClassification` | Rule-based 6-mood classification (ambient_dub → hard_techno) |
+| `mood_classifier` | `classify_track()` | `MoodClassification` | Rule-based 15-subgenre classification with fuzzy scoring |
 | `set_templates` | `get_template()` | `SetTemplate` | 8 DJ set templates with slot-based energy arcs |
+| `feature_conversion` | `orm_to_track_features()` | `TrackFeatures` | ORM→TrackFeatures single source of truth |
 
 **Pattern**: Each module exports one pure function returning a frozen `@dataclass(frozen=True, slots=True)`. All types defined in `_types.py`.
 
@@ -43,6 +44,40 @@ paths:
   - `AudioAnalysisError` — unexpected failure (wrapped by pipeline)
 
 **Pipeline** wraps unexpected errors in `AudioAnalysisError`, letting known errors (`AudioValidationError`, `FileNotFoundError`) bubble up unchanged.
+
+### Mood classifier (15 subgenres)
+
+`app/utils/audio/mood_classifier.py` — `TrackMood` enum with 15 techno subgenres:
+
+```text
+ambient_dub, dub_techno, minimal, detroit, melodic_deep, progressive,
+hypnotic, driving, tribal, breakbeat, peak_time, acid, raw, industrial, hard_techno
+```
+
+**Scoring**: Each subgenre has a weighted scoring function using 6-8 audio features. Track gets scored against all 15, highest wins. `MoodClassification` returns `mood`, `confidence`, `scores` dict, `reasoning`.
+
+**Key discriminators**:
+
+| Feature | Low → subgenre | High → subgenre |
+|---------|---------------|-----------------|
+| `hp_ratio` | >3.0 ambient/dub | <1.5 peak_time/hard |
+| `centroid_mean_hz` | <1500 dub/ambient | >4000 industrial/acid |
+| `energy_mean` | <0.3 ambient/minimal | >0.7 peak_time/hard |
+| `kick_prominence` | <0.3 ambient/melodic | >0.7 driving/hard |
+| `lra_lu` | <5 industrial/hard | >12 ambient/progressive |
+| `flux_std` | <0.2 minimal/hypnotic | >0.5 breakbeat/acid |
+
+**Anti-catch-all penalties**: `driving` and `hypnotic` get narrowed Gaussians (sigma=0.15 vs 0.25) to prevent catch-all dominance. Without this, ~40% of tracks classify as driving.
+
+**Subgenre playlists**: 15 YM playlists (kinds 1286-1300) + 15 local DB playlists (IDs 9-23). Mapping in `scripts/.subgenre_playlists.json`. Created/managed by `fill_and_verify.py --distribute`.
+
+### Phase 2 optional modules (beats, mfcc)
+
+`beats` and `mfcc` in `pipeline.py` are wrapped in `try/except ImportError` — graceful failure:
+- If essentia/scipy not installed → `beats = None`, all rhythm features unavailable
+- If librosa not installed → `mfcc = None`
+- **Gotcha**: `hp_ratio` from `BeatsResult` is **UNBOUNDED** (harmonic_rms / percussive_rms). NOT 0-1! Techno average = 2.2, range 0.66-17.25. Filter threshold: 8.0
+- **Gotcha**: `kick_prominence`, `pulse_clarity`, `onset_rate_mean` also from `beats` — will be None without essentia
 
 ## Dependencies
 
@@ -102,6 +137,56 @@ class TrackFeatures:
 - `pinned_ids: frozenset[int]` — must remain in every chromosome
 - `excluded_ids: frozenset[int]` — banned from mutations
 - Used by `_init_population()` and `_mutate_replace()`
+
+## Set delivery (ОБЯЗАТЕЛЬНО при построении сета)
+
+При каждом построении DJ-сета (`build_set`) ВСЕГДА выполняй полный цикл доставки:
+
+1. **Build** — `dj_build_set(playlist_id, set_name, energy_arc)`
+2. **Score** — `dj_score_transitions(set_id, version_id)` — проверить качество
+3. **Export** — скопировать MP3 файлы в отдельную директорию:
+   ```text
+   generated-sets/{set_name}/
+   ├── 01. Track Title.mp3
+   ├── 02. Track Title.mp3
+   ├── ...
+   ├── {set_name}.m3u8          # M3U с абсолютными путями к локальным копиям
+   └── cheat_sheet.txt          # DJ-подсказка
+   ```
+
+4. **Cheat sheet** (`cheat_sheet.txt`) — для каждого трека:
+   - Номер, название
+   - BPM, тональность (Camelot), LUFS
+   - Тип перехода к следующему треку + оценка + причина
+   - Проблемные переходы (< 0.85) помечены `!!!`
+   - Легенда типов переходов внизу
+
+**Файлы нумеруются** в порядке сета: `01. Title.mp3`, `02. Title.mp3`, ...
+
+**iCloud-стабы**: если файл ещё не скачан из iCloud (blocks < 90% size), пропустить копирование, в M3U указать путь к исходному файлу в `library/`.
+
+**Директория**: `~/Library/Mobile Documents/com~apple~CloudDocs/dj-techno-set-builder/generated-sets/{sanitized_set_name}/`
+
+## Techno audio criteria (reference)
+
+Used in `scripts/fill_and_verify.py` and `mood_classifier`:
+
+| Parameter | Min | Max | Source |
+|-----------|-----|-----|--------|
+| BPM | 120 | 155 | `bpm.bpm` |
+| LUFS | -20 | -4 | `loudness.lufs_i` |
+| Energy mean | 0.05 | — | `band_energy.mid` |
+| Onset rate | 1.0 | — | `beats.onset_rate_mean` |
+| Kick prominence | 0.05 | — | `beats.kick_prominence` |
+| Pulse clarity | 0.02 | — | `beats.pulse_clarity` |
+| HP ratio | — | 8.0 | `beats.hp_ratio` (unbounded!) |
+| Centroid | 300 Hz | 10000 Hz | `spectral.centroid_mean_hz` |
+| Flatness | — | 0.5 | `spectral.flatness_mean` |
+| Tempo confidence | 0.3 | — | `bpm.confidence` |
+| BPM stability | 0.3 | — | `bpm.stability` |
+| Crest factor | — | 30 dB | `loudness.crest_factor_db` |
+| LRA | — | 25 LU | `loudness.lra_lu` |
+| HNR | -30 dB | — | `spectral.hnr_mean_db` |
 
 ## TrackAnalysisService
 

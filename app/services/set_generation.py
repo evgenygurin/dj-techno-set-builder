@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 
 from app.errors import NotFoundError, ValidationError
+from app.models.features import TrackAudioFeaturesComputed
 from app.repositories.audio_features import AudioFeaturesRepository
 from app.repositories.playlists import DjPlaylistItemRepository
 from app.repositories.sections import SectionsRepository
@@ -85,6 +86,24 @@ class SetGenerationService(BaseService):
         self.sections_repo = sections_repo
         self.playlist_repo = playlist_repo
 
+    async def _load_artist_map(self, track_ids: list[int]) -> dict[int, int]:
+        """Load primary artist_id for each track (role=0)."""
+        from sqlalchemy import select
+
+        from app.models.catalog import TrackArtist
+
+        artist_map: dict[int, int] = {}
+        if track_ids:
+            stmt = (
+                select(TrackArtist.track_id, TrackArtist.artist_id)
+                .where(TrackArtist.track_id.in_(track_ids))
+                .where(TrackArtist.role == 0)
+            )
+            rows = await self.features_repo.session.execute(stmt)
+            for row in rows:
+                artist_map[row.track_id] = row.artist_id
+        return artist_map
+
     async def generate(self, set_id: int, data: SetGenerationRequest) -> SetGenerationResponse:
         """Generate optimal track ordering for a DJ set using genetic algorithm.
 
@@ -99,6 +118,10 @@ class SetGenerationService(BaseService):
             NotFoundError: If set_id doesn't exist
             ValidationError: If no tracks with features available
         """
+        self.logger.info(
+            "generate: set_id=%d, config=%s", set_id, data.model_dump(exclude_none=True)
+        )
+
         # Verify set exists
         dj_set = await self.set_repo.get_by_id(set_id)
         if not dj_set:
@@ -119,6 +142,14 @@ class SetGenerationService(BaseService):
                     f"No tracks with audio features in playlist {data.playlist_id}"
                 )
 
+        # Filter out excluded tracks BEFORE building any data structures (matrix, mood_map, etc.)
+        # Must happen early so that matrix size matches the tracks list size exactly.
+        if data.exclude_track_ids:
+            excluded_early = set(data.exclude_track_ids)
+            features_list = [f for f in features_list if f.track_id not in excluded_early]
+            if not features_list:
+                raise ValidationError("All tracks were excluded — cannot generate set")
+
         # Batch-load sections for structure scoring
         sections_map: dict[int, list[Any]] = {}
         if self.sections_repo is not None:
@@ -138,6 +169,9 @@ class SetGenerationService(BaseService):
             )
             mood_map[f.track_id] = classification.mood.intensity
 
+        # Load primary artist_id for each track (for variety scoring in GA)
+        artist_map = await self._load_artist_map([f.track_id for f in features_list])
+
         # Build TrackData list (LUFS-based energy for accurate perceived loudness)
         tracks = [
             TrackData(
@@ -146,14 +180,18 @@ class SetGenerationService(BaseService):
                 energy=lufs_to_energy(f.lufs_i),
                 key_code=f.key_code or 0,
                 mood=mood_map.get(f.track_id, 0),
-                artist_id=0,  # TODO: wire artist_id from track model
+                artist_id=artist_map.get(f.track_id, 0),
             )
             for f in features_list
         ]
 
+        # Build features map once — reused by transition matrix builder
+        features_map = {f.track_id: f for f in features_list}
+
         # Build transition matrix using two-tier scoring
         transition_matrix = await self._build_transition_matrix_scored(
             tracks,
+            features_map=features_map,
             tier1_threshold=data.tier1_threshold,
             sections_map=sections_map,
         )
@@ -167,11 +205,6 @@ class SetGenerationService(BaseService):
             # Set track_count from template if not explicitly specified
             if data.track_count is None and template.target_track_count > 0:
                 data_track_count = template.target_track_count
-
-        # Filter out excluded tracks
-        if data.exclude_track_ids:
-            excluded = set(data.exclude_track_ids)
-            tracks = [t for t in tracks if t.track_id not in excluded]
 
         # Configure GA — rebalance weights when template is active
         config = GAConfig(
@@ -208,6 +241,12 @@ class SetGenerationService(BaseService):
             constraints=constraints,
         )
         result = gen.run()
+        self.logger.info(
+            "GA complete: score=%.4f, tracks=%d, generations=%d",
+            result.score,
+            len(result.track_ids),
+            result.generations_run,
+        )
 
         # Create set version
         version = await self.version_repo.create(
@@ -253,11 +292,11 @@ class SetGenerationService(BaseService):
         )
 
     def _build_transition_matrix(self, tracks: list[TrackData]) -> np.ndarray:
-        """Build a simple transition quality matrix.
+        """Build a simple BPM+key transition matrix (lightweight fallback).
 
-        TODO: Replace with TransitionScoringService for real scoring.
-
-        For now: higher score if BPM difference is small and keys are compatible.
+        The primary path uses ``_build_transition_matrix_scored`` which calls
+        ``TransitionScoringService`` for full 6-component scoring. This method
+        exists as a cheap fallback when features are unavailable.
         """
         n = len(tracks)
         matrix = np.zeros((n, n), dtype=np.float64)
@@ -273,7 +312,6 @@ class SetGenerationService(BaseService):
                 bpm_score = max(0.0, 0.5 - bpm_diff / 20.0)
 
                 # Key compatibility component (0-0.5) — simple placeholder
-                # TODO: Use Camelot wheel distance
                 key_diff = abs(tracks[i].key_code - tracks[j].key_code)
                 key_score = max(0.0, 0.5 - key_diff / 24.0)
 
@@ -284,6 +322,7 @@ class SetGenerationService(BaseService):
     async def _build_transition_matrix_scored(
         self,
         tracks: list[TrackData],
+        features_map: dict[int, TrackAudioFeaturesComputed],
         tier1_threshold: float = 0.15,
         sections_map: dict[int, list[Any]] | None = None,
     ) -> np.ndarray:
@@ -294,7 +333,9 @@ class SetGenerationService(BaseService):
 
         Args:
             tracks: List of tracks with basic features (bpm, energy, key_code)
+            features_map: Pre-built map of track_id → TrackAudioFeaturesComputed
             tier1_threshold: quick_score cutoff for full scoring (0.0 = always full)
+            sections_map: Optional map of track_id → sections for structure scoring
 
         Returns:
             NxN matrix where [i, j] = quality of i→j transition
@@ -313,10 +354,6 @@ class SetGenerationService(BaseService):
         camelot_service = CamelotLookupService(self.features_repo.session)
         lookup_table = await camelot_service.build_lookup_table()
         scorer = TransitionScoringService(camelot_lookup=lookup_table)
-
-        # Fetch full features for all tracks
-        features_list = await self.features_repo.list_all()
-        features_map = {f.track_id: f for f in features_list}
 
         # Build feature objects via canonical conversion (with section data)
         smap = sections_map or {}

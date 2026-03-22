@@ -40,6 +40,20 @@ _KEY_CODE_TO_CAMELOT: dict[int, tuple[int, str]] = {
 }
 
 
+# Reverse mapping: Camelot notation → key_code
+_CAMELOT_TO_KEY_CODE: dict[str, int] = {
+    f"{num}{letter}": code for code, (num, letter) in _KEY_CODE_TO_CAMELOT.items()
+}
+
+
+def camelot_to_key_code(camelot: str) -> int | None:
+    """Convert Camelot notation (e.g. '5A') to key_code (0-23).
+
+    Returns None if the notation is not recognized.
+    """
+    return _CAMELOT_TO_KEY_CODE.get(camelot.upper().strip())
+
+
 def _validate_key_code(key_code: int) -> None:
     if not 0 <= key_code <= 23:
         msg = f"key_code must be 0-23, got {key_code}"

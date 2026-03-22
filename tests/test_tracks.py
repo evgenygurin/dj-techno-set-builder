@@ -27,24 +27,29 @@ async def test_get_track_not_found(client: AsyncClient) -> None:
 
 
 async def test_list_tracks(client: AsyncClient) -> None:
+    # Count existing tracks before adding new ones (session-scoped engine may have data)
+    before = await client.get("/api/v1/tracks")
+    existing = before.json()["total"]
+
     await client.post("/api/v1/tracks", json={"title": "Track A", "duration_ms": 300000})
     await client.post("/api/v1/tracks", json={"title": "Track B", "duration_ms": 310000})
 
     resp = await client.get("/api/v1/tracks")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total"] == 2
-    assert len(data["items"]) == 2
+    assert data["total"] == existing + 2
+    assert len(data["items"]) >= 2
 
 
 async def test_list_tracks_search(client: AsyncClient) -> None:
-    await client.post("/api/v1/tracks", json={"title": "Dark Acid", "duration_ms": 300000})
-    await client.post("/api/v1/tracks", json={"title": "Deep Bass", "duration_ms": 310000})
+    # Use a unique prefix to avoid matching pre-existing tracks
+    await client.post("/api/v1/tracks", json={"title": "ZZUniq Dark Acid", "duration_ms": 300000})
+    await client.post("/api/v1/tracks", json={"title": "ZZUniq Deep Bass", "duration_ms": 310000})
 
-    resp = await client.get("/api/v1/tracks", params={"search": "acid"})
+    resp = await client.get("/api/v1/tracks", params={"search": "ZZUniq Dark"})
     data = resp.json()
     assert data["total"] == 1
-    assert data["items"][0]["title"] == "Dark Acid"
+    assert data["items"][0]["title"] == "ZZUniq Dark Acid"
 
 
 async def test_update_track(client: AsyncClient) -> None:

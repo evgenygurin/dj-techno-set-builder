@@ -5,25 +5,40 @@ paths:
 
 # MCP Server (FastMCP 3.0)
 
+> **Official docs**: https://docs.anthropic.com/en/docs/claude-code/mcp — ИЗУЧИ перед правкой `.mcp.json` или добавлением MCP серверов.
+
 ## Structure
 
 ```text
 app/mcp/
 ├── __init__.py              # re-exports create_dj_mcp
-├── gateway.py               # Gateway: mount YM + Workflows, add transforms
-├── types.py                 # 10 Pydantic models for structured output
+├── gateway.py               # Gateway: mount YM + DJ Tools, add transforms
+├── types/
+│   ├── __init__.py          # re-exports all 36 Pydantic models
+│   ├── curation.py          # 8 curation workflow types
+│   ├── entities.py          # 7 entity summary/detail types
+│   ├── responses.py         # 8 response envelope types
+│   └── workflows.py         # 13 DJ workflow result types
 ├── dependencies.py          # DI providers (FastMCP Depends, async session)
-├── workflows/
-│   ├── __init__.py          # re-exports create_workflow_mcp
-│   ├── server.py            # Factory + visibility control
-│   ├── analysis_tools.py    # get_playlist_status, get_track_details
-│   ├── import_tools.py      # import_playlist, import_tracks (stubs), download_tracks
-│   ├── discovery_tools.py   # find_similar_tracks, search_by_criteria
-│   ├── setbuilder_tools.py  # build_set, rebuild_set, score_transitions
-│   ├── sync_tools.py        # sync_set_to_ym, sync_set_from_ym, sync_playlist
-│   └── export_tools.py      # export_set_m3u, export_set_json
+├── tools/
+│   ├── __init__.py            # re-exports create_workflow_mcp
+│   ├── server.py              # Factory + visibility control
+│   ├── compute.py             # analyze_track, compute_set_order (heavy)
+│   ├── curation.py            # classify_tracks, review_set, analyze_library_gaps
+│   ├── delivery.py            # deliver_set (score → write files → optional YM sync)
+│   ├── discovery.py           # find_similar_tracks
+│   ├── download.py            # download_tracks
+│   ├── export.py              # export_set_rekordbox
+│   ├── features.py            # list_features, get_features, save_features
+│   ├── playlist.py            # list/get/create/update/delete playlists
+│   ├── search.py              # search, filter_tracks
+│   ├── set.py                 # list/get/create/update/delete sets + versions, cheat_sheet
+│   ├── setbuilder.py          # build_set, rebuild_set, score_transitions
+│   ├── sync.py                # sync_playlist, link_playlist, set_source_of_truth, sync_set_to/from_ym
+│   ├── track.py               # list/get/create/update/delete tracks
+│   └── unified_export.py      # export_set (m3u/json/rekordbox)
 ├── prompts/
-│   └── workflows.py         # 3 recipe prompts (expand, build, improve)
+│   └── workflows.py         # 4 recipe prompts (expand, build, improve, deliver)
 ├── resources/
 │   └── status.py            # 3 resources (playlist, catalog, set)
 └── yandex_music/
@@ -36,37 +51,72 @@ app/mcp/
 
 `create_dj_mcp()` in `app/mcp/gateway.py`:
 - Mounts **Yandex Music** sub-server at namespace `"ym"` (~30 tools from OpenAPI)
-- Mounts **DJ Workflows** sub-server at namespace `"dj"` (19 hand-written tools)
+- Mounts **DJ Tools** sub-server at namespace `"dj"` (41 hand-written tools)
 - Adds `PromptsAsTools` + `ResourcesAsTools` transforms for tool-only MCP clients
-- Total: ~53 tools (30 YM + 19 DJ + 4 transforms)
+- Total: ~75 tools (30 YM + 41 DJ + 4 transforms)
 
 ## DJ Workflow tools (namespace "dj")
 
-| Tool | Tag | Read-only | Description |
-|------|-----|-----------|-------------|
-| `get_playlist_status` | analysis | Yes | Playlist stats: tracks, BPM range, keys, energy, duration |
-| `get_track_details` | analysis | Yes | Track metadata + audio features (BPM, key, energy) |
-| `import_playlist` | import | No | Import from external source (stub), supports `download_files` param |
-| `import_tracks` | import | No | Import tracks by YM IDs (stub) |
-| `download_tracks` | download, yandex | No | Download MP3 files from Yandex Music to iCloud library |
+41 tools across 14 modules + server.py:
+
+| Tool | Tags | Read-only | Description |
+|------|------|-----------|-------------|
+| `search` | search | Yes | Universal search across all entities and platforms |
+| `filter_tracks` | search | Yes | Filter tracks by audio parameters (BPM, key, energy) |
+| `list_tracks` | crud, track | Yes | List tracks with optional text search |
+| `get_track` | crud, track | Yes | Get track details by ref |
+| `create_track` | crud, track | No | Create a new track |
+| `update_track` | crud, track | No | Update track fields by ref |
+| `delete_track` | crud, track | No | Delete a track by ref |
+| `list_playlists` | crud, playlist | Yes | List playlists with optional text search |
+| `get_playlist` | crud, playlist | Yes | Get playlist details by ref |
+| `create_playlist` | crud, playlist | No | Create a new playlist |
+| `update_playlist` | crud, playlist | No | Update playlist fields by ref |
+| `delete_playlist` | crud, playlist | No | Delete a playlist by ref |
+| `list_sets` | crud, set | Yes | List DJ sets |
+| `get_set` | crud, set | Yes | Get set details by ref |
+| `create_set` | crud, set | No | Create a new DJ set |
+| `update_set` | crud, set | No | Update set fields by ref |
+| `delete_set` | crud, set | No | Delete a DJ set by ref |
+| `get_set_tracks` | crud, set | Yes | All tracks of a version with BPM/key/LUFS/pinned |
+| `list_set_versions` | crud, set | Yes | Version history with track_count and score |
+| `get_set_cheat_sheet` | set, setbuilder | Yes | Full set: tracks + transitions + summary + text |
+| `list_features` | crud, features | Yes | List tracks with computed audio features |
+| `get_features` | crud, features | Yes | Get full audio features for a track |
+| `save_features` | crud, features | No | Persist computed audio features |
+| `analyze_track` | compute, analysis | No | Run full audio analysis pipeline on a track |
+| `compute_set_order` | compute, setbuilder | No | Compute optimal track ordering without saving |
+| `export_set` | export | Yes | Export set (m3u/json/rekordbox) |
+| `export_set_rekordbox` | export | Yes | Export set as Rekordbox XML |
+| `download_tracks` | download, yandex | No | Download MP3 files from YM to iCloud library |
 | `find_similar_tracks` | discovery | No | LLM-assisted similar track search via `ctx.sample()` |
-| `search_by_criteria` | discovery | Yes | Filter local tracks by BPM/key/energy ranges |
 | `build_set` | setbuilder | No | Create DJ set + template-aware GA optimization |
 | `rebuild_set` | setbuilder | No | Rebuild set with pinned/excluded constraints |
 | `score_transitions` | setbuilder | Yes | Score all transitions in a set version |
-| `export_set_m3u` | setbuilder | Yes | Export set as Extended M3U8 with VLC opts, DJ metadata |
-| `export_set_json` | setbuilder | Yes | Export set as JSON transition guide with scoring |
-| `sync_set_to_ym` | sync, yandex | No | Push DJ set to YM as playlist (stub) |
-| `sync_set_from_ym` | sync, yandex | No | Read likes/dislikes from YM, update pinned/excluded (stub) |
-| `sync_playlist` | sync, yandex | No | Bidirectional sync between YM and local playlist (stub) |
-| `classify_tracks` | curation | Yes | Classify all tracks by 6 mood categories |
-| `review_set` | curation, setbuilder | Yes | Review set: weak transitions, variety, suggestions |
-| `analyze_library_gaps` | curation | Yes | Compare library vs template needs, find gaps |
+| `deliver_set` | setbuilder | No | Score → write files → optional YM (3 visible stages) |
+| `classify_tracks` | curation | Yes | Classify all tracks by 15 mood categories |
+| `analyze_library_gaps` | curation | Yes | Analyze library for gaps relative to a template |
+| `review_set` | curation, setbuilder | Yes | Review set: weak transitions, suggestions |
+| `sync_playlist` | sync | No | Bidirectional sync between local playlist and platform |
+| `set_source_of_truth` | sync | No | Configure source of truth for a playlist |
+| `link_playlist` | sync | No | Link local playlist to platform playlist |
+| `sync_set_to_ym` | sync, yandex | No | Push DJ set to YM as playlist |
+| `sync_set_from_ym` | sync, yandex | No | Read feedback from YM, detect changes |
 | `activate_heavy_mode` | admin | No | Enable heavy analysis tools |
+| `activate_ym_raw` | admin | No | Enable raw Yandex Music API tools |
+| `list_platforms` | admin | Yes | List configured music platforms |
 
 ## Yandex Music tools (namespace "ym")
 
 Generated from OpenAPI spec (`data/yandex-music.yaml`) via `FastMCP.from_openapi()`. Includes search, tracks, albums, artists, playlists endpoints. Non-DJ endpoints excluded via `RouteMap` patterns (account, feed, rotor, queues, settings).
+
+**Excluded broken endpoints** (in `config.py` `EXCLUDE_ROUTE_MAPS`):
+- `brief-info` — HTTP 403 Yandex Antirobot. Use `search_yandex_music(type=artist)` instead.
+- `lyrics` — HTTP 400: requires HMAC sign. `lyricsAvailable` field in track object indicates availability.
+
+**Response cleaning** (`response_filters.py`): whitelist pattern strips noise before LLM sees response.
+To add a new cleaner: `_X_FIELDS` frozenset + `_is_X_like()` heuristic + `clean_X()` + branch in `_clean_object_list()`.
+Playlist responses: `tracks` stripped in all contexts (list + single), `trackCount` preserved. Genres: only `id/name/title/value/subGenres`.
 
 Tool names: camelCase operationIds converted to snake_case in `config.py`. Special case: `search` -> `search_yandex_music` to avoid collisions.
 
@@ -99,7 +149,7 @@ async def get_track_details(
 
 ## Tool registration pattern
 
-Each workflow module exports a `register_*_tools(mcp)` function called by `create_workflow_mcp()`:
+Each tool module exports a `register_*_tools(mcp)` function called by `create_workflow_mcp()`:
 
 ```python
 def register_analysis_tools(mcp: FastMCP) -> None:
@@ -114,10 +164,11 @@ Heavy tools (tagged `"heavy"`) are hidden by default via `mcp.disable(tags={"hea
 
 ## Prompts (workflow recipes)
 
-3 prompts guide multi-step workflows:
+4 prompts guide multi-step workflows:
 - `expand_playlist` — analyze -> find similar -> build set
 - `build_set_from_scratch` — search YM -> import -> find similar -> build set
 - `improve_set` — score transitions -> adjust -> re-score
+- `deliver_set_workflow` — score -> write files -> YM sync (with checkpoint on hard conflicts)
 
 Each returns `list[Message]` with step-by-step instructions referencing namespaced tool names (e.g. `dj_get_playlist_status`, `ym_search_tracks`).
 
@@ -131,10 +182,16 @@ Resources use FastMCP DI (`Depends`) for service injection, same as tools.
 
 ## Structured output
 
-All DJ tools return typed Pydantic models (10 types in `app/mcp/types.py`):
-`PlaylistStatus`, `TrackDetails`, `ImportResult`, `AnalysisResult`, `SimilarTracksResult`, `SearchStrategy`, `SetBuildResult`, `TransitionScoreResult`, `ExportResult`.
+All DJ tools return typed Pydantic models (36 types across 4 files in `app/mcp/types/`):
 
-Return type annotation -> `structuredContent` in MCP protocol response.
+| File | Count | Key types |
+|------|-------|-----------|
+| `entities.py` | 7 | TrackSummary, TrackDetail, PlaylistSummary, PlaylistDetail, SetSummary, SetDetail, ArtistSummary |
+| `responses.py` | 8 | PaginationInfo, MatchStats, LibraryStats, SearchResponse, FindResult, EntityListResponse, EntityDetailResponse, ActionResponse |
+| `workflows.py` | 13 | SimilarTracksResult, SearchStrategy, SetBuildResult, TransitionScoreResult, ExportResult, SetTrackItem, SetVersionSummary, SetCheatSheet, DeliveryResult, TransitionSummary, AdjustmentPlan, SwapSuggestion, ReorderSuggestion |
+| `curation.py` | 8 | ClassifyResult, MoodDistribution, CurateCandidate, CurateSetResult, WeakTransition, SetReviewResult, GapDescription, LibraryGapResult |
+
+Return type annotation → `structuredContent` in MCP protocol response.
 
 ## MCP mounting in FastAPI
 
@@ -148,22 +205,53 @@ app.mount("/mcp", mcp_app)
 
 MCP endpoint: `POST /mcp/mcp` (StreamableHTTP). The double `/mcp` is because FastAPI mounts at `/mcp` and FastMCP internal path is also `/mcp`.
 
+## Visible-stages pattern (для операций > 5 сек)
+
+Инструменты с длинными операциями должны быть прозрачными, не black-box:
+
+```python
+@mcp.tool(tags={"setbuilder"}, timeout=300)
+async def long_op(ctx: Context, ...) -> ResultModel:
+    # Stage 1: проверка — быстро, обратимо
+    await ctx.info("Stage 1/3 — checking...")
+    await ctx.report_progress(progress=0, total=3)
+    result = await check()
+    if critical_problem:
+        decision = await resolve_conflict(ctx, "Continue?", options=["continue", "abort"])
+        if decision != "continue":
+            return ResultModel(status="aborted", ...)
+    # Stage 2: запись/мутация
+    await ctx.report_progress(progress=1, total=3)
+    await ctx.info("Stage 2/3 — writing...")
+    # Stage 3: опциональный внешний sync
+    await ctx.report_progress(progress=2, total=3)
+    await ctx.info("Stage 3/3 — syncing...")
+    await ctx.report_progress(progress=3, total=3)
+    return ResultModel(status="ok", ...)
+```
+
+`resolve_conflict` из `app/mcp/elicitation.py` — элицитация с выбором опций.
+
 ## Adding a new MCP tool
 
-1. Create tool function in the appropriate `app/mcp/workflows/*_tools.py` module
+1. Create tool function in the appropriate `app/mcp/tools/*.py` module
 2. Use `@mcp.tool(tags={"tag"}, annotations={"readOnlyHint": True})` for read-only tools
 3. Add DI providers in `app/mcp/dependencies.py` if new services needed
-4. Return a Pydantic model from `app/mcp/types.py` (create new if needed)
+4. Return a Pydantic model from `app/mcp/types/` (create new if needed)
 5. Add tests in `tests/mcp/test_workflow_*.py` — verify registration, tags, annotations, gateway namespacing
 6. `Context` parameter: always non-optional (`ctx: Context`), FastMCP injects it automatically
 
 ## MCP gotchas
 
+- **Pydantic return → `structured_content` shape**: FastMCP кладёт поля модели напрямую в `structured_content`, НЕ в `{"result": ...}`. Тест: `sc = raw.structured_content; assert sc["field"] == expected`.
+- **MCP test seeding**: `workflow_mcp_with_db` патчит `app.mcp.dependencies.session_factory`. Seed данных — только через `engine` fixture: `factory = async_sessionmaker(engine); async with factory() as s: s.add(...)`.
+- **`DjSetVersion` PK**: поле называется `set_version_id`, не `version_id`.
+- **Pre-existing mypy errors (12)**: `wrap_list`/`unified_export`/`compute`/`sync/track_mapper` — не наши, не трогать.
 - **B008 ruff rule**: `Depends()` in default args triggers B008. Solved with per-file-ignores in `pyproject.toml`:
   ```toml
   [tool.ruff.lint.per-file-ignores]
   "app/mcp/dependencies.py" = ["B008"]
-  "app/mcp/workflows/*.py" = ["B008"]
+  "app/mcp/tools/*.py" = ["B008"]
   ```
 - **`combine_lifespans()`**: Required to compose FastAPI + MCP ASGI lifespans. Without it, MCP task group won't initialize. Import from `fastmcp.utilities.lifespan`.
 - **`ctx.sample()` fallback**: Not all MCP clients support sampling. Always wrap in `try/except (NotImplementedError, AttributeError, TypeError)`.
@@ -225,7 +313,7 @@ Installation into MCP clients:
 
 **CLI quick reference:**
 ```bash
-make mcp-list                                                    # 46 tools
+make mcp-list                                                    # ~75 tools
 make mcp-call TOOL=dj_get_track_details ARGS='{"track_id": 45}' # call tool
 make mcp-dev                                                     # HTTP :9100 + reload
 make mcp-inspect                                                 # Inspector :6274

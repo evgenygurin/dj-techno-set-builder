@@ -19,6 +19,13 @@ EXCLUDE_ROUTE_MAPS: list[RouteMap] = [
     RouteMap(pattern=r"^/token$", mcp_type=MCPType.EXCLUDE),
     RouteMap(pattern=r"^/play-audio$", mcp_type=MCPType.EXCLUDE),
     RouteMap(pattern=r"^/non-music", mcp_type=MCPType.EXCLUDE),
+    # ── Broken endpoints ────────────────────────────────────────────────────────
+    # HTTP 403 from Yandex Smart Antirobot on this specific endpoint.
+    # Use ym_search_yandex_music(type=artist) for artist info instead.
+    RouteMap(pattern=r"^/artists/[^/]+/brief-info$", mcp_type=MCPType.EXCLUDE),
+    # HTTP 400: requires HMAC sign = md5(trackId + timestamp + secret).
+    # Signing not implemented. lyricsAvailable field in track object indicates availability.
+    RouteMap(pattern=r"^/tracks/[^/]+/lyrics$", mcp_type=MCPType.EXCLUDE),
 ]
 
 

@@ -1,9 +1,10 @@
-from typing import Any
-
 """Tests for DownloadService."""
 
+from __future__ import annotations
+
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock
+from typing import Any
+from unittest.mock import AsyncMock, Mock, patch
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,12 +19,12 @@ from app.services.download import DownloadService
 class TestDownloadService:
     def test_sanitize_filename_removes_special_chars(self) -> None:
         """_sanitize_filename removes / \\ : * ? " < > |"""
-        result = DownloadService._sanitize_filename('Track / Name: Test?')
+        result = DownloadService._sanitize_filename("Track / Name: Test?")
         assert result == "track_name_test"
 
     def test_sanitize_filename_replaces_spaces_with_underscores(self) -> None:
         """_sanitize_filename replaces spaces with underscores."""
-        result = DownloadService._sanitize_filename('Fire Eyes')
+        result = DownloadService._sanitize_filename("Fire Eyes")
         assert result == "fire_eyes"
 
     def test_sanitize_filename_truncates_to_max_len(self) -> None:
@@ -35,12 +36,12 @@ class TestDownloadService:
 
     def test_sanitize_filename_removes_trailing_underscores(self) -> None:
         """_sanitize_filename removes trailing underscores."""
-        result = DownloadService._sanitize_filename('Track   ')
+        result = DownloadService._sanitize_filename("Track   ")
         assert result == "track"
 
     def test_sanitize_filename_returns_untitled_when_empty(self) -> None:
         """_sanitize_filename returns 'untitled' for empty input."""
-        result = DownloadService._sanitize_filename('////')
+        result = DownloadService._sanitize_filename("////")
         assert result == "untitled"
 
     def test_generate_filename_combines_track_id_and_title(self) -> None:
@@ -99,9 +100,9 @@ class TestDownloadService:
         self, session: AsyncSession, tmp_path: Path
     ) -> None:
         """_download_single_track downloads file and creates DjLibraryItem."""
-        # Create provider
+        # Create provider — use merge() to avoid IntegrityError with session-scoped engine
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
-        session.add(provider)
+        await session.merge(provider)
         await session.flush()
 
         # Create track
@@ -136,8 +137,8 @@ class TestDownloadService:
         assert success is True
         assert size == 2048
 
-        # Verify file exists
-        expected_path = tmp_path / "1_nova.mp3"
+        # Verify file exists (track_id is dynamic with session-scoped engine)
+        expected_path = tmp_path / f"{track.track_id}_nova.mp3"
         assert expected_path.exists()
 
         # Verify DjLibraryItem created
@@ -152,9 +153,9 @@ class TestDownloadService:
         self, session: AsyncSession, tmp_path: Path
     ) -> None:
         """_download_single_track retries after network error."""
-        # Create provider
+        # Create provider — use merge() to avoid IntegrityError with session-scoped engine
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
-        session.add(provider)
+        await session.merge(provider)
         await session.flush()
 
         # Create track
@@ -184,9 +185,10 @@ class TestDownloadService:
 
         mock_ym.download_track = AsyncMock(side_effect=mock_download)
 
-        # Test
+        # Test (mock sleep to avoid real 3s delay from exponential backoff)
         svc = DownloadService(session, mock_ym, tmp_path)
-        success, _ = await svc._download_single_track(track, prefer_bitrate=320)
+        with patch("app.services.download.asyncio.sleep", new_callable=AsyncMock):
+            success, _ = await svc._download_single_track(track, prefer_bitrate=320)
 
         assert success is True
         assert len(attempts) == 3  # Failed twice, succeeded on 3rd
@@ -195,9 +197,9 @@ class TestDownloadService:
         self, session: AsyncSession, tmp_path: Path
     ) -> None:
         """_download_single_track returns (False, 0) after max retries."""
-        # Create provider
+        # Create provider — use merge() to avoid IntegrityError with session-scoped engine
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
-        session.add(provider)
+        await session.merge(provider)
         await session.flush()
 
         # Create track
@@ -218,9 +220,10 @@ class TestDownloadService:
         mock_ym = Mock()
         mock_ym.download_track = AsyncMock(side_effect=Exception("Always fail"))
 
-        # Test
+        # Test (mock sleep to avoid real 3s delay from exponential backoff)
         svc = DownloadService(session, mock_ym, tmp_path)
-        success, size = await svc._download_single_track(track, prefer_bitrate=320)
+        with patch("app.services.download.asyncio.sleep", new_callable=AsyncMock):
+            success, size = await svc._download_single_track(track, prefer_bitrate=320)
 
         assert success is False
         assert size == 0
@@ -230,9 +233,9 @@ class TestDownloadService:
         self, session: AsyncSession, tmp_path: Path
     ) -> None:
         """download_tracks_batch skips tracks with existing file_path."""
-        # Create provider
+        # Create provider — use merge() to avoid IntegrityError with session-scoped engine
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
-        session.add(provider)
+        await session.merge(provider)
         await session.flush()
 
         # Create tracks
@@ -262,9 +265,9 @@ class TestDownloadService:
         self, session: AsyncSession, tmp_path: Path
     ) -> None:
         """download_tracks_batch handles partial failures correctly."""
-        # Create provider
+        # Create provider — use merge() to avoid IntegrityError with session-scoped engine
         provider = Provider(provider_id=1, provider_code="yandex", name="Yandex Music")
-        session.add(provider)
+        await session.merge(provider)
         await session.flush()
 
         # Create tracks
@@ -294,9 +297,10 @@ class TestDownloadService:
 
         mock_ym.download_track = AsyncMock(side_effect=mock_download)
 
-        # Test
+        # Test (mock sleep to avoid real 3s delay from exponential backoff)
         svc = DownloadService(session, mock_ym, tmp_path)
-        result = await svc.download_tracks_batch([track1.track_id, track2.track_id])
+        with patch("app.services.download.asyncio.sleep", new_callable=AsyncMock):
+            result = await svc.download_tracks_batch([track1.track_id, track2.track_id])
 
         assert result.downloaded == 1
         assert result.skipped == 0

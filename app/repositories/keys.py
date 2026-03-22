@@ -19,4 +19,4 @@ class KeyRepository(BaseRepository[Key]):
             return {}
         stmt = select(Key.key_code, Key.name).where(Key.key_code.in_(key_codes))
         result = await self.session.execute(stmt)
-        return dict(result.all())  # type: ignore[arg-type]
+        return dict(result.all())  # type: ignore[arg-type]  # Row[tuple] → dict

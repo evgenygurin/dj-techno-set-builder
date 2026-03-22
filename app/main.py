@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# Note: TypeForm compat patch applied in app/__init__.py (runs before this module)
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager

@@ -51,9 +51,9 @@ async def test_gateway_preserves_all_dj_tools(gateway_mcp: FastMCP):
     tool_names = {t.name for t in tools}
 
     # Spot-check a few core tools still present
-    assert "dj_get_playlist_status" in tool_names
     assert "dj_build_set" in tool_names
-    assert "dj_export_set_m3u" in tool_names
+    assert "dj_get_track" in tool_names
+    assert "dj_export_set_rekordbox" in tool_names
 
 
 async def test_gateway_preserves_ym_tools(gateway_mcp: FastMCP):
@@ -62,3 +62,33 @@ async def test_gateway_preserves_ym_tools(gateway_mcp: FastMCP):
     tool_names = {t.name for t in tools}
     ym_tools = {n for n in tool_names if n.startswith("ym_")}
     assert len(ym_tools) > 0, f"No ym_ tools found. Available: {tool_names}"
+
+
+async def test_activate_ym_raw_tool_exists(workflow_mcp: FastMCP):
+    """The activate_ym_raw tool should be registered."""
+    tools = await workflow_mcp.list_tools()
+    tool_names = {t.name for t in tools}
+    assert "activate_ym_raw" in tool_names
+
+
+async def test_list_platforms_tool_exists(workflow_mcp: FastMCP):
+    """The list_platforms tool should be registered."""
+    tools = await workflow_mcp.list_tools()
+    tool_names = {t.name for t in tools}
+    assert "list_platforms" in tool_names
+
+
+async def test_list_platforms_has_admin_tag(workflow_mcp: FastMCP):
+    """list_platforms should be tagged as admin."""
+    tools = await workflow_mcp.list_tools()
+    tool = next(t for t in tools if t.name == "list_platforms")
+    assert tool.tags is not None
+    assert "admin" in tool.tags
+
+
+async def test_activate_ym_raw_has_admin_tag(workflow_mcp: FastMCP):
+    """activate_ym_raw should be tagged as admin."""
+    tools = await workflow_mcp.list_tools()
+    tool = next(t for t in tools if t.name == "activate_ym_raw")
+    assert tool.tags is not None
+    assert "admin" in tool.tags

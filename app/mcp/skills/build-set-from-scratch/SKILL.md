@@ -19,8 +19,8 @@ and optimize the ordering.
    Search for enough tracks to fill the duration
    (estimate ~5 min per track, so 12 tracks for 60 min).
 
-2. **Import tracks** — `dj_import_tracks` with the found track IDs.
-   This adds them to the local database.
+2. **Download tracks** — `dj_download_tracks` with the found track IDs.
+   This downloads and adds them to the local database.
 
 3. **Expand selection** — `dj_find_similar_tracks` to discover additional
    tracks that complement the initial selection.

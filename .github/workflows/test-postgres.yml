@@ -1,0 +1,85 @@
+# PostgreSQL compatibility tests
+# Validates that the test suite passes against PostgreSQL (prod DB)
+# in addition to the default SQLite (dev DB).
+name: PostgreSQL Tests
+
+'on':
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'app/models/**'
+      - 'app/repositories/**'
+      - 'app/database.py'
+      - 'migrations/**'
+      - 'tests/**'
+  pull_request:
+    paths:
+      - 'app/models/**'
+      - 'app/repositories/**'
+      - 'app/database.py'
+      - 'migrations/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+concurrency:
+  group: pg-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  PYTHONPATH: ".venv/lib/python3.13/site-packages:$PYTHONPATH"
+
+jobs:
+  test-postgres:
+    name: Tests (PostgreSQL 16)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsndfile1-dev libfftw3-dev libeigen3-dev libyaml-dev libavcodec-dev libavformat-dev libavutil-dev
+
+      - name: Sync dependencies
+        run: uv sync --frozen --extra audio
+
+      - name: Install asyncpg driver
+        run: uv pip install asyncpg
+
+      - name: Run tests against PostgreSQL
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
+        run: uv run pytest -v --cov=app tests --cov-report=term

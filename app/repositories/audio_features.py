@@ -36,26 +36,84 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         filters: list[Any] = [self.model.track_id == track_id]
         return await self.list(offset=offset, limit=limit, filters=filters)
 
-    async def list_all(self) -> list[TrackAudioFeaturesComputed]:
-        """Get latest features for every track (one row per track_id)."""
+    def _latest_subquery(self) -> Any:
+        """Subquery: max(run_id) per track_id for existing tracks only.
+
+        Uses ``run_id`` (auto-increment PK) instead of ``created_at``
+        because multiple runs in the same second would share the same
+        timestamp, causing duplicate rows in the join.
+        """
         from sqlalchemy import func as sa_func
 
-        # Subquery: max(created_at) per track_id
-        latest = (
+        from app.models.catalog import Track
+
+        return (
             select(
                 self.model.track_id,
-                sa_func.max(self.model.created_at).label("max_created"),
+                sa_func.max(self.model.run_id).label("max_run_id"),
             )
+            .where(self.model.track_id.in_(select(Track.track_id)))
             .group_by(self.model.track_id)
             .subquery()
         )
+
+    async def list_all(self) -> list[TrackAudioFeaturesComputed]:
+        """Get latest features for every existing track (one row per track_id)."""
+        latest = self._latest_subquery()
         stmt = select(self.model).join(
             latest,
             (self.model.track_id == latest.c.track_id)
-            & (self.model.created_at == latest.c.max_created),
+            & (self.model.run_id == latest.c.max_run_id),
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def filter_by_criteria(
+        self,
+        *,
+        bpm_min: float | None = None,
+        bpm_max: float | None = None,
+        key_codes: list[int] | None = None,
+        energy_min: float | None = None,
+        energy_max: float | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[TrackAudioFeaturesComputed], int]:
+        """Filter features by audio parameters at SQL level.
+
+        Uses the same latest-run-per-track deduplication as ``list_all()``
+        to avoid returning duplicate rows when a track has multiple
+        feature extraction runs.
+        """
+        from sqlalchemy import func as sa_func
+
+        latest = self._latest_subquery()
+
+        base = select(self.model).join(
+            latest,
+            (self.model.track_id == latest.c.track_id)
+            & (self.model.run_id == latest.c.max_run_id),
+        )
+
+        if bpm_min is not None:
+            base = base.where(self.model.bpm >= bpm_min)
+        if bpm_max is not None:
+            base = base.where(self.model.bpm <= bpm_max)
+        if key_codes:
+            base = base.where(self.model.key_code.in_(key_codes))
+        if energy_min is not None:
+            base = base.where(self.model.energy_mean >= energy_min)
+        if energy_max is not None:
+            base = base.where(self.model.energy_mean <= energy_max)
+
+        # Count distinct tracks matching criteria
+        count_stmt = select(sa_func.count()).select_from(base.subquery())
+        total_result = await self.session.execute(count_stmt)
+        total = total_result.scalar_one()
+
+        stmt = base.order_by(self.model.track_id).offset(offset).limit(limit)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all()), total
 
     async def save_features(
         self,

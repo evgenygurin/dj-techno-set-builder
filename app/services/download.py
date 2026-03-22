@@ -157,6 +157,9 @@ class DownloadService:
     ) -> DownloadResult:
         """Download multiple tracks with retry and statistics.
 
+        Runs sequentially — YM rate limiter enforces 1.5s between requests,
+        and the shared DB session (SQLite) doesn't support concurrent writes.
+
         Args:
             track_ids: List of track IDs to download
             prefer_bitrate: Preferred bitrate in kbps (default: 320)
@@ -200,8 +203,7 @@ class DownloadService:
                 failed_ids.append(track_id)
 
         logger.info(
-            f"Download batch complete: {downloaded} downloaded, "
-            f"{skipped} skipped, {failed} failed"
+            f"Download batch complete: {downloaded} downloaded, {skipped} skipped, {failed} failed"
         )
 
         return DownloadResult(
@@ -227,15 +229,15 @@ class DownloadService:
             Sanitized filename-safe string, or "untitled" if empty
         """
         # Remove special characters: / \ : * ? " < > |
-        safe = re.sub(r'[/\\:*?"<>|]', '', title)
+        safe = re.sub(r'[/\\:*?"<>|]', "", title)
         # Replace spaces with underscores
-        safe = safe.replace(' ', '_')
+        safe = safe.replace(" ", "_")
         # Replace multiple underscores with single
-        safe = re.sub(r'_+', '_', safe)
+        safe = re.sub(r"_+", "_", safe)
         # Lowercase
         safe = safe.lower()
         # Truncate to max_len
         safe = safe[:max_len]
         # Remove trailing underscores
-        safe = safe.rstrip('_')
+        safe = safe.rstrip("_")
         return safe or "untitled"

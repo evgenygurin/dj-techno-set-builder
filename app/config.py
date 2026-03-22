@@ -1,4 +1,8 @@
-from pydantic import Field
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,10 +15,19 @@ class Settings(BaseSettings):
 
     app_name: str = "DJ Techno Set Builder"
     debug: bool = False
-    log_level: str = "INFO"
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     database_url: str = "sqlite+aiosqlite:///./dev.db"
 
-    yandex_music_token: str = ""
+    @field_validator("database_url")
+    @classmethod
+    def validate_db_url(cls, v: str) -> str:
+        if not (v.startswith("sqlite+aiosqlite://") or v.startswith("postgresql+asyncpg://")):
+            raise ValueError(
+                "Unsupported database URL scheme. Use sqlite+aiosqlite:// or postgresql+asyncpg://"
+            )
+        return v
+
+    yandex_music_token: str = Field(default="", repr=False)
     yandex_music_user_id: str = ""
     yandex_music_base_url: str = "https://api.music.yandex.net:443"
 
@@ -24,13 +37,14 @@ class Settings(BaseSettings):
     )
 
     # Sentry
-    sentry_dsn: str = ""
+    sentry_dsn: str = Field(default="", repr=False)
     sentry_traces_sample_rate: float = 1.0
     sentry_send_pii: bool = True
     environment: str = "development"
 
     # OpenTelemetry
-    otel_endpoint: str = ""
+    otel_endpoint: str | None = None
+    otel_insecure: bool = True
     otel_service_name: str = "dj-set-builder-mcp"
 
     # MCP Observability
@@ -43,7 +57,7 @@ class Settings(BaseSettings):
     mcp_log_payloads: bool = False
 
     # Sampling (LLM fallback)
-    anthropic_api_key: str = ""
+    anthropic_api_key: str = Field(default="", repr=False)
     sampling_model: str = "claude-sonnet-4-5-20250929"
     sampling_max_tokens: int = 1024
 

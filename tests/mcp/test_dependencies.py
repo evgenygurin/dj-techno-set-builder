@@ -14,24 +14,16 @@ from app.mcp.dependencies import (
     get_ym_client,
 )
 from app.mcp.types import (
-    AnalysisResult,
     ExportResult,
-    ImportResult,
-    PlaylistStatus,
     SearchStrategy,
     SetBuildResult,
     SimilarTracksResult,
-    TrackDetails,
     TransitionScoreResult,
 )
 
 
 def test_types_are_importable():
     """All Pydantic types should be importable."""
-    assert PlaylistStatus is not None
-    assert TrackDetails is not None
-    assert ImportResult is not None
-    assert AnalysisResult is not None
     assert SimilarTracksResult is not None
     assert SearchStrategy is not None
     assert SetBuildResult is not None
@@ -50,34 +42,6 @@ def test_dependency_functions_are_importable():
     assert get_set_generation_service is not None
     assert get_transition_service is not None
     assert get_ym_client is not None
-
-
-def test_playlist_status_model():
-    """PlaylistStatus should serialize correctly."""
-    status = PlaylistStatus(
-        playlist_id=1,
-        name="Test",
-        total_tracks=10,
-        analyzed_tracks=5,
-        bpm_range=(126.0, 134.0),
-        keys=["Am", "Cm"],
-        avg_energy=-8.5,
-        duration_minutes=45.0,
-    )
-    assert status.playlist_id == 1
-    assert status.bpm_range == (126.0, 134.0)
-    data = status.model_dump()
-    assert data["keys"] == ["Am", "Cm"]
-
-
-def test_track_details_defaults():
-    """TrackDetails optional fields should default to None/False."""
-    track = TrackDetails(track_id=1, title="Test Track", artists="DJ Test")
-    assert track.duration_ms is None
-    assert track.bpm is None
-    assert track.key is None
-    assert track.energy_lufs is None
-    assert track.has_features is False
 
 
 def test_transition_score_result_model():
@@ -135,29 +99,6 @@ def test_set_build_result_defaults():
         avg_transition_score=0.85,
     )
     assert result.energy_curve == []
-
-
-def test_analysis_result_defaults():
-    """AnalysisResult optional fields should have correct defaults."""
-    result = AnalysisResult(
-        playlist_id=1,
-        analyzed_count=8,
-        failed_count=2,
-    )
-    assert result.bpm_range is None
-    assert result.keys == []
-
-
-def test_import_result_model():
-    """ImportResult should hold import statistics."""
-    result = ImportResult(
-        playlist_id=1,
-        imported_count=15,
-        skipped_count=3,
-        enriched_count=12,
-    )
-    assert result.imported_count == 15
-    assert result.skipped_count == 3
 
 
 def test_similar_tracks_result_model():

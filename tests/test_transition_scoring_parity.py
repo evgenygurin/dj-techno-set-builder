@@ -35,20 +35,24 @@ from app.utils.audio.feature_conversion import orm_features_to_track_features
 # ═══════════════════════════════════════════════════════════
 
 
-def _feature_kwargs(track_id: int, run_id: int) -> dict:
-    """Build a complete kwargs dict for TrackAudioFeaturesComputed."""
+def _feature_kwargs(track_id: int, run_id: int, *, index: int = 0) -> dict:
+    """Build a complete kwargs dict for TrackAudioFeaturesComputed.
+
+    Uses ``index`` (0-based sequence) instead of ``track_id`` for derived values
+    to avoid CHECK constraint violations when track_id is large (session-scoped engine).
+    """
     return {
         "track_id": track_id,
         "run_id": run_id,
-        "bpm": 128.0 + track_id * 4,
+        "bpm": 128.0 + index * 4,
         "tempo_confidence": 0.9,
         "bpm_stability": 0.95,
-        "lufs_i": -8.0 - track_id,
+        "lufs_i": -8.0 - index,
         "rms_dbfs": -12.0,
-        "energy_mean": 0.5 + 0.05 * track_id,
+        "energy_mean": 0.5 + 0.05 * index,
         "energy_max": 0.8,
         "energy_std": 0.05,
-        "key_code": (track_id * 4) % 24,
+        "key_code": (index * 4) % 24,
         "key_confidence": 0.85,
         "sub_energy": 0.3,
         "low_energy": 0.5,
@@ -56,8 +60,8 @@ def _feature_kwargs(track_id: int, run_id: int) -> dict:
         "mid_energy": 0.4,
         "highmid_energy": 0.3,
         "high_energy": 0.2,
-        "centroid_mean_hz": 2000.0 + track_id * 200,
-        "onset_rate_mean": 5.0 + track_id * 0.5,
+        "centroid_mean_hz": 2000.0 + index * 200,
+        "onset_rate_mean": 5.0 + index * 0.5,
     }
 
 
@@ -92,7 +96,7 @@ async def _seed_keys_and_edges(session: AsyncSession) -> None:
     for key_code in range(24):
         pitch_class = key_code // 2
         mode = key_code % 2
-        session.add(
+        await session.merge(
             Key(key_code=key_code, pitch_class=pitch_class, mode=mode, name=names[key_code])
         )
     await session.flush()
@@ -103,7 +107,7 @@ async def _seed_keys_and_edges(session: AsyncSession) -> None:
         for j in range(24):
             dist = camelot_distance(i, j)
             weight = camelot_score(i, j)
-            session.add(
+            await session.merge(
                 KeyEdge(
                     from_key_code=i,
                     to_key_code=j,
@@ -129,8 +133,8 @@ async def _seed_two_tracks(
     session.add(run)
     await session.flush()
 
-    feat_a = TrackAudioFeaturesComputed(**_feature_kwargs(t1.track_id, run.run_id))
-    feat_b = TrackAudioFeaturesComputed(**_feature_kwargs(t2.track_id, run.run_id))
+    feat_a = TrackAudioFeaturesComputed(**_feature_kwargs(t1.track_id, run.run_id, index=0))
+    feat_b = TrackAudioFeaturesComputed(**_feature_kwargs(t2.track_id, run.run_id, index=1))
     session.add_all([feat_a, feat_b])
     await session.flush()
     return feat_a, feat_b
@@ -597,7 +601,12 @@ async def test_ga_matrix_uses_same_scoring(session: AsyncSession) -> None:
         ),
     ]
 
-    matrix = await svc._build_transition_matrix_scored(tracks)
+    features_map = {
+        feat_a.track_id: feat_a,
+        feat_b.track_id: feat_b,
+    }
+
+    matrix = await svc._build_transition_matrix_scored(tracks, features_map)
 
     # Unified path
     unified_svc = UnifiedTransitionScoringService(session)

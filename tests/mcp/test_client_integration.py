@@ -10,9 +10,7 @@ and structured output serialization.
 
 from __future__ import annotations
 
-import pytest
 from fastmcp import Client, FastMCP
-from fastmcp.exceptions import ToolError
 
 # ---------------------------------------------------------------------------
 # Connectivity
@@ -37,30 +35,61 @@ async def test_gateway_client_ping(gateway_mcp: FastMCP):
 
 
 async def test_client_lists_all_workflow_tools(workflow_mcp: FastMCP):
-    """Client sees DJ workflow tools + activate_heavy_mode."""
+    """Client sees DJ workflow tools + admin tools."""
     async with Client(workflow_mcp) as client:
         tools = await client.list_tools()
         tool_names = {t.name for t in tools}
         expected = {
-            "get_playlist_status",
-            "get_track_details",
-            "import_playlist",
-            "import_tracks",
+            # Discovery
             "find_similar_tracks",
-            "search_by_criteria",
+            # Set builder
             "build_set",
             "rebuild_set",
             "score_transitions",
-            "export_set_m3u",
-            "export_set_json",
+            # Export (Rekordbox only — m3u/json removed in Phase 4)
+            "export_set_rekordbox",
+            # Curation
             "classify_tracks",
             "analyze_library_gaps",
             "review_set",
+            # Sync (Phase 3)
             "sync_set_to_ym",
             "sync_set_from_ym",
             "sync_playlist",
+            "set_source_of_truth",
+            "link_playlist",
+            # Download
             "download_tracks",
+            # Admin / visibility
             "activate_heavy_mode",
+            "activate_ym_raw",
+            "list_platforms",
+            # Phase 1: Search
+            "search",
+            "filter_tracks",
+            # Phase 2: CRUD
+            "list_tracks",
+            "get_track",
+            "create_track",
+            "update_track",
+            "delete_track",
+            "list_playlists",
+            "get_playlist",
+            "create_playlist",
+            "update_playlist",
+            "delete_playlist",
+            "list_sets",
+            "get_set",
+            "create_set",
+            "update_set",
+            "delete_set",
+            "list_features",
+            "get_features",
+            "save_features",
+            # Phase 2: Compute + Export
+            "analyze_track",
+            "compute_set_order",
+            "export_set",
         }
         missing = expected - tool_names
         assert not missing, f"Missing tools: {missing}"
@@ -96,78 +125,5 @@ async def test_gateway_client_sees_namespaced_tools(gateway_mcp: FastMCP):
 
 
 # ---------------------------------------------------------------------------
-# Import tool invocations (stubs — no DB needed)
-# ---------------------------------------------------------------------------
-
-
-async def test_import_playlist_yandex_stub(workflow_mcp: FastMCP):
-    """import_playlist returns zero-count ImportResult for supported source."""
-    async with Client(workflow_mcp) as client:
-        result = await client.call_tool(
-            "import_playlist",
-            {"source": "yandex", "playlist_id": "123"},
-        )
-        assert not result.is_error
-        # Structured output: ImportResult with all-zero counts
-        assert result.data.imported_count == 0
-        assert result.data.skipped_count == 0
-        assert result.data.enriched_count == 0
-
-
-async def test_import_playlist_unsupported_source_raises(workflow_mcp: FastMCP):
-    """import_playlist raises ToolError for unsupported source."""
-    async with Client(workflow_mcp) as client:
-        with pytest.raises(ToolError, match="Unsupported source 'spotify'"):
-            await client.call_tool(
-                "import_playlist",
-                {"source": "spotify", "playlist_id": "123"},
-            )
-
-
-async def test_import_tracks_stub(workflow_mcp: FastMCP):
-    """import_tracks returns skipped_count matching input length."""
-    async with Client(workflow_mcp) as client:
-        result = await client.call_tool(
-            "import_tracks",
-            {"track_ids": [100, 200, 300]},
-        )
-        assert not result.is_error
-        assert result.data.imported_count == 0
-        assert result.data.skipped_count == 3
-
-
-async def test_import_tracks_empty_raises(workflow_mcp: FastMCP):
-    """import_tracks raises ToolError for empty track list."""
-    async with Client(workflow_mcp) as client:
-        with pytest.raises(ToolError, match="track_ids must not be empty"):
-            await client.call_tool(
-                "import_tracks",
-                {"track_ids": []},
-            )
-
-
-# ---------------------------------------------------------------------------
 # Gateway namespaced tool invocations
 # ---------------------------------------------------------------------------
-
-
-async def test_gateway_import_playlist_via_namespace(gateway_mcp: FastMCP):
-    """Gateway-namespaced dj_import_playlist works end-to-end."""
-    async with Client(gateway_mcp) as client:
-        result = await client.call_tool(
-            "dj_import_playlist",
-            {"source": "yandex", "playlist_id": "456"},
-        )
-        assert not result.is_error
-        assert result.data.imported_count == 0
-
-
-async def test_gateway_import_tracks_via_namespace(gateway_mcp: FastMCP):
-    """Gateway-namespaced dj_import_tracks works end-to-end."""
-    async with Client(gateway_mcp) as client:
-        result = await client.call_tool(
-            "dj_import_tracks",
-            {"track_ids": [1, 2]},
-        )
-        assert not result.is_error
-        assert result.data.skipped_count == 2

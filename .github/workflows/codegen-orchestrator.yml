@@ -1,0 +1,173 @@
+name: Codegen Orchestrator
+
+'on':
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  dispatch-codegen-agent:
+    name: Dispatch Codegen Agent
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@codegen-sh')
+
+    steps:
+      - name: Extract task from comment
+        id: extract
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          PR_TITLE: ${{ github.event.issue.title }}
+          PR_URL: ${{ github.event.issue.html_url }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+        run: |
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          echo "commenter=$COMMENTER" >> $GITHUB_OUTPUT
+          
+          # Extract task from comment after @codegen-sh mention
+          # Format: @codegen-sh <task description>
+          TASK=$(echo "$COMMENT_BODY" | sed -n 's/.*@codegen-sh[[:space:]]*\(.*\)/\1/p' | head -1)
+          
+          if [ -z "$TASK" ]; then
+            echo "task=Review and implement requested changes" >> $GITHUB_OUTPUT
+            echo "Using default task: Review and implement requested changes"
+          else
+            echo "task=$TASK" >> $GITHUB_OUTPUT
+            echo "Extracted task: $TASK"
+          fi
+
+      - name: Add reaction to comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            });
+
+      - name: Post acknowledgement comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `🤖 **Codegen agent dispatched**
+            
+            Task: \`${{ steps.extract.outputs.task }}\`
+            
+            Agent type: \`claude_code\`
+            Model: Organization default
+            
+            I'll create a Codegen agent run to handle this request. You can monitor progress on [codegen.com](https://codegen.com).
+            
+            _Requested by @${{ steps.extract.outputs.commenter }}_`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.extract.outputs.pr_number }},
+              body: body
+            });
+
+      - name: Create Codegen agent run
+        env:
+          CODEGEN_API_KEY: ${{ secrets.CODEGEN_API_KEY }}
+          CODEGEN_ORG_ID: ${{ secrets.CODEGEN_ORG_ID }}
+          TASK: ${{ steps.extract.outputs.task }}
+          PR_NUMBER: ${{ steps.extract.outputs.pr_number }}
+          PR_TITLE: ${{ github.event.issue.title }}
+          PR_URL: ${{ steps.extract.outputs.pr_url }}
+        run: |
+          # Build prompt with PR context
+          PROMPT=$(cat <<EOF
+          ## Context
+          PR #${PR_NUMBER}: ${PR_TITLE}
+          ${PR_URL}
+          
+          ## Your Task
+          ${TASK}
+          
+          ## Constraints
+          - Work on the PR branch (checkout the branch from the PR)
+          - Run tests after each change
+          - Commit with conventional commit messages
+          - Push changes to the PR branch (do NOT create a new PR)
+          - If tests fail, fix them before pushing
+          EOF
+          )
+          
+          # Create agent run via Codegen API
+          RESPONSE=$(curl -X POST https://api.codegen.com/v1/organizations/${CODEGEN_ORG_ID}/agent/run \
+            -H "Authorization: Bearer ${CODEGEN_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d @- <<JSON
+          {
+            "prompt": $(echo "$PROMPT" | jq -Rs .),
+            "agent_type": "claude_code",
+            "metadata": {
+              "pr_number": ${PR_NUMBER},
+              "gh_workflow": "codegen-orchestrator",
+              "triggered_by": "${{ steps.extract.outputs.commenter }}"
+            }
+          }
+          JSON
+          )
+          
+          echo "Codegen API Response:"
+          echo "$RESPONSE" | jq .
+          
+          # Extract run details
+          RUN_ID=$(echo "$RESPONSE" | jq -r '.id')
+          WEB_URL=$(echo "$RESPONSE" | jq -r '.web_url')
+          
+          echo "run_id=${RUN_ID}" >> $GITHUB_ENV
+          echo "web_url=${WEB_URL}" >> $GITHUB_ENV
+
+      - name: Post run details comment
+        if: env.run_id != 'null' && env.run_id != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `✅ **Agent run created**
+            
+            - **Run ID:** \`${{ env.run_id }}\`
+            - **Status:** View on [Codegen](${{ env.web_url }})
+            
+            The agent is now working on your request. I'll post updates here when it completes.`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.extract.outputs.pr_number }},
+              body: body
+            });
+
+      - name: Handle API error
+        if: env.run_id == 'null' || env.run_id == ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `❌ **Failed to create Codegen agent run**
+            
+            The Codegen API request failed. This might be due to:
+            - Missing or invalid API credentials
+            - Repository not set up in Codegen
+            - API rate limits
+            
+            Please check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.extract.outputs.pr_number }},
+              body: body
+            });
+            
+            core.setFailed('Failed to create Codegen agent run');

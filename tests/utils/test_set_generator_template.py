@@ -19,7 +19,7 @@ def _make_track(
     bpm: float = 130.0,
     energy: float = 0.5,
     key_code: int = 1,
-    mood: int = 3,
+    mood: int = 8,  # DRIVING intensity (was 3 in old 6-mood system)
 ) -> TrackData:
     return TrackData(
         track_id=track_id,
@@ -43,8 +43,8 @@ class TestTemplateSlotFit:
             duration_target_s=180,
             flexibility=0.3,
         )
-        # mood=DRIVING(3), energy maps -8 LUFS -> 0.75, bpm in range
-        track = _make_track(1, bpm=130.0, energy=0.75, mood=3)
+        # mood=DRIVING(8), energy maps -8 LUFS -> 0.75, bpm in range
+        track = _make_track(1, bpm=130.0, energy=0.75, mood=8)
         score = template_slot_fit([track], [slot])
         assert score > 0.8
 
@@ -58,8 +58,8 @@ class TestTemplateSlotFit:
             duration_target_s=180,
             flexibility=0.3,
         )
-        # mood=HARD_TECHNO(6) for ambient slot
-        track = _make_track(1, bpm=135.0, energy=0.9, mood=6)
+        # mood=HARD_TECHNO(15) for ambient slot
+        track = _make_track(1, bpm=135.0, energy=0.9, mood=15)
         score = template_slot_fit([track], [slot])
         assert score < 0.5
 
@@ -86,8 +86,8 @@ class TestTemplateSlotFit:
             duration_target_s=180,
             flexibility=0.3,
         )
-        t_good = _make_track(1, bpm=130.0, energy=0.75, mood=3)
-        t_bad = _make_track(2, bpm=130.0, energy=0.75, mood=3)
+        t_good = _make_track(1, bpm=130.0, energy=0.75, mood=8)  # DRIVING
+        t_bad = _make_track(2, bpm=130.0, energy=0.75, mood=8)  # DRIVING (bad for AMBIENT)
         score = template_slot_fit([t_good, t_bad], [slot_good, slot_bad])
         # First track perfect, second bad -> average
         assert 0.3 < score < 0.8
