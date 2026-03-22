@@ -37,6 +37,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         ctx: Context,
         template: str | None = None,
         energy_arc: str = "classic",
+        track_count: int | None = None,
         exclude_track_ids: list[int] | None = None,
         set_svc: DjSetService = Depends(get_set_service),
         gen_svc: SetGenerationService = Depends(get_set_generation_service),
@@ -44,8 +45,8 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
         """Build a DJ set from a playlist using template + genetic algorithm.
 
         If template is provided, GA selects and orders tracks to fit
-        template slots (mood, energy, BPM). Without template, GA orders
-        all playlist tracks optimizing transitions only.
+        template slots (mood, energy, BPM). Without template, GA picks
+        track_count tracks (default 20) optimizing transitions.
 
         Args:
             playlist_ref: Source playlist ref (int, "42", or "local:42").
@@ -53,6 +54,8 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             template: Template name (classic_60, peak_hour_60, etc.) or None.
             energy_arc: Energy arc shape — classic, progressive,
                         roller, or wave.
+            track_count: Number of tracks to select. Defaults to 20 without
+                         template. With template, uses template slot count.
             exclude_track_ids: Track IDs to exclude from selection.
         """
         playlist_id = resolve_local_id(playlist_ref, "playlist")
@@ -74,6 +77,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             energy_arc_type=energy_arc,
             playlist_id=playlist_id,
             template_name=template,
+            track_count=track_count,
             exclude_track_ids=exclude_track_ids,
         )
         gen_result = await gen_svc.generate(dj_set.set_id, request)

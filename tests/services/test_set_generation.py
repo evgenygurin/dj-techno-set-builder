@@ -187,3 +187,31 @@ async def test_sections_repo_called_with_track_ids() -> None:
     svc.sections_repo.get_latest_by_track_ids.assert_called_once()
     call_args = svc.sections_repo.get_latest_by_track_ids.call_args[0][0]
     assert set(call_args) == {10, 20}
+
+
+async def test_no_template_no_track_count_defaults_to_20() -> None:
+    """Without template or track_count, GA should default to 20 (safety cap)."""
+    # Create 50 features to exceed default
+    all_features = [_make_features_mock(i) for i in range(1, 51)]
+    svc = _make_service(all_features=all_features)
+
+    from app.schemas.set_generation import SetGenerationRequest
+
+    req = SetGenerationRequest(population_size=10, generations=10)
+
+    mock_gen_cls, mock_matrix, _ = _patch_ga_and_matrix()
+    mock_result = mock_gen_cls.return_value.run.return_value
+    mock_result.best_order = list(range(20))
+    mock_result.track_ids = list(range(1, 21))
+    mock_matrix.return_value = np.ones((50, 50)) - np.eye(50)
+
+    with (
+        patch("app.services.set_generation.GeneticSetGenerator", mock_gen_cls),
+        patch.object(svc, "_build_transition_matrix_scored", mock_matrix),
+    ):
+        await svc.generate(1, req)
+
+    # GAConfig should have track_count=20 (safety cap)
+    # GeneticSetGenerator(tracks, matrix, config=..., ...)
+    ga_config = mock_gen_cls.call_args[1].get("config", mock_gen_cls.call_args[0][2])
+    assert ga_config.track_count == 20

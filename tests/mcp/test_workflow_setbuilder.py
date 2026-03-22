@@ -49,3 +49,4 @@ async def test_build_set_accepts_template(workflow_mcp: FastMCP):
     assert "template" in props
     assert "exclude_track_ids" in props
     assert "energy_arc" in props
+    assert "track_count" in props

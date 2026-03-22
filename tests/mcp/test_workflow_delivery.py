@@ -109,6 +109,7 @@ async def test_deliver_set_parameters(workflow_mcp: FastMCP):
     props = set(tool.parameters.get("properties", {}).keys())
     assert "set_ref" in props
     assert "version_id" in props
+    assert "skip_conflicts" in props
     assert "sync_to_ym" in props
     assert "ym_user_id" in props
     assert "ym_playlist_title" in props

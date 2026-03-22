@@ -292,6 +292,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         set_ref: str | int,
         version_id: int,
         ctx: Context,
+        skip_conflicts: bool = False,
         sync_to_ym: bool = False,
         ym_user_id: int | None = None,
         ym_playlist_title: str | None = None,
@@ -319,6 +320,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         Args:
             set_ref: DJ set ref (int, "42", or "local:42").
             version_id: Set version to deliver.
+            skip_conflicts: Skip hard-conflict checkpoint (for CLI/batch mode).
             sync_to_ym: Push set to Yandex Music as a playlist.
             ym_user_id: YM user ID (required when sync_to_ym=True).
             ym_playlist_title: YM playlist title (default: "{set_name} [set]").
@@ -350,22 +352,29 @@ def register_delivery_tools(mcp: FastMCP) -> None:
             conflict_lines = "\n".join(
                 f"  • {c.from_title} → {c.to_title} (score=0.0)" for c in conflicts[:10]
             )
-            decision = await resolve_conflict(
-                ctx,
-                f"Found {len(conflicts)} hard conflict(s) — tracks with no audio features "
-                f"or Camelot distance ≥ 5:\n{conflict_lines}\n\nContinue delivery anyway?",
-                options=["continue", "abort"],
-            )
-            if decision == "abort" or decision is None:
-                return DeliveryResult(
-                    set_id=set_id,
-                    version_id=version_id,
-                    set_name=set_name,
-                    output_dir="",
-                    files_written=[],
-                    transitions=summary,
-                    status="aborted",
+            if skip_conflicts:
+                await ctx.info(
+                    f"Skipping conflict checkpoint ({len(conflicts)} hard conflicts) "
+                    f"— skip_conflicts=True"
                 )
+            else:
+                decision = await resolve_conflict(
+                    ctx,
+                    f"Found {len(conflicts)} hard conflict(s) — tracks with no audio "
+                    f"features or Camelot distance ≥ 5:\n{conflict_lines}\n\n"
+                    f"Continue delivery anyway?",
+                    options=["continue", "abort"],
+                )
+                if decision == "abort" or decision is None:
+                    return DeliveryResult(
+                        set_id=set_id,
+                        version_id=version_id,
+                        set_name=set_name,
+                        output_dir="",
+                        files_written=[],
+                        transitions=summary,
+                        status="aborted",
+                    )
 
         # ── Stage 2: Write files ──────────────────────────────────────────────
         await ctx.report_progress(progress=1, total=3)

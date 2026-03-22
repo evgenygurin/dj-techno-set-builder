@@ -82,7 +82,7 @@ async def _do_sync_set_to_ym(
     local_track_ids = [item.track_id for item in items]
 
     # Map to platform IDs
-    id_map = await track_mapper.local_to_platform(local_track_ids, "yandex_music")
+    id_map = await track_mapper.local_to_platform(local_track_ids, "ym")
     ym_track_ids = [id_map[tid] for tid in local_track_ids if tid in id_map]
 
     playlist_name = f"set_{dj_set.name}"
@@ -159,7 +159,7 @@ async def _do_sync_set_from_ym(
     local_track_ids = [item.track_id for item in items_list.items]
 
     # Map local to platform IDs
-    id_map = await track_mapper.local_to_platform(local_track_ids, "yandex_music")
+    id_map = await track_mapper.local_to_platform(local_track_ids, "ym")
 
     # Fetch remote playlist
     remote_pl = await platform.get_playlist(str(dj_set.ym_playlist_id))
@@ -194,6 +194,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
         playlist_id: int,
         platform: str = "ym",
         direction: str = "bidirectional",
+        force: bool = False,
         ctx: Context | None = None,
         sync_engine: SyncEngine = Depends(get_sync_engine),
         registry: PlatformRegistry = Depends(get_platform_registry),
@@ -207,9 +208,10 @@ def register_sync_tools(mcp: FastMCP) -> None:
             playlist_id: Local playlist ID to sync.
             platform: Platform name ("ym", "spotify", etc.). Default: "ym".
             direction: "local_to_remote", "remote_to_local", or "bidirectional".
+            force: Skip confirmation prompt (for CLI/batch mode).
         """
         # Confirm destructive sync directions
-        if direction in ("local_to_remote", "bidirectional") and ctx is not None:
+        if not force and direction in ("local_to_remote", "bidirectional") and ctx is not None:
             confirmed = await confirm_action(
                 ctx,
                 f"Sync playlist {playlist_id} ({direction}) to {platform}? "
@@ -293,6 +295,7 @@ def register_sync_tools(mcp: FastMCP) -> None:
     @mcp.tool(tags={"sync", "yandex"}, timeout=600)
     async def sync_set_to_ym(
         set_id: int,
+        force: bool = False,
         ctx: Context | None = None,
         set_svc: DjSetService = Depends(get_set_service),
         sync_engine: SyncEngine = Depends(get_sync_engine),
@@ -304,13 +307,14 @@ def register_sync_tools(mcp: FastMCP) -> None:
 
         Args:
             set_id: DJ set to sync to Yandex Music.
+            force: Skip confirmation prompt (for CLI/batch mode).
         """
         if not registry.is_connected("ym"):
             msg = "YM platform not connected"
             raise ValueError(msg)
 
         # Confirm push to YM
-        if ctx is not None:
+        if not force and ctx is not None:
             confirmed = await confirm_action(
                 ctx,
                 f"Push set {set_id} to Yandex Music? This will create/overwrite a YM playlist.",
