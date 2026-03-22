@@ -11,6 +11,10 @@ import logging
 from typing import TYPE_CHECKING
 
 import httpx
+from fastmcp.server.middleware.caching import (
+    CallToolSettings,
+    ResponseCachingMiddleware,
+)
 from fastmcp.server.middleware.error_handling import (
     ErrorHandlingMiddleware,
     RetryMiddleware,
@@ -78,21 +82,30 @@ def apply_observability(mcp: FastMCP, settings: Settings) -> None:
     # 3. Detailed timing
     mcp.add_middleware(DetailedTimingMiddleware())
 
-    # 4. Response caching — DISABLED: stale DiskStore cache can hide newly
-    #    registered tools (list_tools returns cached snapshot). Re-enable
-    #    once we add cache invalidation on tool registration.
-    # cache_store = DiskStore(directory=settings.mcp_cache_dir)
-    # mcp.add_middleware(
-    #     ResponseCachingMiddleware(
-    #         cache_storage=cache_store,
-    #         call_tool_settings=CallToolSettings(
-    #             ttl=settings.mcp_cache_ttl_tools,
-    #         ),
-    #         read_resource_settings=ReadResourceSettings(
-    #             ttl=settings.mcp_cache_ttl_resources,
-    #         ),
-    #     )
-    # )
+    # 4. Response caching — per-tool only (not list_tools/list_resources).
+    #    Caches expensive read-only tool calls for mcp_cache_ttl_tools seconds.
+    _cached_tools = [
+        "score_transitions",
+        "get_set_cheat_sheet",
+        "get_set_tracks",
+        "list_set_versions",
+        "filter_tracks",
+        "list_features",
+        "get_features",
+        "classify_tracks",
+        "analyze_library_gaps",
+        "review_set",
+        "audit_playlist",
+        "score_track_pairs",
+    ]
+    mcp.add_middleware(
+        ResponseCachingMiddleware(
+            call_tool_settings=CallToolSettings(
+                ttl=settings.mcp_cache_ttl_tools,
+                included_tools=_cached_tools,
+            ),
+        )
+    )
 
     # 5. Retry (transient errors only)
     mcp.add_middleware(

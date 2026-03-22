@@ -18,18 +18,19 @@ def _make_settings(**overrides: object) -> Settings:
 
 
 async def test_apply_observability_adds_middleware():
-    """apply_observability should add 5 middleware to gateway (caching disabled)."""
+    """apply_observability should add 6 middleware to gateway."""
     from app.mcp.observability import apply_observability
 
     mcp = FastMCP("test")
     before = len(mcp.middleware)
     apply_observability(mcp, _make_settings())
-    # 5 middleware (caching disabled): ErrorHandling, Logging, Timing, Retry, Ping
-    assert len(mcp.middleware) - before == 5
+    # 6 middleware: ErrorHandling, Logging, Timing, Caching, Retry, Ping
+    assert len(mcp.middleware) - before == 6
 
 
 async def test_apply_observability_correct_order():
-    """Middleware order: ErrorHandling, StructuredLogging, DetailedTiming, Retry, Ping."""
+    """Middleware order: ErrorHandling, Logging, Timing, Caching, Retry, Ping."""
+    from fastmcp.server.middleware.caching import ResponseCachingMiddleware
     from fastmcp.server.middleware.error_handling import (
         ErrorHandlingMiddleware,
         RetryMiddleware,
@@ -48,6 +49,7 @@ async def test_apply_observability_correct_order():
         ErrorHandlingMiddleware,
         StructuredLoggingMiddleware,
         DetailedTimingMiddleware,
+        ResponseCachingMiddleware,
         RetryMiddleware,
         PingMiddleware,
     ]
@@ -88,7 +90,7 @@ async def test_apply_observability_retry_config():
     offset = len(mcp.middleware)
     apply_observability(mcp, _make_settings(mcp_retry_max=5, mcp_retry_backoff=2.0))
 
-    retry_mw = mcp.middleware[offset + 3]  # index 3 (caching removed, was 4)
+    retry_mw = mcp.middleware[offset + 4]  # index 4: after ErrorHandling, Logging, Timing, Caching
     assert isinstance(retry_mw, RetryMiddleware)
     assert retry_mw.max_retries == 5
     assert retry_mw.base_delay == 2.0
@@ -136,6 +138,6 @@ async def test_apply_observability_ping_interval():
     offset = len(mcp.middleware)
     apply_observability(mcp, _make_settings(mcp_ping_interval=45))
 
-    ping_mw = mcp.middleware[offset + 4]  # index 4 (caching removed, was 5)
+    ping_mw = mcp.middleware[offset + 5]  # after Caching, Retry
     assert isinstance(ping_mw, PingMiddleware)
     assert ping_mw.interval_ms == 45_000
