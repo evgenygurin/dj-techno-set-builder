@@ -68,6 +68,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **SetGenerationService logging** (Issue #64, P3-22): added entry/result logging to `generate()`
 - **Outdated TODO** (Issue #64, P3-24): updated `_build_transition_matrix` docstring — no longer marked as TODO
 - **Docs sync with code** (Issue #64, P1-1): fixed 6 incorrect tool names in skills/agents (`dj_get_track_details` → `dj_get_track`, `dj_search_by_criteria` → `dj_filter_tracks`, `dj_compute_audio_features` → `dj_analyze_track`); updated tool counts 41→44 across CLAUDE.md, mcp.md, agents; fixed "6 mood categories" → "15" in dj-workflow agent
+- **Skills token budget** (Issue #64): reduced 3 oversized skills to CSO-compliant sizes — audio-analysis (922→362 words), mcp-tool-dev (938→318), delegated-development (1055→351). Eliminated duplication with `.claude/rules/` files
 
 ## [0.2.0] - 2026-02-15
 
