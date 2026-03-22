@@ -55,7 +55,7 @@ def register_prompts(mcp: FastMCP) -> None:
                     f"'{genre}' genre with a '{energy_arc}' energy arc, starting "
                     "from zero.\n\n"
                     "Please follow these steps:\n"
-                    "1. Use `ym_search_tracks` to search Yandex Music for tracks "
+                    "1. Use `ym_search_yandex_music` to search Yandex Music for tracks "
                     f"matching the '{genre}' genre.\n"
                     "2. Use `dj_create_track` to add the found tracks to "
                     "the local database.\n"

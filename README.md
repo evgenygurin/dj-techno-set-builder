@@ -290,7 +290,7 @@ make mcp-inspect                # http://localhost:6274
 make mcp-list
 
 # Call a specific tool
-make mcp-call TOOL=dj_get_track_details ARGS='{"track_id": 45}'
+make mcp-call TOOL=dj_get_track ARGS='{"track_ref": 45}'
 
 # Embedded in FastAPI (REST + MCP together)
 make run                        # REST at /api/v1, MCP at /mcp/mcp

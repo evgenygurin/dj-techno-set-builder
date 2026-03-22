@@ -178,7 +178,7 @@ Heavy tools (tagged `"heavy"`) are hidden by default via `mcp.disable(tags={"hea
 - `improve_set` — score transitions -> adjust -> re-score
 - `deliver_set_workflow` — score -> write files -> YM sync (with checkpoint on hard conflicts)
 
-Each returns `list[Message]` with step-by-step instructions referencing namespaced tool names (e.g. `dj_get_playlist_status`, `ym_search_tracks`).
+Each returns `list[Message]` with step-by-step instructions referencing namespaced tool names (e.g. `dj_get_playlist`, `ym_search_yandex_music`).
 
 ## Resources
 
@@ -321,7 +321,7 @@ Installation into MCP clients:
 **CLI quick reference:**
 ```bash
 make mcp-list                                                    # ~75 tools
-make mcp-call TOOL=dj_get_track_details ARGS='{"track_id": 45}' # call tool
+make mcp-call TOOL=dj_get_track ARGS='{"track_ref": 45}'        # call tool
 make mcp-dev                                                     # HTTP :9100 + reload
 make mcp-inspect                                                 # Inspector :6274
 ```
