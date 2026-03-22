@@ -246,7 +246,6 @@ async def long_op(ctx: Context, ...) -> ResultModel:
 - **Pydantic return → `structured_content` shape**: FastMCP кладёт поля модели напрямую в `structured_content`, НЕ в `{"result": ...}`. Тест: `sc = raw.structured_content; assert sc["field"] == expected`.
 - **MCP test seeding**: `workflow_mcp_with_db` патчит `app.mcp.dependencies.session_factory`. Seed данных — только через `engine` fixture: `factory = async_sessionmaker(engine); async with factory() as s: s.add(...)`.
 - **`DjSetVersion` PK**: поле называется `set_version_id`, не `version_id`.
-- **Pre-existing mypy errors (12)**: `wrap_list`/`unified_export`/`compute`/`sync/track_mapper` — не наши, не трогать.
 - **B008 ruff rule**: `Depends()` in default args triggers B008. Solved with per-file-ignores in `pyproject.toml`:
   ```toml
   [tool.ruff.lint.per-file-ignores]

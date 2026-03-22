@@ -76,7 +76,7 @@ async def some_tool(track_id: int, ctx: Context, svc=Depends(get_track_service))
 - `dj_set_items`: `sort_index` (not `position`)
 - `Track.status`: SmallInteger 0/1 (not string)
 - Column names in `track_audio_features_computed`: `onset_rate_mean`, `hnr_mean_db`, `chroma_entropy`, `centroid_mean_hz`, `lufs_i`
-- 12 pre-existing mypy errors in `app/mcp/` — documented, do not fix
+- mypy passes clean (0 errors) — all pre-existing issues resolved
 
 ## Constraints
 

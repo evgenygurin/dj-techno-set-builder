@@ -156,5 +156,5 @@ External MCP servers (.mcp.json):
 ## Lint & Type Rules
 
 - **ruff**: Python 3.12, line-length 99, rules: E/F/W/I/N/UP/B/SIM/RUF. `A003` ignored. B008 per-file ignore for MCP.
-- **mypy**: strict + `pydantic.mypy` plugin. `ignore_missing_imports`: fastmcp, alembic, aiosqlite, essentia, soundfile, scipy, numpy, librosa, demucs, torch, torchaudio, yaml, sentry_sdk, opentelemetry, key_value. **12 pre-existing errors** in `app/mcp/` (`wrap_list` variance, `unified_export`, `compute`, `track_mapper`) — documented in `mcp.md`, do not fix.
+- **mypy**: strict + `pydantic.mypy` plugin. `ignore_missing_imports`: fastmcp, alembic, aiosqlite, essentia, soundfile, scipy, numpy, librosa, demucs, torch, torchaudio, yaml, sentry_sdk, opentelemetry, key_value. **0 errors** — all pre-existing errors in `app/mcp/` have been resolved.
 - **pytest-asyncio**: `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed.

@@ -94,8 +94,8 @@ uv run ruff check app/ tests/
 # 2. Format отдельно
 uv run ruff format --check app/ tests/
 
-# 3. Mypy отдельно (12 pre-existing errors в app/mcp/ — ожидаемо)
-uv run mypy app/  # Ожидай ровно 12 ошибок в app/mcp/ — это нормально
+# 3. Mypy отдельно
+uv run mypy app/  # Должно пройти без ошибок (0 errors)
 
 # 4. Тесты отдельно
 uv run pytest -x -v  # -x остановится на первой ошибке
@@ -104,7 +104,7 @@ uv run pytest -x -v  # -x остановится на первой ошибке
 uv run pytest tests/test_tracks.py -v
 ```
 
-**12 pre-existing mypy errors** в `app/mcp/` — это нормально, не чинить.
+**mypy** должен проходить без ошибок. Если появились новые — это реальная проблема, чини.
 
 ## In-Memoria Recovery
 
