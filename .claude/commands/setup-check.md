@@ -11,9 +11,10 @@ allowed-tools: ["Bash", "Read"]
 
 ```bash
 echo "=== 1. Environment Variables ==="
-source .env 2>/dev/null
+set -a; source .env 2>/dev/null; set +a
 [ -n "$DJ_DB_PATH" ] && echo "✅ DJ_DB_PATH=$DJ_DB_PATH" || echo "❌ DJ_DB_PATH не установлен"
 [ -f "$DJ_DB_PATH" ] && echo "✅ DB файл существует" || echo "❌ DB файл не найден: $DJ_DB_PATH"
+[ -n "$YANDEX_MUSIC_TOKEN" ] && echo "✅ YANDEX_MUSIC_TOKEN установлен" || echo "⚠️ YANDEX_MUSIC_TOKEN не установлен (YM tools не будут работать)"
 
 echo ""
 echo "=== 2. Python Dependencies ==="

@@ -14,7 +14,7 @@ tools: Read, Grep, Glob, Bash
 
 ```text
 1. Прочитай оригинальный промпт агенту (из codegen run logs)
-2. git diff main...PR_BRANCH — все изменения
+2. git diff dev...PR_BRANCH — все изменения
 3. Для каждого requirement из промпта:
    ✅ Реализовано как описано
    ⚠️ Реализовано с отклонениями

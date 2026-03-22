@@ -126,7 +126,7 @@ NO SET DELIVERY WITHOUT SCORING ALL TRANSITIONS
 
 | Отговорка | Реальность |
 |-----------|------------|
-| "Score потом" | Без scoring не узнаешь проблемные переходы — cheat_sheet будет пустым |
+| "Score потом" | Без scoring cheat_sheet не содержит рекомендации по переходам |
 | "Deliver необязателен" | Без deliver нет файлов — M3U8, cheat_sheet, MP3 копии не создаются |
 | "avg_score и так нормальный" | Средний score скрывает 1-2 hard conflicts — всегда проверяй отдельные переходы |
 | "YM sync сделаю позже" | Если пользователь просил sync — делай сразу, потом забудешь version_id |

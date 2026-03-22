@@ -24,8 +24,8 @@ tools: Read, Grep, Glob, Bash
 # 1. Проверь что сервер запущен
 curl -sf http://localhost:9100/mcp || echo "MCP не отвечает"
 
-# 2. Перезапусти dev-сервер
-pkill -f "fastmcp" && sleep 1 && make mcp-dev &
+# 2. Перезапусти dev-сервер (запусти в ОТДЕЛЬНОМ терминале)
+# pkill -f "fastmcp" && make mcp-dev
 
 # 3. Проверь .mcp.json не повреждён
 python3 -c "import json; json.load(open('.mcp.json'))"
@@ -53,8 +53,8 @@ sqlite3 "$DJ_DB_PATH" "PRAGMA integrity_check;"
 # 4. Проверь что WAL mode не сломан
 sqlite3 "$DJ_DB_PATH" "PRAGMA journal_mode;"
 
-# 5. Если locked — убей процессы
-fuser -k "$DJ_DB_PATH"
+# 5. Если locked — покажи какие процессы держат файл
+fuser "$DJ_DB_PATH" 2>/dev/null && echo "↑ Эти PID держат DB. Убей вручную: kill <PID>"
 ```
 
 **Частые причины**: iCloud sync держит lock, два процесса пишут одновременно, WAL file повреждён.
@@ -95,7 +95,7 @@ uv run ruff check app/ tests/
 uv run ruff format --check app/ tests/
 
 # 3. Mypy отдельно (12 pre-existing errors в app/mcp/ — ожидаемо)
-uv run mypy app/ 2>&1 | grep -v "app/mcp/"
+uv run mypy app/  # Ожидай ровно 12 ошибок в app/mcp/ — это нормально
 
 # 4. Тесты отдельно
 uv run pytest -x -v  # -x остановится на первой ошибке
@@ -125,6 +125,6 @@ bash scripts/patch_in_memoria.sh
 
 ## Constraints
 
-- **Read-only diagnostics**: не меняй конфигурацию без явного запроса
+- **Diagnostics first**: диагностируй без мутаций. Мутации (pkill, make mcp-dev, learn --force) — только с явного согласия пользователя
 - **Сообщай диагноз**: что нашёл + что рекомендуешь
 - **Не удаляй данные**: `rm -rf` только с явного согласия пользователя

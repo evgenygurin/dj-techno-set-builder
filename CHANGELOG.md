@@ -19,11 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Skills дисциплина**: каждый скилл теперь содержит жёсткое ограничение (Iron Law) и таблицу типичных отговорок
 - **Memory `superpowers-patterns.md`**: обновлён с полным анализом v5.0.5 — Iron Laws, CSO, Two-Stage Review, Skill Chaining
 
----
-
-## Previously in [Unreleased]
-
-### Added
+### Previously Added
 
 - **Data refresh scripts**: `scripts/refresh_data.py` (audio features + sections), `scripts/refresh_ym_metadata.py` (YM metadata), `scripts/rescore_sets.py` (transition scores)
 - **Makefile refresh targets**: `make refresh-features`, `make refresh-sections`, `make refresh-scores`, `make refresh-ym`, `make refresh-all`, `make refresh-dry`
