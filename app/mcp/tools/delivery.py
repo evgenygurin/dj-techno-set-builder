@@ -97,94 +97,82 @@ def _generate_cheat_sheet(
     tracks: list[dict[str, Any]],
     scores: list[TransitionScoreResult],
 ) -> str:
-    """Generate a plain-text cheat sheet for the DJ booth."""
-    # Build transition lookup: (from_id, to_id) → score
+    """Generate a plain-text cheat sheet for the DJ booth.
+
+    Block layout: each track is a clear visual block with transition
+    arrow between tracks. Designed to be read at a glance in the booth.
+    """
     tx_by_from: dict[int, TransitionScoreResult] = {s.from_track_id: s for s in scores}
 
     bpms = [tr["bpm"] for tr in tracks if tr.get("bpm")]
     bpm_min = min(bpms) if bpms else 0
     bpm_max = max(bpms) if bpms else 0
+    total_s = sum(tr.get("duration_s", 0) for tr in tracks)
+    avg_scores = [s.total for s in scores if s.total > 0]
+    avg_score = sum(avg_scores) / len(avg_scores) if avg_scores else 0
 
+    # Header
     lines = [
-        "=" * 80,
-        f"CHEAT SHEET: {set_name}",
-        "=" * 80,
-    ]
-    if bpms:
-        lines.append(
-            f"SET BPM RANGE: {bpm_min:.0f}-{bpm_max:.0f}  |  "
-            f"RECOMMENDED: {max(bpm_min - 2, 120):.0f}-{bpm_max + 2:.0f}"
-        )
-    lines += [
+        f"  {set_name}",
+        f"  {len(tracks)} tracks / "
+        f"{total_s // 3600}h {(total_s % 3600) // 60}min / "
+        f"BPM {bpm_min:.0f}-{bpm_max:.0f} / "
+        f"avg score {avg_score:.2f}",
         "",
-        f"{'#':<4} {'Track':<30} {'BPM':>7} {'Key':>4} {'LUFS':>6}  → Next Transition",
-        "-" * 80,
     ]
 
+    # Track blocks
     for tr in tracks:
         pos = tr["position"]
         title = tr.get("title", f"Track {tr['track_id']}")
-        bpm = f"{tr['bpm']:.1f}" if tr.get("bpm") else "—"
-        key = tr.get("key", "—")
-        lufs = f"{tr['lufs']:.1f}" if tr.get("lufs") else "—"
+        bpm = tr.get("bpm", 0)
+        key = tr.get("key", "?")
+        lufs = tr.get("lufs", 0)
+        dur = tr.get("duration_s", 0)
+        dur_str = f"{dur // 60}:{dur % 60:02d}" if dur else ""
 
+        lines.append(f"  {pos:02d}  {title}")
+        lines.append(f"      {bpm:.0f} BPM   {key}   {lufs:.1f} LUFS   {dur_str}")
+
+        # Transition arrow to next track
         tx = tx_by_from.get(tr["track_id"])
-        if tx is None:
-            tx_str = "— (last track)"
-        elif tx.total == 0.0:
-            tx_str = f"0.000 [{tx.recommended_type or '—'}]  # no features or hard conflict"
-        else:
-            flag = " !!!" if tx.total < _WEAK_THRESHOLD else "    "
-            tx_str = f"{tx.total:.3f} [{tx.recommended_type or '—'}]{flag}"
-            if tx.reason:
-                tx_str += f"  # {tx.reason}"
-
-        lines.append(f"{pos:02d}.  {title:<30} {bpm:>7} {key:>4} {lufs:>6}  {tx_str}")
-
-        # Per-track details: BPM range + transition options
         if tx is not None and tx.total > 0:
-            track_bpm = tr.get("bpm", 128)
-            bpm_lo = max(track_bpm - 4, 120)
-            bpm_hi = track_bpm + 4
-            detail = f"      BPM safe: {bpm_lo:.0f}-{bpm_hi:.0f}"
-            if tx.bpm_delta is not None:
-                detail += f"  |  delta: {tx.bpm_delta:+.1f}"
-            detail += f"  |  best: [{tx.recommended_type}]"
-            if tx.alt_type:
-                detail += f"  alt: [{tx.alt_type}]"
-            if tx.type_confidence is not None:
-                detail += f"  (conf: {tx.type_confidence:.0%})"
-            lines.append(detail)
-
-    lines += [
-        "=" * 80,
-        "",
-        "TRANSITION TYPES:",
-        "  drum_cut       — hard cut on downbeat (kick→kick)",
-        "  drum_swap      — replace kick loop under outgoing track",
-        "  harmonic_sustain — blend melodic elements with matching keys",
-        "  eq             — gradual freq blend, use high/low-pass EQ",
-        "  fade           — default crossfade, no strong feature signal",
-        "  blend          — full overlap mix",
-        "",
-        "!!! = weak transition (score < 0.85), handle with care",
-        "",
-    ]
-
-    # Harmonic chain
-    keys: list[str] = [k for tr in tracks if (k := tr.get("key")) is not None]
-    if keys:
-        lines.append("HARMONIC CHAIN:")
-        lines.append("  " + "→".join(keys))
+            warn = " !!!" if tx.total < _WEAK_THRESHOLD else ""
+            lines.append("")
+            lines.append(
+                f"       |  {tx.total:.2f}{warn}  "
+                f"{tx.recommended_type or '?'}"
+                f"{f' / {tx.alt_type}' if tx.alt_type else ''}"
+            )
+            parts: list[str] = []
+            if tx.bpm_delta is not None and abs(tx.bpm_delta) > 0.5:
+                parts.append(f"BPM {tx.bpm_delta:+.0f}")
+            if tx.from_key and tx.to_key and tx.from_key != tx.to_key:
+                parts.append(f"{tx.from_key} > {tx.to_key}")
+            if tx.reason:
+                parts.append(tx.reason)
+            if parts:
+                lines.append(f"       |  {' / '.join(parts)}")
+            lines.append("       v")
+        elif tx is None:
+            # Last track — no transition
+            pass
+        else:
+            lines.append("")
+            lines.append("       |  0.00 !!! HARD CONFLICT")
+            lines.append("       v")
         lines.append("")
 
+    # Footer
+    keys: list[str] = [k for tr in tracks if (k := tr.get("key")) is not None]
+    lines.append("  ---")
+    if keys:
+        lines.append(f"  Keys:  {' > '.join(keys)}")
     if bpms:
-        lines.append(f"BPM ARC: {bpm_min:.1f} → {bpm_max:.1f}")
-        lines.append(f"RECOMMENDED BPM RANGE: {max(bpm_min - 2, 120):.0f}-{bpm_max + 2:.0f}")
-
-    total_s = sum(tr.get("duration_s", 0) for tr in tracks)
-    if total_s:
-        lines.append(f"DURATION: {total_s // 3600}h {(total_s % 3600) // 60}min")
+        safe_lo = max(bpm_min - 2, 120)
+        safe_hi = bpm_max + 2
+        lines.append(f"  BPM:   {bpm_min:.0f}-{bpm_max:.0f}  (safe: {safe_lo:.0f}-{safe_hi:.0f})")
+    lines.append("")
 
     return "\n".join(lines) + "\n"
 
