@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-22
+
 ### Added
 
 - **Iron Laws**: все 5 скиллов дополнены Iron Law + Rationalization Table + Red Flags по паттерну obra/superpowers
