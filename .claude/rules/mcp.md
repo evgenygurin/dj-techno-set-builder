@@ -50,14 +50,14 @@ app/mcp/
 ## Gateway composition
 
 `create_dj_mcp()` in `app/mcp/gateway.py`:
-- Mounts **Yandex Music** sub-server at namespace `"ym"` (~30 tools from OpenAPI)
-- Mounts **DJ Tools** sub-server at namespace `"dj"` (41 hand-written tools)
+- Mounts **Yandex Music** sub-server at namespace `"ym"` (~33 tools from OpenAPI)
+- Mounts **DJ Tools** sub-server at namespace `"dj"` (52 hand-written tools)
 - Adds `PromptsAsTools` + `ResourcesAsTools` transforms for tool-only MCP clients
-- Total: ~78 tools (30 YM + 44 DJ + 4 transforms)
+- Total: ~93 tools (33 YM + 52 DJ + 8 transforms)
 
 ## DJ Workflow tools (namespace "dj")
 
-44 tools across 15 modules + server.py:
+52 tools across 16 modules + server.py:
 
 | Tool | Tags | Read-only | Description |
 |------|------|-----------|-------------|
@@ -97,11 +97,19 @@ app/mcp/
 | `classify_tracks` | curation | Yes | Classify all tracks by 15 mood categories |
 | `analyze_library_gaps` | curation | Yes | Analyze library for gaps relative to a template |
 | `review_set` | curation, setbuilder | Yes | Review set: weak transitions, suggestions |
+| `audit_playlist` | curation | Yes | Audit playlist tracks against techno criteria |
+| `distribute_to_subgenres` | curation | No | Distribute tracks to 15 subgenre playlists |
+| `discover_candidates` | discovery, curation | No | Find similar tracks via YM recommendations |
+| `expand_playlist_discover` | discovery, curation | No | Discover + filter candidates in one call |
+| `expand_playlist_full` | discovery, curation | No | Full expand: discover + import + add to playlist |
+| `populate_from_ym` | crud, playlist | No | Populate local playlist from YM playlist |
+| `score_track_pairs` | setbuilder | Yes | Score specific track pair transitions |
 | `sync_playlist` | sync | No | Bidirectional sync between local playlist and platform |
 | `set_source_of_truth` | sync | No | Configure source of truth for a playlist |
 | `link_playlist` | sync | No | Link local playlist to platform playlist |
 | `sync_set_to_ym` | sync, yandex | No | Push DJ set to YM as playlist |
 | `sync_set_from_ym` | sync, yandex | No | Read feedback from YM, detect changes |
+| `batch_sync_sets_to_ym` | sync, yandex | No | Batch-push multiple sets to YM |
 | `activate_heavy_mode` | admin | No | Enable heavy analysis tools |
 | `activate_ym_raw` | admin | No | Enable raw Yandex Music API tools |
 | `list_platforms` | admin | Yes | List configured music platforms |
@@ -182,14 +190,14 @@ Resources use FastMCP DI (`Depends`) for service injection, same as tools.
 
 ## Structured output
 
-All DJ tools return typed Pydantic models (36 types across 4 files in `app/mcp/types/`):
+All DJ tools return typed Pydantic models (37 types across 4 files in `app/mcp/types/`):
 
 | File | Count | Key types |
 |------|-------|-----------|
 | `entities.py` | 7 | TrackSummary, TrackDetail, PlaylistSummary, PlaylistDetail, SetSummary, SetDetail, ArtistSummary |
 | `responses.py` | 8 | PaginationInfo, MatchStats, LibraryStats, SearchResponse, FindResult, EntityListResponse, EntityDetailResponse, ActionResponse |
 | `workflows.py` | 13 | SimilarTracksResult, SearchStrategy, SetBuildResult, TransitionScoreResult, ExportResult, SetTrackItem, SetVersionSummary, SetCheatSheet, DeliveryResult, TransitionSummary, AdjustmentPlan, SwapSuggestion, ReorderSuggestion |
-| `curation.py` | 8 | ClassifyResult, MoodDistribution, CurateCandidate, CurateSetResult, WeakTransition, SetReviewResult, GapDescription, LibraryGapResult |
+| `curation.py` | 9 | ClassifyResult, MoodDistribution, CurateCandidate, CurateSetResult, WeakTransition, SetReviewResult, GapDescription, LibraryGapResult, DistributeResult |
 
 Return type annotation → `structuredContent` in MCP protocol response.
 
@@ -259,7 +267,7 @@ async def long_op(ctx: Context, ...) -> ResultModel:
 - **mypy + fastmcp**: `fastmcp` is in `ignore_missing_imports` since it lacks type stubs.
 - **MCP tests — two layers**: (1) Metadata tests verify tool names/tags/annotations via `mcp.list_tools()`. (2) Client integration tests use `Client(server)` for in-memory tool invocation. Both use shared fixtures from `tests/mcp/conftest.py`.
 - **Server in fixture, Client in test body**: Don't open `Client` in fixtures — create server in fixture, open `Client` context manager inside test functions.
-- **Stub tools testable without DB**: `import_playlist` and `import_tracks` are stubs — no database needed. DB-dependent tools need session mocking.
+- **DB-independent tools**: read-only tools without DI don't need database fixtures. DB-dependent tools need session mocking via `workflow_mcp_with_db`.
 
 ## Testing
 

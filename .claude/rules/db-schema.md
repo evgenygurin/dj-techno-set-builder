@@ -8,7 +8,7 @@ paths:
 
 # DB Schema Reference (auto-generated)
 
-> Generated: 2026-03-22 00:28 UTC | Source: `dev.db` | Tables: 44
+> Generated: 2026-03-22 07:08 UTC | Source: `dev.db` | Tables: 44
 >
 > **Do not edit manually.** Regenerate: `make db-schema`
 
@@ -23,23 +23,23 @@ paths:
 | `dj_beatgrid` | 0 | 11 |
 | `dj_beatgrid_change_points` | 0 | 5 |
 | `dj_cue_points` | 0 | 11 |
-| `dj_library_items` | 2,615 | 12 |
-| `dj_playlist_items` | 2,710 | 5 |
-| `dj_playlists` | 23 | 7 |
+| `dj_library_items` | 2,753 | 12 |
+| `dj_playlist_items` | 3,927 | 5 |
+| `dj_playlists` | 25 | 7 |
 | `dj_saved_loops` | 0 | 11 |
 | `dj_set_constraints` | 0 | 5 |
 | `dj_set_feedback` | 0 | 7 |
-| `dj_set_items` | 1,965 | 13 |
-| `dj_set_versions` | 40 | 6 |
-| `dj_sets` | 33 | 12 |
+| `dj_set_items` | 2,214 | 13 |
+| `dj_set_versions` | 55 | 6 |
+| `dj_sets` | 43 | 12 |
 | `embedding_types` | 0 | 5 |
-| `feature_extraction_runs` | 2,806 | 9 |
+| `feature_extraction_runs` | 2,942 | 9 |
 | `genres` | 0 | 3 |
 | `key_edges` | 0 | 6 |
 | `keys` | 24 | 5 |
 | `labels` | 0 | 5 |
-| `provider_track_ids` | 2,633 | 7 |
-| `providers` | 5 | 3 |
+| `provider_track_ids` | 2,791 | 7 |
+| `providers` | 4 | 3 |
 | `raw_provider_responses` | 0 | 7 |
 | `releases` | 0 | 7 |
 | `soundcloud_metadata` | 0 | 21 |
@@ -49,17 +49,17 @@ paths:
 | `spotify_metadata` | 0 | 12 |
 | `spotify_playlist_metadata` | 0 | 9 |
 | `track_artists` | 1,371 | 4 |
-| `track_audio_features_computed` | 2,691 | 47 |
+| `track_audio_features_computed` | 2,827 | 47 |
 | `track_embeddings` | 0 | 6 |
 | `track_genres` | 0 | 5 |
 | `track_releases` | 0 | 5 |
 | `track_sections` | 107,765 | 16 |
 | `track_timeseries_refs` | 0 | 11 |
-| `tracks` | 2,835 | 8 |
+| `tracks` | 2,993 | 8 |
 | `transition_candidates` | 0 | 9 |
 | `transition_runs` | 0 | 9 |
 | `transitions` | 0 | 17 |
-| `yandex_metadata` | 2,415 | 15 |
+| `yandex_metadata` | 2,573 | 15 |
 
 ## Tables
 
@@ -142,7 +142,7 @@ paths:
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 - `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `dj_library_items` (2,615 rows)
+### `dj_library_items` (2,753 rows)
 - `library_item_id` INTEGER PK NOT NULL
 - `track_id` INTEGER NOT NULL -> tracks.track_id
 - `file_uri` VARCHAR(1000)
@@ -156,14 +156,14 @@ paths:
 - `source_app` SMALLINT
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `dj_playlist_items` (2,710 rows)
+### `dj_playlist_items` (3,927 rows)
 - `playlist_item_id` INTEGER PK NOT NULL
 - `playlist_id` INTEGER NOT NULL -> dj_playlists.playlist_id
 - `track_id` INTEGER NOT NULL -> tracks.track_id
 - `sort_index` INTEGER NOT NULL
 - `added_at` DATETIME
 
-### `dj_playlists` (23 rows)
+### `dj_playlists` (25 rows)
 - `playlist_id` INTEGER PK NOT NULL
 - `parent_playlist_id` INTEGER -> dj_playlists.playlist_id
 - `name` VARCHAR(500) NOT NULL
@@ -201,7 +201,7 @@ paths:
 - `notes` VARCHAR
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `dj_set_items` (1,965 rows)
+### `dj_set_items` (2,214 rows)
 - `set_item_id` INTEGER PK NOT NULL
 - `set_version_id` INTEGER NOT NULL -> dj_set_versions.set_version_id
 - `sort_index` INTEGER NOT NULL
@@ -216,7 +216,7 @@ paths:
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 - `pinned` BOOLEAN NOT NULL DEFAULT 0
 
-### `dj_set_versions` (40 rows)
+### `dj_set_versions` (55 rows)
 - `set_version_id` INTEGER PK NOT NULL
 - `set_id` INTEGER NOT NULL -> dj_sets.set_id
 - `version_label` VARCHAR(100)
@@ -224,7 +224,7 @@ paths:
 - `score` FLOAT
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `dj_sets` (33 rows)
+### `dj_sets` (43 rows)
 - `set_id` INTEGER PK NOT NULL
 - `name` VARCHAR(500) NOT NULL
 - `description` VARCHAR
@@ -245,7 +245,7 @@ paths:
 - `description` VARCHAR
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `feature_extraction_runs` (2,806 rows)
+### `feature_extraction_runs` (2,942 rows)
 - `run_id` INTEGER PK NOT NULL
 - `pipeline_name` VARCHAR(200) NOT NULL
 - `pipeline_version` VARCHAR(50) NOT NULL
@@ -283,7 +283,7 @@ paths:
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 - `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `provider_track_ids` (2,633 rows)
+### `provider_track_ids` (2,791 rows)
 - `id` INTEGER PK NOT NULL
 - `track_id` INTEGER NOT NULL -> tracks.track_id
 - `provider_id` SMALLINT NOT NULL -> providers.provider_id
@@ -292,7 +292,7 @@ paths:
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 - `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `providers` (5 rows)
+### `providers` (4 rows)
 - `provider_id` SMALLINT PK NOT NULL
 - `provider_code` VARCHAR(50) NOT NULL
 - `name` VARCHAR(100) NOT NULL
@@ -406,7 +406,7 @@ paths:
 - `role` SMALLINT PK NOT NULL
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `track_audio_features_computed` (2,691 rows)
+### `track_audio_features_computed` (2,827 rows)
 - `track_id` INTEGER PK NOT NULL -> tracks.track_id
 - `run_id` INTEGER PK NOT NULL -> feature_extraction_runs.run_id
 - `bpm` FLOAT NOT NULL
@@ -508,7 +508,7 @@ paths:
 - `file_size` INTEGER
 - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `tracks` (2,835 rows)
+### `tracks` (2,993 rows)
 - `track_id` INTEGER PK NOT NULL
 - `title` VARCHAR(500) NOT NULL
 - `title_sort` VARCHAR(500)
@@ -559,7 +559,7 @@ paths:
 - `trans_feature` VARCHAR(500)
 - `computed_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
-### `yandex_metadata` (2,415 rows)
+### `yandex_metadata` (2,573 rows)
 - `track_id` INTEGER PK NOT NULL -> tracks.track_id
 - `yandex_track_id` VARCHAR(50) NOT NULL
 - `yandex_album_id` VARCHAR(50)

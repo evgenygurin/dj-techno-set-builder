@@ -13,7 +13,7 @@ paths:
 
 ## Audio utils
 
-`app/utils/audio/` — pure-function layer (no DB/ORM deps), 21 files (16 functional modules + `_types.py`, `_errors.py`, `feature_conversion.py`, `__init__.py`):
+`app/utils/audio/` — pure-function layer (no DB/ORM deps), 22 files (17 functional modules + `_types.py`, `_errors.py`, `feature_conversion.py`, `__init__.py`):
 
 | Module | Function | Output | Description |
 |--------|----------|--------|-------------|
@@ -34,6 +34,7 @@ paths:
 | `pipeline` | `extract_all_features()` | `AllFeatures` | Orchestrator — runs all analyses |
 | `mood_classifier` | `classify_track()` | `MoodClassification` | Rule-based 15-subgenre classification with fuzzy scoring |
 | `set_templates` | `get_template()` | `SetTemplate` | 8 DJ set templates with slot-based energy arcs |
+| `greedy_chain` | `build_greedy_chain()` | `list[TrackData]` | Greedy chain builder — fast alternative to GA |
 | `feature_conversion` | `orm_to_track_features()` | `TrackFeatures` | ORM→TrackFeatures single source of truth |
 
 **Pattern**: Each module exports one pure function returning a frozen `@dataclass(frozen=True, slots=True)`. All types defined in `_types.py`.
