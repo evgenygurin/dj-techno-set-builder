@@ -86,6 +86,24 @@ class SetGenerationService(BaseService):
         self.sections_repo = sections_repo
         self.playlist_repo = playlist_repo
 
+    async def _load_artist_map(self, track_ids: list[int]) -> dict[int, int]:
+        """Load primary artist_id for each track (role=0)."""
+        from sqlalchemy import select
+
+        from app.models.catalog import TrackArtist
+
+        artist_map: dict[int, int] = {}
+        if track_ids:
+            stmt = (
+                select(TrackArtist.track_id, TrackArtist.artist_id)
+                .where(TrackArtist.track_id.in_(track_ids))
+                .where(TrackArtist.role == 0)
+            )
+            rows = await self.features_repo.session.execute(stmt)
+            for row in rows:
+                artist_map[row.track_id] = row.artist_id
+        return artist_map
+
     async def generate(self, set_id: int, data: SetGenerationRequest) -> SetGenerationResponse:
         """Generate optimal track ordering for a DJ set using genetic algorithm.
 
@@ -147,6 +165,9 @@ class SetGenerationService(BaseService):
             )
             mood_map[f.track_id] = classification.mood.intensity
 
+        # Load primary artist_id for each track (for variety scoring in GA)
+        artist_map = await self._load_artist_map([f.track_id for f in features_list])
+
         # Build TrackData list (LUFS-based energy for accurate perceived loudness)
         tracks = [
             TrackData(
@@ -155,7 +176,7 @@ class SetGenerationService(BaseService):
                 energy=lufs_to_energy(f.lufs_i),
                 key_code=f.key_code or 0,
                 mood=mood_map.get(f.track_id, 0),
-                artist_id=0,  # TODO: wire artist_id from track model
+                artist_id=artist_map.get(f.track_id, 0),
             )
             for f in features_list
         ]

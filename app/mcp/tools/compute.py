@@ -11,8 +11,10 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.errors import NotFoundError, ValidationError
 from app.mcp.dependencies import get_session
 from app.mcp.refs import RefType, parse_ref
+from app.utils.audio._errors import AudioAnalysisError, AudioValidationError
 
 
 def register_compute_tools(mcp: FastMCP) -> None:
@@ -105,7 +107,13 @@ def register_compute_tools(mcp: FastMCP) -> None:
                     "hint": "Install with: uv sync --extra audio",
                 }
             )
-        except Exception as e:
+        except (
+            AudioAnalysisError,
+            AudioValidationError,
+            NotFoundError,
+            ValueError,
+            OSError,
+        ) as e:
             return json.dumps({"error": f"Analysis failed: {e}"})
 
     @mcp.tool(tags={"compute", "setbuilder"}, timeout=120)
@@ -179,5 +187,5 @@ def register_compute_tools(mcp: FastMCP) -> None:
 
             return json.dumps(result, ensure_ascii=False)
 
-        except Exception as e:
+        except (NotFoundError, ValidationError, ValueError) as e:
             return json.dumps({"error": f"Set computation failed: {e}"})

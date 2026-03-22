@@ -10,6 +10,7 @@ from app.repositories.sections import SectionsRepository
 from app.repositories.tracks import TrackRepository
 from app.services.base import BaseService
 from app.utils.audio import TrackFeatures
+from app.utils.audio._errors import AudioAnalysisError, AudioValidationError
 from app.utils.audio._types import BeatsResult, MfccResult
 from app.utils.audio.loader import load_audio, validate_audio
 from app.utils.audio.pipeline import extract_all_features
@@ -107,7 +108,7 @@ class TrackAnalysisService(BaseService):
                         section_onset_rate=section.onset_rate,
                         section_pulse_clarity=section.pulse_clarity,
                     )
-            except Exception:
+            except (AudioAnalysisError, AudioValidationError, ValueError, OSError):
                 self.logger.warning(
                     "Structure segmentation failed for track %d",
                     track_id,
@@ -140,7 +141,7 @@ class TrackAnalysisService(BaseService):
             from app.utils.audio.beats import detect_beats
 
             beats_result = detect_beats(signal)
-        except Exception:
+        except (AudioAnalysisError, AudioValidationError, ValueError, OSError):
             self.logger.warning("Beat detection failed for track %d", track_id, exc_info=True)
 
         # Phase 2: MFCC extraction (optional, graceful failure)
@@ -149,7 +150,7 @@ class TrackAnalysisService(BaseService):
             from app.utils.audio.mfcc import extract_mfcc
 
             mfcc_result = extract_mfcc(signal)
-        except Exception:
+        except (AudioAnalysisError, AudioValidationError, ValueError, OSError):
             self.logger.warning("MFCC extraction failed for track %d", track_id, exc_info=True)
 
         return TrackFeatures(

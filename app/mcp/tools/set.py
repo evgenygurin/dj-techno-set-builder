@@ -18,6 +18,7 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.errors import NotFoundError
 from app.mcp.converters import set_to_summary
 from app.mcp.dependencies import (
     get_features_service,
@@ -58,7 +59,7 @@ async def _build_set_detail(set_id: int, session: AsyncSession) -> SetDetail | N
     svc = _make_svc(session)
     try:
         set_read = await svc.get(set_id)
-    except Exception:
+    except (NotFoundError, ValueError):
         return None
 
     versions = await svc.list_versions(set_id)

@@ -6,9 +6,11 @@ import logging
 from datetime import date
 from typing import Any
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.errors import NotFoundError
 from app.models.catalog import (
     Artist,
     Genre,
@@ -78,7 +80,7 @@ class ImportYandexService(BaseService):
                     enriched += 1
                 else:
                     not_found += 1
-            except Exception as e:
+            except (httpx.HTTPStatusError, httpx.ConnectError, NotFoundError, ValueError) as e:
                 errors.append(f"Track {tid}: {e}")
                 logger.warning("Enrich failed for track %d: %s", tid, e)
 

@@ -13,6 +13,7 @@ from app.schemas.analysis import (
     BatchAnalysisResponse,
 )
 from app.services.analysis import AnalysisOrchestrator
+from app.utils.audio._errors import AudioAnalysisError, AudioValidationError
 
 router = APIRouter(prefix="/tracks", tags=["analysis"])
 
@@ -97,7 +98,7 @@ async def batch_analyze(
             # Commit per-track so progress is never lost
             await db.commit()
             completed += 1
-        except Exception as e:
+        except (AudioAnalysisError, AudioValidationError, OSError, ValueError) as e:
             failed += 1
             errors.append(f"Track {tid}: {e}")
             logger.warning("Batch analysis failed for track %d: %s", tid, e)

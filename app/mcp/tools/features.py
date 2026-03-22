@@ -13,6 +13,7 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.errors import NotFoundError
 from app.mcp.converters import track_to_summary
 from app.mcp.dependencies import get_session
 from app.mcp.pagination import paginate_params
@@ -102,7 +103,7 @@ def register_features_tools(mcp: FastMCP) -> None:
         )
         try:
             features = await svc.get_latest(ref.local_id)
-        except Exception:
+        except (NotFoundError, ValueError):
             return json.dumps({"error": "No features found", "ref": track_ref})
 
         return await wrap_detail(features, session)

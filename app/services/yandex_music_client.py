@@ -82,6 +82,7 @@ class YandexMusicClient(BaseService):
         self._user_id = user_id
         self._http: httpx.AsyncClient | None = None
         self._last_request_at: float = 0
+        self._rate_limit_lock = asyncio.Lock()
 
     async def _client(self) -> httpx.AsyncClient:
         if self._http is None:
@@ -95,12 +96,13 @@ class YandexMusicClient(BaseService):
         return {"Authorization": f"OAuth {self._token}"}
 
     async def _rate_limit(self) -> None:
-        """Enforce minimum delay between requests."""
-        now = time.monotonic()
-        elapsed = now - self._last_request_at
-        if elapsed < _REQUEST_DELAY:
-            await asyncio.sleep(_REQUEST_DELAY - elapsed)
-        self._last_request_at = time.monotonic()
+        """Enforce minimum delay between requests (thread-safe)."""
+        async with self._rate_limit_lock:
+            now = time.monotonic()
+            elapsed = now - self._last_request_at
+            if elapsed < _REQUEST_DELAY:
+                await asyncio.sleep(_REQUEST_DELAY - elapsed)
+            self._last_request_at = time.monotonic()
 
     async def _get_json(self, url: str) -> dict[str, Any]:
         await self._rate_limit()
