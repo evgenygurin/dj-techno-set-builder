@@ -10,11 +10,11 @@ populate_from_ym — populate local playlist with tracks from YM playlist
 
 from __future__ import annotations
 
-import json
 import logging
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
+from fastmcp.exceptions import ToolError
 from fastmcp.server.context import Context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -118,7 +118,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
         if ref.ref_type == RefType.LOCAL and ref.local_id is not None:
             detail = await _build_playlist_detail(ref.local_id, session)
             if detail is None:
-                return json.dumps({"error": "Playlist not found", "ref": playlist_ref})
+                raise ToolError(f"Playlist not found: {playlist_ref}")
             return await wrap_detail(detail, session)
 
         if ref.ref_type == RefType.TEXT:
@@ -127,7 +127,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
             found = await finder.find(ref, limit=20)
             return await wrap_list(found.entities, len(found.entities), 0, 20, session)
 
-        return json.dumps({"error": "Platform refs not yet supported", "ref": playlist_ref})
+        raise ToolError(f"Platform refs not yet supported: {playlist_ref}")
 
     @mcp.tool(tags={"crud", "playlist"})
     async def create_playlist(
@@ -166,13 +166,13 @@ def register_playlist_tools(mcp: FastMCP) -> None:
         """
         ref = parse_ref(playlist_ref)
         if ref.ref_type != RefType.LOCAL or ref.local_id is None:
-            return json.dumps({"error": "update requires exact ref", "ref": playlist_ref})
+            raise ToolError(f"update requires exact ref: {playlist_ref}")
 
         svc = _make_svc(session)
         try:
             await svc.update(ref.local_id, DjPlaylistUpdate(name=name))
         except NotFoundError:
-            return json.dumps({"error": f"Playlist {ref.local_id} not found"})
+            raise ToolError(f"Playlist {ref.local_id} not found") from None
 
         detail = await _build_playlist_detail(ref.local_id, session)
         return await wrap_action(
@@ -182,7 +182,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
             result=detail,
         )
 
-    @mcp.tool(tags={"crud", "playlist"})
+    @mcp.tool(tags={"crud", "playlist"}, annotations={"destructiveHint": True})
     async def delete_playlist(
         playlist_ref: str | int,
         session: AsyncSession = Depends(get_session),
@@ -194,13 +194,13 @@ def register_playlist_tools(mcp: FastMCP) -> None:
         """
         ref = parse_ref(playlist_ref)
         if ref.ref_type != RefType.LOCAL or ref.local_id is None:
-            return json.dumps({"error": "delete requires exact ref", "ref": playlist_ref})
+            raise ToolError(f"delete requires exact ref: {playlist_ref}")
 
         svc = _make_svc(session)
         try:
             await svc.delete(ref.local_id)
         except NotFoundError:
-            return json.dumps({"error": f"Playlist {ref.local_id} not found"})
+            raise ToolError(f"Playlist {ref.local_id} not found") from None
 
         return await wrap_action(
             success=True,

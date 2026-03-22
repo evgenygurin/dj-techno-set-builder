@@ -9,10 +9,9 @@ delete_track — delete track by ref
 
 from __future__ import annotations
 
-import json
-
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
+from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import NotFoundError
@@ -105,7 +104,7 @@ def register_track_tools(mcp: FastMCP) -> None:
         if ref.ref_type == RefType.LOCAL and ref.local_id is not None:
             detail = await _build_track_detail(ref.local_id, session)
             if detail is None:
-                return json.dumps({"error": "Track not found", "ref": track_ref})
+                raise ToolError(f"Track not found: {track_ref}")
             return await wrap_detail(detail, session)
 
         if ref.ref_type == RefType.TEXT:
@@ -114,7 +113,7 @@ def register_track_tools(mcp: FastMCP) -> None:
             found = await finder.find(ref, limit=20)
             return await wrap_list(found.entities, len(found.entities), 0, 20, session)
 
-        return json.dumps({"error": "Platform refs not yet supported", "ref": track_ref})
+        raise ToolError(f"Platform refs not yet supported: {track_ref}")
 
     @mcp.tool(tags={"crud", "track"})
     async def create_track(
@@ -156,16 +155,14 @@ def register_track_tools(mcp: FastMCP) -> None:
         ref = parse_ref(track_ref)
 
         if ref.ref_type != RefType.LOCAL or ref.local_id is None:
-            return json.dumps(
-                {"error": "update requires exact ref (local:N or N)", "ref": track_ref}
-            )
+            raise ToolError(f"update requires exact ref (local:N or N): {track_ref}")
 
         svc = TrackService(TrackRepository(session))
         update_data = TrackUpdate(title=title, duration_ms=duration_ms)
         try:
             await svc.update(ref.local_id, update_data)
         except NotFoundError:
-            return json.dumps({"error": f"Track {ref.local_id} not found"})
+            raise ToolError(f"Track {ref.local_id} not found") from None
 
         detail = await _build_track_detail(ref.local_id, session)
         return await wrap_action(
@@ -175,7 +172,7 @@ def register_track_tools(mcp: FastMCP) -> None:
             result=detail,
         )
 
-    @mcp.tool(tags={"crud", "track"})
+    @mcp.tool(tags={"crud", "track"}, annotations={"destructiveHint": True})
     async def delete_track(
         track_ref: str | int,
         session: AsyncSession = Depends(get_session),
@@ -188,15 +185,13 @@ def register_track_tools(mcp: FastMCP) -> None:
         ref = parse_ref(track_ref)
 
         if ref.ref_type != RefType.LOCAL or ref.local_id is None:
-            return json.dumps(
-                {"error": "delete requires exact ref (local:N or N)", "ref": track_ref}
-            )
+            raise ToolError(f"delete requires exact ref (local:N or N): {track_ref}")
 
         svc = TrackService(TrackRepository(session))
         try:
             await svc.delete(ref.local_id)
         except NotFoundError:
-            return json.dumps({"error": f"Track {ref.local_id} not found"})
+            raise ToolError(f"Track {ref.local_id} not found") from None
 
         return await wrap_action(
             success=True,

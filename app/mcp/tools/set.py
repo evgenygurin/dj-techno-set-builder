@@ -12,10 +12,10 @@ list_set_versions — version history with track count and score
 from __future__ import annotations
 
 import contextlib
-import json
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
+from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import NotFoundError
@@ -190,7 +190,7 @@ def register_set_tools(mcp: FastMCP) -> None:
         if ref.ref_type == RefType.LOCAL and ref.local_id is not None:
             detail = await _build_set_detail(ref.local_id, session)
             if detail is None:
-                return json.dumps({"error": "Set not found", "ref": set_ref})
+                raise ToolError(f"Set not found: {set_ref}")
             return await wrap_detail(detail, session)
 
         if ref.ref_type == RefType.TEXT:
@@ -199,7 +199,7 @@ def register_set_tools(mcp: FastMCP) -> None:
             found = await finder.find(ref, limit=20)
             return await wrap_list(found.entities, len(found.entities), 0, 20, session)
 
-        return json.dumps({"error": "Platform refs not yet supported", "ref": set_ref})
+        raise ToolError(f"Platform refs not yet supported: {set_ref}")
 
     @mcp.tool(tags={"crud", "set"})
     async def create_set(
@@ -267,13 +267,13 @@ def register_set_tools(mcp: FastMCP) -> None:
         """
         ref = parse_ref(set_ref)
         if ref.ref_type != RefType.LOCAL or ref.local_id is None:
-            return json.dumps({"error": "update requires exact ref", "ref": set_ref})
+            raise ToolError(f"update requires exact ref: {set_ref}")
 
         svc = _make_svc(session)
         try:
             await svc.update(ref.local_id, DjSetUpdate(name=name, description=description))
         except NotFoundError:
-            return json.dumps({"error": f"Set {ref.local_id} not found"})
+            raise ToolError(f"Set {ref.local_id} not found") from None
 
         detail = await _build_set_detail(ref.local_id, session)
         return await wrap_action(
@@ -283,7 +283,7 @@ def register_set_tools(mcp: FastMCP) -> None:
             result=detail,
         )
 
-    @mcp.tool(tags={"crud", "set"})
+    @mcp.tool(tags={"crud", "set"}, annotations={"destructiveHint": True})
     async def delete_set(
         set_ref: str | int,
         session: AsyncSession = Depends(get_session),
@@ -295,13 +295,13 @@ def register_set_tools(mcp: FastMCP) -> None:
         """
         ref = parse_ref(set_ref)
         if ref.ref_type != RefType.LOCAL or ref.local_id is None:
-            return json.dumps({"error": "delete requires exact ref", "ref": set_ref})
+            raise ToolError(f"delete requires exact ref: {set_ref}")
 
         svc = _make_svc(session)
         try:
             await svc.delete(ref.local_id)
         except NotFoundError:
-            return json.dumps({"error": f"Set {ref.local_id} not found"})
+            raise ToolError(f"Set {ref.local_id} not found") from None
 
         return await wrap_action(
             success=True,

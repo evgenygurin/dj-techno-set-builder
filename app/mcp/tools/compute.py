@@ -9,6 +9,7 @@ import json
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
+from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import NotFoundError, ValidationError
@@ -42,7 +43,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
         if track_ref and not file_path:
             ref = parse_ref(track_ref)
             if ref.ref_type != RefType.LOCAL or ref.local_id is None:
-                return json.dumps({"error": "analyze requires local track ref or audio_path"})
+                raise ToolError("analyze requires local track ref or audio_path")
 
             # Look up file path from DjLibraryItem
             from sqlalchemy import select
@@ -53,17 +54,14 @@ def register_compute_tools(mcp: FastMCP) -> None:
             result = await session.execute(stmt)
             lib_item = result.scalar_one_or_none()
             if lib_item is None:
-                return json.dumps(
-                    {
-                        "error": "No local file found for track",
-                        "ref": track_ref,
-                        "hint": "Download the track first using download_tracks",
-                    }
+                raise ToolError(
+                    f"No local file found for track {track_ref}. "
+                    "Download the track first using download_tracks."
                 )
             file_path = lib_item.file_path
 
         if not file_path:
-            return json.dumps({"error": "Provide track_ref or audio_path"})
+            raise ToolError("Provide track_ref or audio_path")
 
         # Run analysis pipeline (imports are heavy — lazy load)
         try:
@@ -101,12 +99,9 @@ def register_compute_tools(mcp: FastMCP) -> None:
             )
 
         except ImportError as e:
-            return json.dumps(
-                {
-                    "error": f"Audio dependencies not available: {e}",
-                    "hint": "Install with: uv sync --extra audio",
-                }
-            )
+            raise ToolError(
+                f"Audio dependencies not available: {e}. Install with: uv sync --extra audio"
+            ) from None
         except (
             AudioAnalysisError,
             AudioValidationError,
@@ -114,7 +109,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
             ValueError,
             OSError,
         ) as e:
-            return json.dumps({"error": f"Analysis failed: {e}"})
+            raise ToolError(f"Analysis failed: {e}") from None
 
     @mcp.tool(tags={"compute", "setbuilder"}, timeout=600)
     async def compute_set_order(
@@ -188,4 +183,4 @@ def register_compute_tools(mcp: FastMCP) -> None:
             return json.dumps(result, ensure_ascii=False)
 
         except (NotFoundError, ValidationError, ValueError) as e:
-            return json.dumps({"error": f"Set computation failed: {e}"})
+            raise ToolError(f"Set computation failed: {e}") from None

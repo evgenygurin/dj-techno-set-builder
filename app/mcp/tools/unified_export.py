@@ -11,6 +11,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
+from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import NotFoundError
@@ -41,7 +42,7 @@ def register_unified_export_tools(mcp: FastMCP) -> None:
         """
         ref = parse_ref(set_ref)
         if ref.ref_type != RefType.LOCAL or ref.local_id is None:
-            return json.dumps({"error": "export requires exact ref", "ref": set_ref})
+            raise ToolError(f"export requires exact ref: {set_ref}")
 
         set_id = ref.local_id
 
@@ -55,7 +56,7 @@ def register_unified_export_tools(mcp: FastMCP) -> None:
         try:
             dj_set = await set_svc.get(set_id)
         except (NotFoundError, ValueError) as exc:
-            return json.dumps({"error": f"Set not found: {exc}", "ref": set_ref})
+            raise ToolError(f"Set not found: {exc}") from None
 
         items_list = await set_svc.list_items(version_id, offset=0, limit=500)
         items = sorted(items_list.items, key=lambda i: i.sort_index)
@@ -69,12 +70,7 @@ def register_unified_export_tools(mcp: FastMCP) -> None:
                 dj_set, items, track_svc, features_svc, base_path, session
             )
         else:
-            return json.dumps(
-                {
-                    "error": f"Unknown format: {format}",
-                    "supported": ["m3u", "json", "rekordbox"],
-                }
-            )
+            raise ToolError(f"Unknown format: {format}. Supported: m3u, json, rekordbox")
 
         result = {
             "set_id": set_id,

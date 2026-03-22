@@ -22,7 +22,7 @@ def register_download_tools(mcp: FastMCP) -> None:
         name="download_tracks",
         description="Download MP3 files for tracks from Yandex Music to iCloud library",
         tags={"download", "yandex"},
-        annotations={"readonly": False},
+        annotations={"readOnlyHint": False, "openWorldHint": True},
         timeout=600,
     )
     async def download_tracks(

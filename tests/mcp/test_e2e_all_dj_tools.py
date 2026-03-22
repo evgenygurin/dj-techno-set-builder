@@ -183,11 +183,12 @@ async def test_features_list_empty(workflow_mcp_with_db: FastMCP):
 
 
 async def test_get_features_no_features(workflow_mcp_with_db: FastMCP):
-    """get_features returns error for nonexistent track."""
+    """get_features raises ToolError for nonexistent track."""
+    from fastmcp.exceptions import ToolError
+
     async with Client(workflow_mcp_with_db) as c:
-        raw = await c.call_tool("get_features", {"track_ref": "999"})
-        data = _json(raw)
-        assert "error" in data
+        with pytest.raises(ToolError, match="No features found"):
+            await c.call_tool("get_features", {"track_ref": "999"})
 
 
 async def test_save_and_get_features(workflow_mcp_with_db: FastMCP):
@@ -234,19 +235,21 @@ async def test_save_and_get_features(workflow_mcp_with_db: FastMCP):
 
 
 async def test_analyze_track_no_args(workflow_mcp_with_db: FastMCP):
-    """analyze_track with no track_ref or audio_path returns error."""
+    """analyze_track with no track_ref or audio_path raises ToolError."""
+    from fastmcp.exceptions import ToolError
+
     async with Client(workflow_mcp_with_db) as c:
-        raw = await c.call_tool("analyze_track", {})
-        data = _json(raw)
-        assert "error" in data
+        with pytest.raises(ToolError, match="track_ref or audio_path"):
+            await c.call_tool("analyze_track", {})
 
 
 async def test_compute_set_order_no_playlist(workflow_mcp_with_db: FastMCP):
-    """compute_set_order on nonexistent playlist returns error."""
+    """compute_set_order on nonexistent playlist raises ToolError."""
+    from fastmcp.exceptions import ToolError
+
     async with Client(workflow_mcp_with_db) as c:
-        raw = await c.call_tool("compute_set_order", {"playlist_id": 999})
-        data = _json(raw)
-        assert "error" in data
+        with pytest.raises(ToolError):
+            await c.call_tool("compute_set_order", {"playlist_id": 999})
 
 
 # ---------------------------------------------------------------------------
@@ -255,13 +258,12 @@ async def test_compute_set_order_no_playlist(workflow_mcp_with_db: FastMCP):
 
 
 async def test_export_set_no_set(workflow_mcp_with_db: FastMCP):
-    """export_set for nonexistent set returns error."""
+    """export_set for nonexistent set raises ToolError."""
+    from fastmcp.exceptions import ToolError
+
     async with Client(workflow_mcp_with_db) as c:
-        raw = await c.call_tool(
-            "export_set", {"set_ref": "999", "version_id": 1, "format": "json"}
-        )
-        data = _json(raw)
-        assert "error" in data
+        with pytest.raises(ToolError, match="Set not found"):
+            await c.call_tool("export_set", {"set_ref": "999", "version_id": 1, "format": "json"})
 
 
 async def test_export_set_invalid_format(workflow_mcp_with_db: FastMCP):
@@ -275,11 +277,12 @@ async def test_export_set_invalid_format(workflow_mcp_with_db: FastMCP):
         set_id = set_data["message"].split("local:")[1]
         version_id = set_data["result"]["latest_version_id"]
 
-        raw = await c.call_tool(
-            "export_set", {"set_ref": set_id, "version_id": version_id, "format": "wav"}
-        )
-        data = _json(raw)
-        assert "error" in data
+        from fastmcp.exceptions import ToolError as ToolErr
+
+        with pytest.raises(ToolErr, match="Unknown format"):
+            await c.call_tool(
+                "export_set", {"set_ref": set_id, "version_id": version_id, "format": "wav"}
+            )
 
 
 async def test_export_set_json_format(workflow_mcp_with_db: FastMCP):

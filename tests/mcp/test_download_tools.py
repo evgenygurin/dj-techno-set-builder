@@ -23,4 +23,5 @@ async def test_download_tracks_tool_has_correct_metadata(workflow_mcp: FastMCP) 
     assert "download" in tool.tags
     assert "yandex" in tool.tags
     assert tool.annotations is not None
-    assert tool.annotations.readonly is False  # type: ignore[attr-defined]
+    assert tool.annotations.readOnlyHint is False
+    assert tool.annotations.openWorldHint is True
