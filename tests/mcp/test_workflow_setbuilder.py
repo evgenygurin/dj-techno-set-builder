@@ -66,3 +66,11 @@ async def test_build_set_accepts_template(workflow_mcp: FastMCP):
     assert "exclude_track_ids" in props
     assert "energy_arc" in props
     assert "track_count" in props
+
+
+async def test_build_set_accepts_optimizer(workflow_mcp: FastMCP):
+    """build_set should expose the optimizer parameter (ga/greedy)."""
+    tools = await workflow_mcp.list_tools()
+    build = next(t for t in tools if t.name == "build_set")
+    props = set(build.parameters.get("properties", {}).keys())
+    assert "optimizer" in props

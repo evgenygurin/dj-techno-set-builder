@@ -56,16 +56,12 @@ async def _run_greedy_build(
         raise ValidationError("No tracks with audio features available")
 
     # Filter to playlist tracks
-    playlist_items = await playlist_svc.list_items(
-        playlist_id, offset=0, limit=5000
-    )
+    playlist_items = await playlist_svc.list_items(playlist_id, offset=0, limit=5000)
     allowed_ids = {item.track_id for item in playlist_items.items}
     all_features = [f for f in all_features if f.track_id in allowed_ids]
 
     if not all_features:
-        raise ValidationError(
-            f"No tracks with audio features in playlist {playlist_id}"
-        )
+        raise ValidationError(f"No tracks with audio features in playlist {playlist_id}")
 
     # Exclude tracks
     if exclude_track_ids:
@@ -195,6 +191,7 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
                 exclude_track_ids=exclude_track_ids,
                 set_svc=set_svc,
                 features_svc=features_svc,
+                playlist_svc=playlist_svc,
                 ctx=ctx,
             )
             await ctx.report_progress(progress=100, total=100)
@@ -420,6 +417,4 @@ def register_setbuilder_tools(mcp: FastMCP) -> None:
             track_ids: Ordered list of track IDs to score consecutively.
         """
         items = [types.SimpleNamespace(track_id=tid) for tid in track_ids]
-        return await score_consecutive_transitions(
-            items, unified_svc, track_svc, features_svc
-        )
+        return await score_consecutive_transitions(items, unified_svc, track_svc, features_svc)
