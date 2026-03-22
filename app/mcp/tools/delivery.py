@@ -101,10 +101,22 @@ def _generate_cheat_sheet(
     # Build transition lookup: (from_id, to_id) → score
     tx_by_from: dict[int, TransitionScoreResult] = {s.from_track_id: s for s in scores}
 
+    bpms = [tr["bpm"] for tr in tracks if tr.get("bpm")]
+    bpm_min = min(bpms) if bpms else 0
+    bpm_max = max(bpms) if bpms else 0
+
     lines = [
         "=" * 80,
         f"CHEAT SHEET: {set_name}",
         "=" * 80,
+    ]
+    if bpms:
+        lines.append(
+            f"SET BPM RANGE: {bpm_min:.0f}-{bpm_max:.0f}  |  "
+            f"RECOMMENDED: {max(bpm_min - 2, 120):.0f}-{bpm_max + 2:.0f}"
+        )
+    lines += [
+        "",
         f"{'#':<4} {'Track':<30} {'BPM':>7} {'Key':>4} {'LUFS':>6}  → Next Transition",
         "-" * 80,
     ]
@@ -129,14 +141,31 @@ def _generate_cheat_sheet(
 
         lines.append(f"{pos:02d}.  {title:<30} {bpm:>7} {key:>4} {lufs:>6}  {tx_str}")
 
+        # Per-track details: BPM range + transition options
+        if tx is not None and tx.total > 0:
+            track_bpm = tr.get("bpm", 128)
+            bpm_lo = max(track_bpm - 4, 120)
+            bpm_hi = track_bpm + 4
+            detail = f"      BPM safe: {bpm_lo:.0f}-{bpm_hi:.0f}"
+            if tx.bpm_delta is not None:
+                detail += f"  |  delta: {tx.bpm_delta:+.1f}"
+            detail += f"  |  best: [{tx.recommended_type}]"
+            if tx.alt_type:
+                detail += f"  alt: [{tx.alt_type}]"
+            if tx.type_confidence is not None:
+                detail += f"  (conf: {tx.type_confidence:.0%})"
+            lines.append(detail)
+
     lines += [
         "=" * 80,
         "",
         "TRANSITION TYPES:",
-        "  drum_cut  — hard cut on downbeat (kick→kick)",
-        "  drum_swap — replace kick loop under outgoing track",
-        "  eq        — gradual freq blend, use high/low-pass EQ",
-        "  blend     — full overlap mix",
+        "  drum_cut       — hard cut on downbeat (kick→kick)",
+        "  drum_swap      — replace kick loop under outgoing track",
+        "  harmonic_sustain — blend melodic elements with matching keys",
+        "  eq             — gradual freq blend, use high/low-pass EQ",
+        "  fade           — default crossfade, no strong feature signal",
+        "  blend          — full overlap mix",
         "",
         "!!! = weak transition (score < 0.85), handle with care",
         "",
@@ -149,9 +178,9 @@ def _generate_cheat_sheet(
         lines.append("  " + "→".join(keys))
         lines.append("")
 
-    bpms = [tr["bpm"] for tr in tracks if tr.get("bpm")]
     if bpms:
-        lines.append(f"BPM ARC: {min(bpms):.1f} → {max(bpms):.1f}")
+        lines.append(f"BPM ARC: {bpm_min:.1f} → {bpm_max:.1f}")
+        lines.append(f"RECOMMENDED BPM RANGE: {max(bpm_min - 2, 120):.0f}-{bpm_max + 2:.0f}")
 
     total_s = sum(tr.get("duration_s", 0) for tr in tracks)
     if total_s:
