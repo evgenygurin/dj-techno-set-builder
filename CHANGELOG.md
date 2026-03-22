@@ -37,7 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Cleanup**: removed completed TODOs, added script data files to .gitignore
 - **Mood classifier**: expanded from 6 to 15 subgenres with weighted fuzzy scoring; narrowed driving/hypnotic Gaussians (sigma=0.15) to prevent catch-all dominance
 - **audio.md**: added "Mood classifier (15 subgenres)" section with discriminators table, anti-catch-all penalties, subgenre playlists info
-- **CLAUDE.md**: секция Workflow skills обновлена; добавлены `db-schema.md`, `make db-schema`, заметка про 12 pre-existing mypy errors; таблицы ссылок на docs.anthropic.com и docs.codegen.com
+- **CLAUDE.md**: секция Workflow skills обновлена; добавлены `db-schema.md`, `make db-schema`; таблицы ссылок на docs.anthropic.com и docs.codegen.com; mypy status updated (12 errors → 0)
 - **database.md**: добавлена секция "Schema reference" с правилами регенерации `db-schema.md`
 - **Episodic Memory**: добавлено обязательное правило использования `episodic-memory:search-conversations` при старте сессии
 - **Documentation meta-rules**: добавлена секция Official Documentation Requirement
