@@ -82,7 +82,7 @@ def register_features_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "features"}, annotations={"readOnlyHint": True})
     async def get_features(
-        track_ref: str,
+        track_ref: str | int,
         session: AsyncSession = Depends(get_session),
     ) -> str:
         """Get full audio features for a track (Level 3: Full, ~2 KB).
@@ -110,7 +110,7 @@ def register_features_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "features"})
     async def save_features(
-        track_ref: str,
+        track_ref: str | int,
         features_json: str,
         session: AsyncSession = Depends(get_session),
     ) -> str:

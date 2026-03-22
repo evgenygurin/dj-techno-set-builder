@@ -104,7 +104,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "playlist"}, annotations={"readOnlyHint": True})
     async def get_playlist(
-        playlist_ref: str,
+        playlist_ref: str | int,
         session: AsyncSession = Depends(get_session),
     ) -> str:
         """Get playlist details by ref. Text refs return match list.
@@ -153,7 +153,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "playlist"})
     async def update_playlist(
-        playlist_ref: str,
+        playlist_ref: str | int,
         name: str | None = None,
         session: AsyncSession = Depends(get_session),
     ) -> str:
@@ -180,7 +180,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "playlist"})
     async def delete_playlist(
-        playlist_ref: str,
+        playlist_ref: str | int,
         session: AsyncSession = Depends(get_session),
     ) -> str:
         """Delete a playlist by ref.

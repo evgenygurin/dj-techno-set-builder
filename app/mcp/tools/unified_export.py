@@ -23,7 +23,7 @@ def register_unified_export_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"export"}, annotations={"readOnlyHint": True})
     async def export_set(
-        set_ref: str,
+        set_ref: str | int,
         version_id: int,
         format: str = "json",
         base_path: str = "/Music",

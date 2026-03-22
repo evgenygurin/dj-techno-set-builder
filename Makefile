@@ -273,7 +273,7 @@ mcp-list:
 
 mcp-call:
 ifndef TOOL
-	$(error Укажи инструмент: make mcp-call TOOL=dj_get_track_details ARGS='{"track_id": 45}')
+	$(error Укажи инструмент: make mcp-call TOOL=dj_get_track ARGS='{"track_ref": "45"}')
 endif
 	$(UV) run fastmcp call --command "$(UV) run fastmcp run $(MCP_SPEC)" --target $(TOOL) --input-json '$(ARGS)'
 

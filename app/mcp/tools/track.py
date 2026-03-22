@@ -88,7 +88,7 @@ def register_track_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "track"}, annotations={"readOnlyHint": True})
     async def get_track(
-        track_ref: str,
+        track_ref: str | int,
         session: AsyncSession = Depends(get_session),
     ) -> str:
         """Get track details by ref.
@@ -140,7 +140,7 @@ def register_track_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "track"})
     async def update_track(
-        track_ref: str,
+        track_ref: str | int,
         title: str | None = None,
         duration_ms: int | None = None,
         session: AsyncSession = Depends(get_session),
@@ -173,7 +173,7 @@ def register_track_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "track"})
     async def delete_track(
-        track_ref: str,
+        track_ref: str | int,
         session: AsyncSession = Depends(get_session),
     ) -> str:
         """Delete a track by ref.

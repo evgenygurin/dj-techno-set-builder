@@ -321,7 +321,7 @@ Installation into MCP clients:
 **CLI quick reference:**
 ```bash
 make mcp-list                                                    # ~75 tools
-make mcp-call TOOL=dj_get_track ARGS='{"track_ref": 45}'        # call tool
+make mcp-call TOOL=dj_get_track ARGS='{"track_ref": "45"}'       # call tool
 make mcp-dev                                                     # HTTP :9100 + reload
 make mcp-inspect                                                 # Inspector :6274
 ```

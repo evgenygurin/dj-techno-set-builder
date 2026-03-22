@@ -174,7 +174,7 @@ def register_set_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "set"}, annotations={"readOnlyHint": True})
     async def get_set(
-        set_ref: str,
+        set_ref: str | int,
         session: AsyncSession = Depends(get_session),
     ) -> str:
         """Get set details by ref. Text refs return match list.
@@ -250,7 +250,7 @@ def register_set_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "set"})
     async def update_set(
-        set_ref: str,
+        set_ref: str | int,
         name: str | None = None,
         description: str | None = None,
         session: AsyncSession = Depends(get_session),
@@ -279,7 +279,7 @@ def register_set_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(tags={"crud", "set"})
     async def delete_set(
-        set_ref: str,
+        set_ref: str | int,
         session: AsyncSession = Depends(get_session),
     ) -> str:
         """Delete a DJ set by ref.
