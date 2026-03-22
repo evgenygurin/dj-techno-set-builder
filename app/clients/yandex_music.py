@@ -75,15 +75,33 @@ class YandexMusicClient:
         )
         return int(data["result"]["kind"])
 
+    async def get_playlist_revision(self, user_id: int, kind: int) -> int:
+        """Get the current revision of a YM playlist."""
+        data = await self._get(f"/users/{user_id}/playlists/{kind}")
+        return int(data.get("result", {}).get("revision", 1))
+
+    async def delete_playlist(self, user_id: int, kind: int) -> None:
+        """Delete a YM playlist by kind."""
+        await self._post_form(
+            f"/users/{user_id}/playlists/{kind}/delete",
+            {},
+        )
+
     async def add_tracks_to_playlist(
         self,
         user_id: int,
         kind: int,
         tracks: list[dict[str, str]],
-        revision: int = 1,
+        revision: int | None = None,
     ) -> None:
-        """Add tracks to a YM playlist via diff insert operation."""
+        """Add tracks to a YM playlist via diff insert operation.
+
+        If revision is None, fetches the current revision from YM API.
+        """
         import json as _json
+
+        if revision is None:
+            revision = await self.get_playlist_revision(user_id, kind)
 
         diff = [{"op": "insert", "at": 0, "tracks": tracks}]
         await self._post_form(

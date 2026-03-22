@@ -8,10 +8,15 @@ from sqlalchemy.ext.asyncio import (
 
 from app.config import settings
 
+_connect_args: dict[str, object] = {}
+if settings.database_url.startswith("sqlite"):
+    _connect_args["timeout"] = 30  # busy_timeout: wait up to 30s for lock release
+
 engine = create_async_engine(
     settings.database_url,
     echo=settings.debug,
     pool_pre_ping=True,
+    connect_args=_connect_args,
 )
 
 session_factory = async_sessionmaker(engine, expire_on_commit=False)

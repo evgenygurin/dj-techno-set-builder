@@ -10,18 +10,22 @@ from app.utils.audio import AudioAnalysisError, AudioValidationError, TrackFeatu
 from app.utils.audio.pipeline import _run_stage, extract_all_features  # noqa: E402
 
 
-class TestExtractAllFeatures:
-    def test_returns_track_features(self, wav_file_path: Path) -> None:
-        result = extract_all_features(wav_file_path)
-        assert isinstance(result, TrackFeatures)
+@pytest.fixture(scope="module")
+def pipeline_result(wav_file_path: Path) -> TrackFeatures:
+    """Run full pipeline once for all tests in this module."""
+    return extract_all_features(wav_file_path)
 
-    def test_all_sub_results_present(self, wav_file_path: Path) -> None:
-        result = extract_all_features(wav_file_path)
-        assert result.bpm is not None
-        assert result.key is not None
-        assert result.loudness is not None
-        assert result.band_energy is not None
-        assert result.spectral is not None
+
+class TestExtractAllFeatures:
+    def test_returns_track_features(self, pipeline_result: TrackFeatures) -> None:
+        assert isinstance(pipeline_result, TrackFeatures)
+
+    def test_all_sub_results_present(self, pipeline_result: TrackFeatures) -> None:
+        assert pipeline_result.bpm is not None
+        assert pipeline_result.key is not None
+        assert pipeline_result.loudness is not None
+        assert pipeline_result.band_energy is not None
+        assert pipeline_result.spectral is not None
 
     def test_raises_on_missing_file(self) -> None:
         with pytest.raises(FileNotFoundError):

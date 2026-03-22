@@ -47,10 +47,10 @@ def click_140bpm() -> AudioSignal:
     return AudioSignal(samples=samples, sample_rate=SR, duration_s=duration)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def long_sine_440hz() -> AudioSignal:
-    """30-second 440 Hz sine wave — for loudness / spectral tests."""
-    duration = 30.0
+    """10-second 440 Hz sine wave — for loudness / spectral tests."""
+    duration = 10.0
     samples = _sine(440.0, duration)
     return AudioSignal(samples=samples, sample_rate=SR, duration_s=duration)
 
@@ -62,7 +62,7 @@ def silence() -> AudioSignal:
     return AudioSignal(samples=samples, sample_rate=SR, duration_s=1.0)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def wav_file_path(long_sine_440hz: AudioSignal) -> Generator[Path, None, None]:
     """Temporary WAV file for loader tests."""
     with NamedTemporaryFile(suffix=".wav", delete=False) as f:

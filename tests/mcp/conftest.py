@@ -16,7 +16,7 @@ from fastmcp import FastMCP
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def workflow_mcp() -> FastMCP:
     """DJ Workflows MCP server (12 hand-written tools + prompts + resources)."""
     from app.mcp.tools import create_workflow_mcp
@@ -24,7 +24,7 @@ def workflow_mcp() -> FastMCP:
     return create_workflow_mcp()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def gateway_mcp() -> FastMCP:
     """Full DJ Set Builder gateway (YM + DJ namespaces + transforms)."""
     from app.mcp.gateway import create_dj_mcp
@@ -32,7 +32,7 @@ def gateway_mcp() -> FastMCP:
     return create_dj_mcp()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def ym_mcp() -> FastMCP:
     """Yandex Music MCP sub-server (~30 OpenAPI-generated tools)."""
     from app.mcp.yandex_music import create_yandex_music_mcp

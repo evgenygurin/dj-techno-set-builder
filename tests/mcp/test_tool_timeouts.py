@@ -22,11 +22,11 @@ async def test_sync_tools_have_io_timeout(workflow_mcp: FastMCP):
 
 
 async def test_build_set_has_compute_timeout(workflow_mcp: FastMCP):
-    """Set builder tools should have 300s timeout (GA is slow)."""
+    """Set builder tools should have 600s timeout (GA needs time for large templates)."""
     tools = await workflow_mcp.list_tools()
     for tool in tools:
         if tool.name in {"build_set", "rebuild_set"}:
-            assert tool.timeout == 300, f"{tool.name} timeout={tool.timeout}, expected 300"
+            assert tool.timeout == 600, f"{tool.name} timeout={tool.timeout}, expected 600"
 
 
 async def test_score_tools_have_medium_timeout(workflow_mcp: FastMCP):
