@@ -92,87 +92,83 @@ def _build_transition_summary(scores: list[TransitionScoreResult]) -> Transition
     )
 
 
+def _score_bar(score: float) -> str:
+    """Render score as a compact 5-char visual bar."""
+    if score <= 0:
+        return "XXXXX"
+    filled = round(score * 5)
+    return "#" * filled + "." * (5 - filled)
+
+
+def _energy_bar(lufs: float, lo: float, hi: float) -> str:
+    """Render LUFS as a 10-char energy meter relative to set range."""
+    if hi == lo:
+        return "=" * 10
+    ratio = (lufs - lo) / (hi - lo)
+    filled = max(0, min(10, round(ratio * 10)))
+    return "=" * filled + "-" * (10 - filled)
+
+
 def _generate_cheat_sheet(
     set_name: str,
     tracks: list[dict[str, Any]],
     scores: list[TransitionScoreResult],
 ) -> str:
-    """Generate a plain-text cheat sheet for the DJ booth.
-
-    Block layout: each track is a clear visual block with transition
-    arrow between tracks. Designed to be read at a glance in the booth.
-    """
+    """Generate a compact infographic cheat sheet for the DJ booth."""
     tx_by_from: dict[int, TransitionScoreResult] = {s.from_track_id: s for s in scores}
 
     bpms = [tr["bpm"] for tr in tracks if tr.get("bpm")]
     bpm_min = min(bpms) if bpms else 0
     bpm_max = max(bpms) if bpms else 0
+    lufs_vals = [tr["lufs"] for tr in tracks if tr.get("lufs")]
+    lufs_lo = min(lufs_vals) if lufs_vals else -12
+    lufs_hi = max(lufs_vals) if lufs_vals else -5
     total_s = sum(tr.get("duration_s", 0) for tr in tracks)
-    avg_scores = [s.total for s in scores if s.total > 0]
-    avg_score = sum(avg_scores) / len(avg_scores) if avg_scores else 0
+    avg_sc = [s.total for s in scores if s.total > 0]
+    avg_score = sum(avg_sc) / len(avg_sc) if avg_sc else 0
 
-    # Header
     lines = [
-        f"  {set_name}",
-        f"  {len(tracks)} tracks / "
-        f"{total_s // 3600}h {(total_s % 3600) // 60}min / "
-        f"BPM {bpm_min:.0f}-{bpm_max:.0f} / "
-        f"avg score {avg_score:.2f}",
+        f"{set_name}",
+        f"{len(tracks)} tracks  {total_s // 3600}h{(total_s % 3600) // 60:02d}m"
+        f"  BPM {bpm_min:.0f}-{bpm_max:.0f}"
+        f"  avg {avg_score:.2f} [{_score_bar(avg_score)}]",
         "",
+        "  #  TRACK                       BPM  KEY  ENERGY",
     ]
 
-    # Track blocks
     for tr in tracks:
         pos = tr["position"]
-        title = tr.get("title", f"Track {tr['track_id']}")
+        title = tr.get("title", "?")[:27]
         bpm = tr.get("bpm", 0)
         key = tr.get("key", "?")
         lufs = tr.get("lufs", 0)
-        dur = tr.get("duration_s", 0)
-        dur_str = f"{dur // 60}:{dur % 60:02d}" if dur else ""
+        ebar = _energy_bar(lufs, lufs_lo, lufs_hi)
 
-        lines.append(f"  {pos:02d}  {title}")
-        lines.append(f"      {bpm:.0f} BPM   {key}   {lufs:.1f} LUFS   {dur_str}")
+        lines.append(f" {pos:2d}  {title:<27s} {bpm:5.0f}  {key:>3s}  [{ebar}] {lufs:.0f}")
 
-        # Transition arrow to next track
         tx = tx_by_from.get(tr["track_id"])
         if tx is not None and tx.total > 0:
-            warn = " !!!" if tx.total < _WEAK_THRESHOLD else ""
-            lines.append("")
-            lines.append(
-                f"       |  {tx.total:.2f}{warn}  "
-                f"{tx.recommended_type or '?'}"
-                f"{f' / {tx.alt_type}' if tx.alt_type else ''}"
-            )
-            parts: list[str] = []
-            if tx.bpm_delta is not None and abs(tx.bpm_delta) > 0.5:
-                parts.append(f"BPM {tx.bpm_delta:+.0f}")
+            warn = " !" if tx.total < _WEAK_THRESHOLD else ""
+            bar = _score_bar(tx.total)
+            typ = tx.recommended_type or "?"
+            alt = f"/{tx.alt_type}" if tx.alt_type else ""
+            meta = ""
+            if tx.bpm_delta and abs(tx.bpm_delta) > 0.5:
+                meta += f" bpm{tx.bpm_delta:+.0f}"
             if tx.from_key and tx.to_key and tx.from_key != tx.to_key:
-                parts.append(f"{tx.from_key} > {tx.to_key}")
-            if tx.reason:
-                parts.append(tx.reason)
-            if parts:
-                lines.append(f"       |  {' / '.join(parts)}")
-            lines.append("       v")
-        elif tx is None:
-            # Last track — no transition
-            pass
-        else:
-            lines.append("")
-            lines.append("       |  0.00 !!! HARD CONFLICT")
-            lines.append("       v")
-        lines.append("")
+                meta += f" {tx.from_key}>{tx.to_key}"
+            lines.append(f"     [{bar}] {tx.total:.2f}{warn}  {typ}{alt}{meta}")
+        elif tx is not None:
+            lines.append("     [XXXXX] 0.00 !  CONFLICT")
 
     # Footer
-    keys: list[str] = [k for tr in tracks if (k := tr.get("key")) is not None]
-    lines.append("  ---")
+    keys = [k for tr in tracks if (k := tr.get("key"))]
+    lines += ["", "-" * 50]
     if keys:
-        lines.append(f"  Keys:  {' > '.join(keys)}")
+        lines.append("Keys  " + " ".join(keys))
     if bpms:
         safe_lo = max(bpm_min - 2, 120)
-        safe_hi = bpm_max + 2
-        lines.append(f"  BPM:   {bpm_min:.0f}-{bpm_max:.0f}  (safe: {safe_lo:.0f}-{safe_hi:.0f})")
-    lines.append("")
+        lines.append(f"BPM   {bpm_min:.0f}-{bpm_max:.0f}  safe {safe_lo:.0f}-{bpm_max + 2:.0f}")
 
     return "\n".join(lines) + "\n"
 
