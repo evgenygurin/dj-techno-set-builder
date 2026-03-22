@@ -50,10 +50,10 @@ app/mcp/
 ## Gateway composition
 
 `create_dj_mcp()` in `app/mcp/gateway.py`:
-- Mounts **Yandex Music** sub-server at namespace `"ym"` (~33 tools from OpenAPI)
+- Mounts **Yandex Music** sub-server at namespace `"ym"` (28 tools from OpenAPI)
 - Mounts **DJ Tools** sub-server at namespace `"dj"` (52 hand-written tools)
 - Adds `PromptsAsTools` + `ResourcesAsTools` transforms for tool-only MCP clients
-- Total: ~93 tools (33 YM + 52 DJ + 8 transforms)
+- Total: 84 tools (28 YM + 52 DJ + 4 transforms)
 
 ## DJ Workflow tools (namespace "dj")
 

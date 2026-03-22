@@ -228,8 +228,8 @@ The MCP server exposes DJ workflow tools for AI-assisted set building. It uses [
 ### Gateway Architecture
 
 ```text
-DJ Set Builder (Gateway) — ~93 tools total
-├── Yandex Music (namespace "ym") — ~33 tools from OpenAPI spec
+DJ Set Builder (Gateway) — 84 tools total
+├── Yandex Music (namespace "ym") — 28 tools from OpenAPI spec
 ├── DJ Workflows (namespace "dj") — 52 hand-written tools
 │   ├── crud:        tracks, playlists, sets (list/get/create/update/delete)
 │   ├── features:    list_features, get_features, save_features
@@ -286,7 +286,7 @@ make mcp-dev                    # http://127.0.0.1:9100/mcp
 # Visual debugger in browser
 make mcp-inspect                # http://localhost:6274
 
-# List all registered tools (~93)
+# List all registered tools (84)
 make mcp-list
 
 # Call a specific tool

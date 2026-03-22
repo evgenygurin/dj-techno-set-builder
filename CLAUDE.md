@@ -90,7 +90,7 @@ Router → Service → Repository → AsyncSession → DB
 Schemas   Errors     Models
 
 MCP Gateway (FastMCP 3.0)
-  ├── Yandex Music (namespace "ym") — ~33 OpenAPI-generated tools
+  ├── Yandex Music (namespace "ym") — 28 OpenAPI-generated tools
   └── DJ Workflows (namespace "dj") — 52 hand-written tools
 
 External MCP servers (.mcp.json):
