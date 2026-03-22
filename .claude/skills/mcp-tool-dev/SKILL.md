@@ -80,3 +80,23 @@ async def test_with_db(workflow_mcp_with_db, engine):
 - [ ] `make check` прошёл
 
 Подробности: `.claude/rules/mcp.md`.
+
+---
+
+## Iron Law
+
+```text
+NO TOOL REGISTRATION WITHOUT PYDANTIC RETURN TYPE AND TEST
+```
+
+Инструмент без Pydantic return type не генерирует `structured_content`. Инструмент без теста ломается молча при gateway namespacing.
+
+## Red Flags
+
+| Отговорка | Реальность |
+|-----------|------------|
+| "Верну просто строку" | `structured_content` требует Pydantic модель — строка = raw text, не structured |
+| "ctx: Context = None подойдёт" | FastMCP инъектирует ctx автоматически — дефолт None сломает инъекцию |
+| "sc['result']['field']" | FastMCP кладёт поля напрямую в `structured_content`, НЕ в `result` обёртку |
+| "Тест потом напишу" | Gateway namespacing (`dj_` prefix) не проверится без теста |
+| "Возьму FastAPI Depends" | MCP использует `fastmcp.dependencies.Depends` — другой Depends! |

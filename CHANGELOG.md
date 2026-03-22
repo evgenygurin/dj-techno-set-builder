@@ -8,6 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Iron Laws**: все 5 скиллов дополнены Iron Law + Rationalization Table + Red Flags по паттерну obra/superpowers
+- **Agent `emergency-protocols`**: диагностика MCP/DB/iCloud/CI проблем с triage-таблицей
+- **Agent `pr-reviewer`**: двухстадийный review PR от Codegen агентов (spec compliance → code quality)
+- **Command `/setup-check`**: верификация окружения (DB, MCP, env vars, deps, iCloud)
+- **Command `/delegate` улучшен**: 5 примеров типичных задач для делегирования
+
+### Changed
+
+- **Skills дисциплина**: каждый скилл теперь содержит жёсткое ограничение (Iron Law) и таблицу типичных отговорок
+- **Memory `superpowers-patterns.md`**: обновлён с полным анализом v5.0.5 — Iron Laws, CSO, Two-Stage Review, Skill Chaining
+
+---
+
+## Previously in [Unreleased]
+
+### Added
+
 - **Data refresh scripts**: `scripts/refresh_data.py` (audio features + sections), `scripts/refresh_ym_metadata.py` (YM metadata), `scripts/rescore_sets.py` (transition scores)
 - **Makefile refresh targets**: `make refresh-features`, `make refresh-sections`, `make refresh-scores`, `make refresh-ym`, `make refresh-all`, `make refresh-dry`
 - **Skills restructured**: 4 project skills переведены в официальный формат `.claude/skills/<name>/SKILL.md` с YAML frontmatter (`name`, `description`) — теперь model-invoked автоматически по контексту

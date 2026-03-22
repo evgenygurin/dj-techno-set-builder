@@ -83,3 +83,39 @@ Codex P1/P2 issues → "@codegen-sh исправь замечания"
 Diff OK + tests pass → Merge в dev
 2+ неудачных попытки → Забрать локально
 ```
+
+---
+
+## Iron Law
+
+```text
+NO MERGE WITHOUT make check PASSING LOCALLY
+```
+
+Codegen агент может пропустить lint/mypy/tests. ВСЕГДА проверяй `make check` на PR ветке перед merge.
+
+## Red Flags
+
+| Отговорка | Реальность |
+|-----------|------------|
+| "Тесты прошли у агента" | Агент мог пропустить mypy strict, ruff, или test pollution |
+| "Scope маленький, review не нужен" | Даже 1-строчный diff может сломать import chain или typing |
+| "Промпт и так понятный" | Codegen видит ТОЛЬКО клон репо + промпт — без context из head = слепая работа |
+| "Сделаю review потом" | PR без review = tech debt, который копится |
+| "3+ файла — нормально" | Scope > 3 файлов → декомпозируй на подзадачи |
+
+## Примеры задач для делегирования
+
+```text
+# Тесты
+/delegate Добавить тесты для app/mcp/tools/curation.py — classify_tracks, analyze_library_gaps
+
+# Lint fix
+/delegate Исправить все mypy ошибки в app/services/set_generation.py
+
+# Рефакторинг
+/delegate Извлечь общий паттерн из TrackRepository и PlaylistRepository в BaseFilterRepository
+
+# Документация
+/delegate Добавить docstrings к всем публичным методам в app/services/transition_scoring.py
+```

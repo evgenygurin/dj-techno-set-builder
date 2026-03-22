@@ -69,3 +69,22 @@ class TrackFeatures:
 - Не пересобирать сет если `avg_score ≥ 0.75`
 
 Подробности: `.claude/rules/audio.md`.
+
+---
+
+## Iron Law
+
+```text
+NO FEATURE INTERPRETATION WITHOUT CHECKING COLUMN NAMES IN DB SCHEMA
+```
+
+`onset_rate` vs `onset_rate_mean`, `hnr_db` vs `hnr_mean_db` — неправильное имя колонки = NULL = сломанный scoring. Перед ЛЮБЫМ SQL или ORM запросом к audio features — проверь `.claude/rules/db-schema.md`.
+
+## Red Flags
+
+| Отговорка | Реальность |
+|-----------|------------|
+| "Я помню имя колонки" | `onset_rate` vs `onset_rate_mean` уже ломало запросы дважды |
+| "hp_ratio в диапазоне 0-1" | hp_ratio UNBOUNDED (0.66-17.25), НЕ нормализован |
+| "Запущу анализ для всех треков" | Анализ = 15-120 сек × N треков, нужен `heavy_mode` + согласие юзера |
+| "Фичи одинаковые для всех pipeline" | v1.0 не имеет beats (kick, onset, pulse = NULL), только v2.1b6 полный |
