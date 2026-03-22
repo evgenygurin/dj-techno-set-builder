@@ -5,23 +5,37 @@ Phase 3: Replace stubs with working SyncEngine-based implementations.
 
 from __future__ import annotations
 
+import asyncio
+import logging
+
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.clients.yandex_music import YandexMusicClient
+from app.config import settings
 from app.mcp.dependencies import (
     get_platform_registry,
     get_playlist_service,
+    get_session,
     get_set_service,
     get_sync_engine,
+    get_ym_client,
 )
 from app.mcp.elicitation import confirm_action
 from app.mcp.platforms.protocol import MusicPlatform
 from app.mcp.platforms.registry import PlatformRegistry
 from app.mcp.sync.diff import SyncDirection
 from app.mcp.sync.engine import SyncEngine, TrackMapper
+from app.models.ingestion import ProviderTrackId
+from app.models.metadata_yandex import YandexMetadata
+from app.models.sets import DjSet
 from app.services.playlists import DjPlaylistService
 from app.services.sets import DjSetService
+
+logger = logging.getLogger(__name__)
 
 _DIRECTION_MAP = {
     "local_to_remote": SyncDirection.LOCAL_TO_REMOTE,
@@ -341,3 +355,153 @@ def register_sync_tools(mcp: FastMCP) -> None:
             track_mapper=mapper,
             platform=platform,
         )
+
+    @mcp.tool(tags={"sync", "yandex"}, timeout=600)
+    async def batch_sync_sets_to_ym(
+        set_ids: list[int],
+        force: bool = True,
+        ctx: Context | None = None,
+        set_svc: DjSetService = Depends(get_set_service),
+        session: AsyncSession = Depends(get_session),
+        ym_client: YandexMusicClient = Depends(get_ym_client),
+    ) -> dict[str, object]:
+        """Push multiple DJ sets to YM as playlists.
+
+        Creates/updates a YM playlist for each set with 1.5s rate limit.
+
+        Args:
+            set_ids: List of DJ set IDs to sync.
+            force: Skip confirmation (default True for batch).
+        """
+        uid = int(settings.yandex_music_user_id)
+        results: list[dict[str, object]] = []
+        synced = 0
+        failed = 0
+
+        for i, set_id in enumerate(set_ids):
+            if ctx is not None:
+                await ctx.report_progress(progress=i, total=len(set_ids))
+                await ctx.info(f"Syncing set {set_id} ({i + 1}/{len(set_ids)})...")
+
+            try:
+                # Get set and latest version
+                dj_set_read = await set_svc.get(set_id)
+                versions = await set_svc.list_versions(set_id)
+                if not versions.items:
+                    results.append(
+                        {
+                            "set_id": set_id,
+                            "status": "skipped",
+                            "reason": "no versions",
+                        }
+                    )
+                    failed += 1
+                    continue
+
+                latest = max(versions.items, key=lambda v: v.set_version_id)
+                items_list = await set_svc.list_items(
+                    latest.set_version_id,
+                    offset=0,
+                    limit=500,
+                )
+                items = sorted(items_list.items, key=lambda it: it.sort_index)
+                local_track_ids = [item.track_id for item in items]
+
+                if not local_track_ids:
+                    results.append(
+                        {
+                            "set_id": set_id,
+                            "status": "skipped",
+                            "reason": "no tracks",
+                        }
+                    )
+                    failed += 1
+                    continue
+
+                # Map local track_ids to YM IDs
+                stmt = select(ProviderTrackId).where(
+                    ProviderTrackId.provider_id == 4,
+                    ProviderTrackId.track_id.in_(local_track_ids),
+                )
+                res = await session.execute(stmt)
+                provider_rows = res.scalars().all()
+                tid_to_ym: dict[int, str] = {
+                    r.track_id: r.provider_track_id for r in provider_rows
+                }
+
+                # Get album IDs from yandex_metadata
+                ym_track_ids_list = list(tid_to_ym.values())
+                album_stmt = select(YandexMetadata).where(
+                    YandexMetadata.yandex_track_id.in_(ym_track_ids_list),
+                )
+                album_res = await session.execute(album_stmt)
+                ym_meta_rows = album_res.scalars().all()
+                ym_id_to_album: dict[str, str] = {
+                    r.yandex_track_id: r.yandex_album_id or "0" for r in ym_meta_rows
+                }
+
+                # Build tracks list for YM API
+                ym_tracks: list[dict[str, str]] = []
+                for tid in local_track_ids:
+                    ym_id = tid_to_ym.get(tid)
+                    if ym_id is None:
+                        continue
+                    album_id = ym_id_to_album.get(ym_id, "0")
+                    ym_tracks.append({"id": ym_id, "albumId": album_id})
+
+                if not ym_tracks:
+                    results.append(
+                        {
+                            "set_id": set_id,
+                            "status": "skipped",
+                            "reason": "no YM mappings",
+                        }
+                    )
+                    failed += 1
+                    continue
+
+                # Create YM playlist
+                playlist_name = f"set_{dj_set_read.name}"
+                kind = await ym_client.create_playlist(uid, playlist_name)
+                await ym_client.add_tracks_to_playlist(uid, kind, ym_tracks)
+
+                # Update dj_sets.ym_playlist_id
+                dj_set_obj = await session.get(DjSet, set_id)
+                if dj_set_obj is not None:
+                    dj_set_obj.ym_playlist_id = kind
+                    await session.flush()
+
+                results.append(
+                    {
+                        "set_id": set_id,
+                        "ym_playlist_id": kind,
+                        "playlist_name": playlist_name,
+                        "track_count": len(ym_tracks),
+                        "unmapped_count": len(local_track_ids) - len(ym_tracks),
+                        "status": "synced",
+                    }
+                )
+                synced += 1
+
+            except Exception:
+                logger.exception("Failed to sync set %d", set_id)
+                results.append(
+                    {
+                        "set_id": set_id,
+                        "status": "failed",
+                        "reason": "error during sync",
+                    }
+                )
+                failed += 1
+
+            # Rate limit between sets
+            if i < len(set_ids) - 1:
+                await asyncio.sleep(1.5)
+
+        if ctx is not None:
+            await ctx.report_progress(
+                progress=len(set_ids),
+                total=len(set_ids),
+            )
+
+        return {"synced": synced, "failed": failed, "results": results}

@@ -91,3 +91,28 @@ async def test_link_playlist_params(workflow_mcp: FastMCP):
     assert "playlist_id" in props
     assert "platform" in props
     assert "platform_playlist_id" in props
+
+
+async def test_batch_sync_sets_to_ym_registered(workflow_mcp: FastMCP):
+    """batch_sync_sets_to_ym tool should be registered."""
+    tools = await workflow_mcp.list_tools()
+    names = {t.name for t in tools}
+    assert "batch_sync_sets_to_ym" in names
+
+
+async def test_batch_sync_sets_to_ym_params(workflow_mcp: FastMCP):
+    """batch_sync_sets_to_ym should accept set_ids and force parameters."""
+    tools = await workflow_mcp.list_tools()
+    tool = next(t for t in tools if t.name == "batch_sync_sets_to_ym")
+    props = set(tool.parameters.get("properties", {}).keys())
+    assert "set_ids" in props
+    assert "force" in props
+
+
+async def test_batch_sync_sets_to_ym_has_tags(workflow_mcp: FastMCP):
+    """batch_sync_sets_to_ym should have sync and yandex tags."""
+    tools = await workflow_mcp.list_tools()
+    tool = next(t for t in tools if t.name == "batch_sync_sets_to_ym")
+    assert tool.tags is not None
+    assert "sync" in tool.tags
+    assert "yandex" in tool.tags
