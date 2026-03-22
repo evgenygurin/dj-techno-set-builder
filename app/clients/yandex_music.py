@@ -91,6 +91,15 @@ class YandexMusicClient:
             {"diff": _json.dumps(diff, ensure_ascii=False), "revision": str(revision)},
         )
 
+    async def fetch_playlist_tracks(
+        self,
+        user_id: str,
+        kind: str,
+    ) -> list[dict[str, Any]]:
+        """Fetch all tracks from a YM playlist."""
+        data = await self._get(f"/users/{user_id}/playlists/{kind}")
+        return cast(list[dict[str, Any]], data.get("result", {}).get("tracks", []))
+
     async def close(self) -> None:
         if self._http and hasattr(self._http, "aclose"):
             await self._http.aclose()

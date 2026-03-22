@@ -5,26 +5,36 @@ get_playlist — single playlist by ref with detail stats
 create_playlist — create new playlist
 update_playlist — update playlist fields
 delete_playlist — delete playlist
+populate_from_ym — populate local playlist with tracks from YM playlist
 """
 
 from __future__ import annotations
 
 import json
+import logging
 
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
+from fastmcp.server.context import Context
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.clients.yandex_music import YandexMusicClient
+from app.config import settings
 from app.mcp.converters import playlist_to_summary
-from app.mcp.dependencies import get_session
+from app.mcp.dependencies import get_session, get_ym_client
 from app.mcp.entity_finder import PlaylistFinder
 from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
 from app.mcp.types import PlaylistDetail
+from app.models.dj import DjPlaylistItem
+from app.models.ingestion import ProviderTrackId
 from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
 from app.schemas.playlists import DjPlaylistCreate, DjPlaylistUpdate
 from app.services.playlists import DjPlaylistService
+
+logger = logging.getLogger(__name__)
 
 
 def _make_svc(session: AsyncSession) -> DjPlaylistService:
@@ -188,3 +198,87 @@ def register_playlist_tools(mcp: FastMCP) -> None:
             message=f"Deleted playlist local:{ref.local_id}",
             session=session,
         )
+
+    @mcp.tool(tags={"sync", "yandex"})
+    async def populate_from_ym(
+        playlist_id: int,
+        ym_kind: int,
+        ctx: Context,
+        session: AsyncSession = Depends(get_session),
+        ym_client: YandexMusicClient = Depends(get_ym_client),
+    ) -> dict[str, object]:
+        """Populate a local playlist with tracks from a YM playlist.
+
+        Fetches YM playlist tracks, matches against local DB via
+        provider_track_ids (provider_code='ym'), adds matched tracks.
+
+        Args:
+            playlist_id: Local playlist ID to populate.
+            ym_kind: YM playlist kind (numeric ID).
+        """
+        user_id = settings.yandex_music_user_id
+        await ctx.info(f"Fetching tracks from YM playlist kind={ym_kind}...")
+
+        ym_tracks = await ym_client.fetch_playlist_tracks(
+            user_id=str(user_id),
+            kind=str(ym_kind),
+        )
+        total_ym = len(ym_tracks)
+
+        # Extract YM track IDs from response
+        ym_ids: list[str] = []
+        for item in ym_tracks:
+            track_obj = item.get("track", item)
+            tid = track_obj.get("id")
+            if tid is not None:
+                ym_ids.append(str(tid))
+
+        if not ym_ids:
+            return {"added": 0, "skipped": 0, "total_ym": total_ym}
+
+        # Match YM IDs to local track_ids via provider_track_ids
+        stmt = select(ProviderTrackId).where(
+            ProviderTrackId.provider_id == 4,
+            ProviderTrackId.provider_track_id.in_(ym_ids),
+        )
+        result = await session.execute(stmt)
+        matched = result.scalars().all()
+        matched_track_ids = {row.track_id for row in matched}
+
+        # Get existing tracks in the playlist to avoid duplicates
+        item_repo = DjPlaylistItemRepository(session)
+        existing_items, _ = await item_repo.list_by_playlist(
+            playlist_id,
+            offset=0,
+            limit=10000,
+        )
+        existing_track_ids = {item.track_id for item in existing_items}
+
+        # Insert new tracks
+        added = 0
+        skipped = 0
+        next_sort = len(existing_items)
+        for track_id in matched_track_ids:
+            if track_id in existing_track_ids:
+                skipped += 1
+                continue
+            pi = DjPlaylistItem(
+                playlist_id=playlist_id,
+                track_id=track_id,
+                sort_index=next_sort,
+            )
+            session.add(pi)
+            next_sort += 1
+            added += 1
+
+        # Auto-link: update platform_ids on the playlist
+        repo = DjPlaylistRepository(session)
+        playlist = await repo.get_by_id(playlist_id)
+        if playlist is not None:
+            current_ids = playlist.platform_ids or {}
+            current_ids["ym"] = str(ym_kind)
+            playlist.platform_ids = current_ids
+
+        await session.flush()
+        await ctx.info(f"Done: added={added}, skipped={skipped}, total_ym={total_ym}")
+        return {"added": added, "skipped": skipped, "total_ym": total_ym}
