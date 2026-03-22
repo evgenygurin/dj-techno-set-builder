@@ -228,37 +228,43 @@ The MCP server exposes DJ workflow tools for AI-assisted set building. It uses [
 ### Gateway Architecture
 
 ```text
-DJ Set Builder (Gateway)
-├── Yandex Music (namespace "ym") — ~30 tools from OpenAPI spec
-├── DJ Workflows (namespace "dj") — 12 hand-written tools
-│   ├── analysis:    get_playlist_status, get_track_details
-│   ├── import:      import_playlist, import_tracks
-│   ├── discovery:   find_similar_tracks, search_by_criteria
-│   ├── setbuilder:  build_set, score_transitions, adjust_set
-│   ├── export:      export_set_m3u, export_set_json
-│   └── admin:       activate_heavy_mode
-├── Prompts:  expand_playlist, build_set_from_scratch, improve_set
+DJ Set Builder (Gateway) — ~93 tools total
+├── Yandex Music (namespace "ym") — ~33 tools from OpenAPI spec
+├── DJ Workflows (namespace "dj") — 52 hand-written tools
+│   ├── crud:        tracks, playlists, sets (list/get/create/update/delete)
+│   ├── features:    list_features, get_features, save_features
+│   ├── search:      search, filter_tracks
+│   ├── setbuilder:  build_set, rebuild_set, score_transitions, score_track_pairs
+│   ├── delivery:    deliver_set (score → write files → optional YM sync)
+│   ├── curation:    classify_tracks, audit_playlist, distribute_to_subgenres
+│   ├── discovery:   discover_candidates, expand_playlist_discover, expand_playlist_full
+│   ├── sync:        sync_playlist, sync_set_to/from_ym, batch_sync_sets_to_ym
+│   ├── export:      export_set (m3u/json/rekordbox), export_set_rekordbox
+│   ├── compute:     analyze_track, compute_set_order (heavy)
+│   ├── download:    download_tracks (YM → iCloud library)
+│   └── admin:       activate_heavy_mode, activate_ym_raw, list_platforms
+├── Prompts:  expand_playlist, build_set_from_scratch, improve_set, deliver_set_workflow
 └── Resources: playlist://{id}/status, catalog://stats, set://{id}/summary
 ```
 
 Transforms (`PromptsAsTools`, `ResourcesAsTools`) expose prompts and resources as tools for clients that only support the tool protocol.
 
-### DJ Workflow Tools
+### DJ Workflow Tools (key tools)
 
 | Tool | Description |
 |------|-------------|
-| `dj_get_playlist_status` | Playlist stats: tracks, BPM range, keys, energy, duration |
-| `dj_get_track_details` | Track metadata + audio features (BPM, key, energy) |
-| `dj_import_playlist` | Import from external source (stub — manual steps needed) |
-| `dj_import_tracks` | Import tracks by Yandex Music IDs (stub) |
-| `dj_find_similar_tracks` | LLM-assisted similar track search via `ctx.sample()` |
-| `dj_search_by_criteria` | Filter local tracks by BPM/key/energy ranges |
-| `dj_build_set` | Create DJ set + GA optimization |
-| `dj_score_transitions` | Score all transitions in a set version (5-component formula) |
-| `dj_adjust_set` | LLM-assisted set adjustment via `ctx.sample()` |
-| `dj_export_set_m3u` | Export set as M3U playlist with titles and durations |
-| `dj_export_set_json` | Export set as JSON with full audio features and energy curve |
-| `dj_activate_heavy_mode` | Enable heavy analysis tools (hidden by default) |
+| `dj_build_set` | Create DJ set + template-aware GA optimization |
+| `dj_rebuild_set` | Rebuild set with pinned/excluded track constraints |
+| `dj_score_transitions` | Score all transitions (5-component: BPM, harmonic, energy, spectral, groove) |
+| `dj_deliver_set` | Score → write MP3/M3U8/cheat_sheet → optional YM sync |
+| `dj_discover_candidates` | Find similar tracks via YM API with techno filters |
+| `dj_expand_playlist_full` | Full pipeline: discover → import → add to playlist |
+| `dj_classify_tracks` | Classify tracks by 15 techno subgenres |
+| `dj_filter_tracks` | Filter by BPM, key, energy ranges |
+| `dj_download_tracks` | Download MP3 from YM to iCloud library |
+| `dj_sync_set_to_ym` | Push DJ set to YM as playlist |
+
+See `.claude/rules/mcp.md` for the full list of 52 DJ tools.
 
 ### Workflow Recipes (Prompts)
 
@@ -267,6 +273,7 @@ Multi-step recipes that guide an AI through complete DJ workflows:
 - **`expand_playlist`** — Analyze playlist profile → Find similar tracks → Build optimized set
 - **`build_set_from_scratch`** — Search Yandex Music → Import tracks → Find similar → Build set
 - **`improve_set`** — Score transitions → Adjust with LLM → Re-score and compare
+- **`deliver_set_workflow`** — Score → Write files → YM sync (with conflict checkpoints)
 
 ### Running the MCP Server
 
@@ -279,7 +286,7 @@ make mcp-dev                    # http://127.0.0.1:9100/mcp
 # Visual debugger in browser
 make mcp-inspect                # http://localhost:6274
 
-# List all registered tools (46)
+# List all registered tools (~93)
 make mcp-list
 
 # Call a specific tool
@@ -332,12 +339,12 @@ app/
   middleware/           # RequestIdMiddleware
   clients/             # External API clients (Yandex Music)
   utils/
-    audio/             # 16 DSP/ML analysis modules (pure functions)
+    audio/             # 17 DSP/ML analysis modules (pure functions)
   mcp/
     gateway.py         # MCP gateway (compose YM + DJ Workflows)
     types.py           # Structured output models
     dependencies.py    # FastMCP DI providers
-    workflows/         # DJ workflow tools (5 modules)
+    tools/             # DJ workflow tools (16 modules, 52 tools)
     prompts/           # Workflow recipe prompts
     resources/         # Status/stats MCP resources
     yandex_music/      # OpenAPI-generated YM tools

@@ -133,7 +133,7 @@ class DownloadService:
                 logger.info(f"Downloaded track {track.track_id} ({size} bytes)")
                 return (True, size)
 
-            except Exception as e:
+            except Exception as e:  # broad: network + IO retry loop
                 if attempt < max_retries - 1:
                     delay = 2**attempt  # Exponential backoff: 1s, 2s, 4s
                     logger.warning(

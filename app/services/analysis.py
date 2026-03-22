@@ -60,7 +60,7 @@ class AnalysisOrchestrator(BaseService):
                 bpm=features.bpm.bpm,
                 key_code=features.key.key_code,
             )
-        except Exception:
+        except Exception:  # broad: audio pipeline can raise many error types
             self.logger.exception("Analysis failed for track %d", track_id)
             await self.run_repo.mark_failed(run.run_id)
             return AnalysisResponse(
