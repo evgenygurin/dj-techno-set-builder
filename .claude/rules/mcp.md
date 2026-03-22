@@ -53,11 +53,11 @@ app/mcp/
 - Mounts **Yandex Music** sub-server at namespace `"ym"` (~30 tools from OpenAPI)
 - Mounts **DJ Tools** sub-server at namespace `"dj"` (41 hand-written tools)
 - Adds `PromptsAsTools` + `ResourcesAsTools` transforms for tool-only MCP clients
-- Total: ~75 tools (30 YM + 41 DJ + 4 transforms)
+- Total: ~78 tools (30 YM + 44 DJ + 4 transforms)
 
 ## DJ Workflow tools (namespace "dj")
 
-41 tools across 14 modules + server.py:
+44 tools across 15 modules + server.py:
 
 | Tool | Tags | Read-only | Description |
 |------|------|-----------|-------------|

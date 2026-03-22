@@ -17,7 +17,7 @@ Schemas   Errors     Models
 
 MCP Gateway (FastMCP 3.0)
   ├── Yandex Music (namespace "ym") — ~30 OpenAPI tools
-  └── DJ Workflows (namespace "dj") — 41 hand-written tools
+  └── DJ Workflows (namespace "dj") — 44 hand-written tools
 ```
 
 ## Key Directories
@@ -30,10 +30,10 @@ MCP Gateway (FastMCP 3.0)
 | `app/models/` | SQLAlchemy ORM models (20 files, 30+ models) |
 | `app/schemas/` | Pydantic request/response schemas |
 | `app/mcp/gateway.py` | MCP gateway — mounts YM + DJ sub-servers |
-| `app/mcp/tools/` | DJ workflow MCP tools (23 tools in ~15 modules) |
+| `app/mcp/tools/` | DJ workflow MCP tools (44 tools in 15 modules) |
 | `app/mcp/yandex_music/` | YM OpenAPI-generated tools |
 | `app/mcp/dependencies.py` | MCP DI providers (FastMCP `Depends()`) |
-| `app/mcp/types.py` | 13 Pydantic models for structured MCP output |
+| `app/mcp/types/` | 36 Pydantic models for structured MCP output (4 files) |
 | `app/utils/audio/` | Pure-function audio analysis (19 modules) |
 | `app/config.py` | Settings (Pydantic BaseSettings) |
 | `app/dependencies.py` | FastAPI DI (`DbSession = Annotated[AsyncSession, Depends(get_session)]`) |

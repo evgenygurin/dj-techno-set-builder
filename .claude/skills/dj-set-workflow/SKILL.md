@@ -33,7 +33,8 @@ description: Use when building DJ sets, scoring transitions, delivering sets, sy
 dj_search(query)                    → tracks[] с BPM/key/energy
 dj_filter_tracks(bpm_min, bpm_max)  → tracks[] по параметрам
 dj_get_playlist(playlist_ref)       → playlist с items[]
-dj_get_track_details(track_ref)     → audio features трека
+dj_get_track(track_ref)              → метаданные трека
+dj_get_features(track_ref)           → audio features трека
 dj_score_transitions(set_ref, version_id) → TransitionScoreResult[]
 ```
 
@@ -107,4 +108,4 @@ YM playlist: kind={ym_playlist_kind}  ← если sync_to_ym
 - Не запускать `dj_deliver_set` без `version_id` — нужна конкретная версия
 - Не синхронизировать в YM без явного согласия пользователя
 - Не пересобирать сет без причины — если `avg_score ≥ 0.75`, он скорее всего хорош
-- Не вызывать `dj_compute_audio_features` без нужды — тяжёлая операция, только по запросу
+- Не вызывать `dj_analyze_track` без нужды — тяжёлая операция, требует `dj_activate_heavy_mode`

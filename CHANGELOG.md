@@ -67,6 +67,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **TypeForm consolidation** (Issue #64, P2-13): single source in `_compat.py`, called from `app/__init__.py`; removed `typing_extensions_patch.py`
 - **SetGenerationService logging** (Issue #64, P3-22): added entry/result logging to `generate()`
 - **Outdated TODO** (Issue #64, P3-24): updated `_build_transition_matrix` docstring — no longer marked as TODO
+- **Docs sync with code** (Issue #64, P1-1): fixed 6 incorrect tool names in skills/agents (`dj_get_track_details` → `dj_get_track`, `dj_search_by_criteria` → `dj_filter_tracks`, `dj_compute_audio_features` → `dj_analyze_track`); updated tool counts 41→44 across CLAUDE.md, mcp.md, agents; fixed "6 mood categories" → "15" in dj-workflow agent
 
 ## [0.2.0] - 2026-02-15
 

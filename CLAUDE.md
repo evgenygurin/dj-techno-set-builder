@@ -91,7 +91,7 @@ Schemas   Errors     Models
 
 MCP Gateway (FastMCP 3.0)
   ├── Yandex Music (namespace "ym") — ~30 OpenAPI-generated tools
-  └── DJ Workflows (namespace "dj") — 41 hand-written tools
+  └── DJ Workflows (namespace "dj") — 44 hand-written tools
 
 External MCP servers (.mcp.json):
   ├── dj-techno (HTTP :9100) — project FastMCP gateway

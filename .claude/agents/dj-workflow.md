@@ -19,7 +19,7 @@ Expert DJ set building assistant for the `dj-techno-set-builder` project.
 | `dj_get_set_cheat_sheet` | Full set view + transitions + summary | `set_id`, `version_id` |
 | `dj_deliver_set` | Score → write M3U8/JSON/cheat_sheet → optional YM sync | `set_id`, `version_id` |
 | `dj_list_set_versions` | Version history with track_count and score | `set_id` |
-| `dj_classify_tracks` | Classify tracks by 6 mood categories | `playlist_id` |
+| `dj_classify_tracks` | Classify tracks by 15 mood categories | — |
 | `dj_review_set` | Review: weak transitions, variety, suggestions | `set_id`, `version_id` |
 
 ## Transition Scoring (5 components)
