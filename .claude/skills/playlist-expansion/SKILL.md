@@ -5,9 +5,22 @@ description: Use when expanding playlists with new tracks, discovering similar t
 
 # Playlist Expansion Workflow
 
-Автоматическое расширение DJ-плейлиста: поиск → фильтрация → импорт → анализ → аудит → субжанры.
+Автоматическое расширение DJ-плейлиста: поиск → фильтрация → импорт → download → анализ → аудит → субжанры.
 
-Это MCP-версия `scripts/fill_and_verify.py` — тот же pipeline, но через существующие инструменты.
+## Два режима
+
+### Полный pipeline (download + audio analysis)
+Используй скрипт напрямую — он делает download MP3 + audio analysis в subprocess:
+```bash
+uv run python scripts/fill_and_verify.py --kind <ym_kind> --target <N> --workers 4
+```
+Или через slash-команду: `/fill-playlist <kind> <target>`
+
+### Лёгкий режим (только discover + import, без download/analyze)
+Используй MCP tool — мгновенный, но без аудио-верификации:
+```text
+dj_expand_playlist_full(playlist_id=24, seed_count=3, batch_size=15)
+```
 
 ---
 
