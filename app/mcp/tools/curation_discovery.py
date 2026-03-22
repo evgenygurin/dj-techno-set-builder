@@ -8,6 +8,7 @@ import random
 import re
 from typing import Any
 
+import httpx
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
@@ -23,6 +24,8 @@ from app.models.metadata_yandex import YandexMetadata
 from app.services.yandex_music_client import parse_ym_track
 
 logger = logging.getLogger(__name__)
+
+_YM_PROVIDER_ID = 4  # providers.provider_id for Yandex Music
 
 # Metadata pre-filter constants
 _BAD_VERSION_WORDS = frozenset(
@@ -85,7 +88,7 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
 
         try:
             similar = await ym_client.get_similar_tracks(str(seed_track_id))
-        except Exception:
+        except (httpx.HTTPError, TimeoutError, ValueError):
             logger.exception("Failed to get similar tracks for %s", seed_track_id)
             return {
                 "candidates": [],
@@ -168,7 +171,7 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
         """
         # 1. Get all existing YM IDs to auto-exclude
         stmt = select(ProviderTrackId.provider_track_id).where(
-            ProviderTrackId.provider_id == 4,
+            ProviderTrackId.provider_id == _YM_PROVIDER_ID,
         )
         rows = await session.execute(stmt)
         existing_ym = {int(r[0]) for r in rows}
@@ -183,7 +186,7 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
             )
             .where(
                 DjPlaylistItem.playlist_id == playlist_id,
-                ProviderTrackId.provider_id == 4,
+                ProviderTrackId.provider_id == _YM_PROVIDER_ID,
             )
         )
         seed_rows = (await session.execute(seed_stmt)).fetchall()
@@ -209,7 +212,7 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
 
             try:
                 similar = await ym_client.get_similar_tracks(str(seed_id))
-            except Exception:
+            except (httpx.HTTPError, TimeoutError, ValueError):
                 logger.exception("Seed %s failed", seed_id)
                 continue
 
@@ -289,7 +292,7 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
 
         # Get all existing YM IDs to auto-exclude
         stmt = select(ProviderTrackId.provider_track_id).where(
-            ProviderTrackId.provider_id == 4,
+            ProviderTrackId.provider_id == _YM_PROVIDER_ID,
         )
         rows = await session.execute(stmt)
         existing_ym: dict[int, int] = {}  # ym_id -> track_id (filled later)
@@ -302,7 +305,7 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
             lookup_stmt = select(
                 ProviderTrackId.provider_track_id,
                 ProviderTrackId.track_id,
-            ).where(ProviderTrackId.provider_id == 4)
+            ).where(ProviderTrackId.provider_id == _YM_PROVIDER_ID)
             lookup_rows = await session.execute(lookup_stmt)
             existing_ym = {int(r[0]): r[1] for r in lookup_rows}
 
@@ -317,7 +320,7 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
             )
             .where(
                 DjPlaylistItem.playlist_id == playlist_id,
-                ProviderTrackId.provider_id == 4,
+                ProviderTrackId.provider_id == _YM_PROVIDER_ID,
             )
         )
         seed_rows = (await session.execute(seed_stmt)).fetchall()
@@ -343,7 +346,7 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
 
             try:
                 similar = await ym_client.get_similar_tracks(str(seed_id))
-            except Exception:
+            except (httpx.HTTPError, TimeoutError, ValueError):
                 logger.exception("Seed %s failed", seed_id)
                 continue
 
@@ -429,7 +432,7 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
             try:
                 result = await ym_client.fetch_tracks(batch)
                 full_metadata.update(result)
-            except Exception:
+            except (httpx.HTTPError, TimeoutError, ValueError):
                 logger.exception(
                     "Failed to fetch metadata batch %d-%d",
                     batch_start,
@@ -485,7 +488,7 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
                 session.add(
                     ProviderTrackId(
                         track_id=track.track_id,
-                        provider_id=4,
+                        provider_id=_YM_PROVIDER_ID,
                         provider_track_id=ym_id,
                     )
                 )
@@ -534,7 +537,7 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
                     added_to_playlist += 1
                     playlist_track_ids.add(track.track_id)
 
-            except Exception as exc:
+            except Exception as exc:  # broad: skip failed track, process rest
                 logger.exception("Failed to import track %s", ym_id)
                 errors.append(f"Track {ym_id}: {exc}")
 

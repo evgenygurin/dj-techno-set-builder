@@ -27,8 +27,8 @@ def register_download_tools(mcp: FastMCP) -> None:
     )
     async def download_tracks(
         track_ids: list[int],
+        ctx: Context,
         prefer_bitrate: int = 320,
-        ctx: Context | None = None,
         session: AsyncSession = Depends(get_session),
         ym_client: YandexMusicClient = Depends(get_ym_download_client),
     ) -> DownloadResult:
