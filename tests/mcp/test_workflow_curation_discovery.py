@@ -44,3 +44,45 @@ async def test_discover_candidates_gateway_namespaced(gateway_mcp: FastMCP) -> N
     tools = await gateway_mcp.list_tools()
     names = {t.name for t in tools}
     assert "dj_discover_candidates" in names
+
+
+async def test_expand_playlist_full_registered(workflow_mcp: FastMCP) -> None:
+    """expand_playlist_full tool is registered on the workflow server."""
+    tools = await workflow_mcp.list_tools()
+    names = {t.name for t in tools}
+    assert "expand_playlist_full" in names
+
+
+async def test_expand_playlist_full_tags(workflow_mcp: FastMCP) -> None:
+    """expand_playlist_full has curation and yandex tags."""
+    tools = await workflow_mcp.list_tools()
+    tool = next(t for t in tools if t.name == "expand_playlist_full")
+    assert tool.tags is not None
+    assert {"curation", "yandex"} <= set(tool.tags)
+
+
+async def test_expand_playlist_full_params(workflow_mcp: FastMCP) -> None:
+    """expand_playlist_full exposes expected input parameters."""
+    tools = await workflow_mcp.list_tools()
+    tool = next(t for t in tools if t.name == "expand_playlist_full")
+    props = set(tool.parameters.get("properties", {}).keys())
+    assert "playlist_id" in props
+    assert "seed_count" in props
+    assert "batch_size" in props
+
+
+async def test_expand_playlist_full_required_params(workflow_mcp: FastMCP) -> None:
+    """playlist_id is required, seed_count and batch_size are optional."""
+    tools = await workflow_mcp.list_tools()
+    tool = next(t for t in tools if t.name == "expand_playlist_full")
+    required = set(tool.parameters.get("required", []))
+    assert "playlist_id" in required
+    assert "seed_count" not in required
+    assert "batch_size" not in required
+
+
+async def test_expand_playlist_full_gateway_namespaced(gateway_mcp: FastMCP) -> None:
+    """expand_playlist_full is namespaced as dj_expand_playlist_full in gateway."""
+    tools = await gateway_mcp.list_tools()
+    names = {t.name for t in tools}
+    assert "dj_expand_playlist_full" in names
