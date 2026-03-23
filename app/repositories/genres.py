@@ -1,6 +1,2 @@
-from app.models.catalog import Genre
-from app.repositories.base import BaseRepository
-
-
-class GenreRepository(BaseRepository[Genre]):
-    model = Genre
+"""Compatibility shim."""
+from app.infrastructure.repositories.genres import *  # noqa: F401,F403
