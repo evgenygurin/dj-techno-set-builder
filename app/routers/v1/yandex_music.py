@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.clients.yandex_music import YandexMusicClient
+from app.services.yandex_music_client import YandexMusicClient
 from app.config import settings
 from app.dependencies import DbSession
 from app.routers.v1._openapi import RESPONSES_GET

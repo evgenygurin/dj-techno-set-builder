@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from app.clients.yandex_music import YandexMusicClient as YMApiClient
+from app.services.yandex_music_client import YandexMusicClient as YMApiClient
 from app.config import settings
 from app.mcp.platforms.registry import PlatformRegistry
 from app.mcp.platforms.yandex import YandexMusicAdapter

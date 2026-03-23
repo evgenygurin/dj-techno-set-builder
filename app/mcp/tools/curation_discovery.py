@@ -15,7 +15,7 @@ from fastmcp.server.context import Context
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.yandex_music import YandexMusicClient
+from app.services.yandex_music_client import YandexMusicClient
 from app.mcp.dependencies import get_session, get_ym_client
 from app.models.catalog import Track
 from app.models.dj import DjPlaylistItem

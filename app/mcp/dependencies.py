@@ -12,7 +12,6 @@ from contextlib import asynccontextmanager
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.yandex_music import YandexMusicClient as YMApiClient
 from app.config import settings
 from app.database import session_factory
 from app.services._factories import (
@@ -33,7 +32,7 @@ from app.services.track_analysis import TrackAnalysisService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 from app.services.transitions import TransitionService
-from app.services.yandex_music_client import YandexMusicClient as YMDownloadClient
+from app.services.yandex_music_client import YandexMusicClient
 
 
 @asynccontextmanager
@@ -108,17 +107,17 @@ def get_unified_scoring(
     return build_unified_scoring(session)
 
 
-def get_ym_client() -> YMApiClient:
-    """Build a YandexMusicClient API client from application settings."""
-    return YMApiClient(
+def get_ym_client() -> YandexMusicClient:
+    """Build a YandexMusicClient for API operations."""
+    return YandexMusicClient(
         token=settings.yandex_music_token,
         base_url=settings.yandex_music_base_url,
     )
 
 
-def get_ym_download_client() -> YMDownloadClient:
-    """Build a YandexMusicClient download client from application settings."""
-    return YMDownloadClient(
+def get_ym_download_client() -> YandexMusicClient:
+    """Build a YandexMusicClient for download operations (with user_id)."""
+    return YandexMusicClient(
         token=settings.yandex_music_token,
         user_id=settings.yandex_music_user_id,
     )
