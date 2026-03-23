@@ -5,11 +5,32 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pydantic import BaseModel, Field
+
 from app.core.errors import NotFoundError
 from app.core.models.catalog import Track
 from app.infrastructure.repositories.tracks import TrackRepository
-from app.schemas.tracks import TrackCreate, TrackUpdate
 from app.services.tracks import TrackService
+
+
+class TrackCreate(BaseModel):
+    """Minimal stand-in for the deleted REST schema."""
+
+    model_config = {"extra": "forbid"}
+
+    title: str = Field(min_length=1, max_length=500)
+    title_sort: str | None = None
+    duration_ms: int = Field(gt=0)
+
+
+class TrackUpdate(BaseModel):
+    """Minimal stand-in for the deleted REST schema."""
+
+    model_config = {"extra": "forbid"}
+
+    title: str | None = None
+    title_sort: str | None = None
+    duration_ms: int | None = None
 
 # Unique prefix to avoid collisions with other tests
 _PREFIX = "tsvc_"

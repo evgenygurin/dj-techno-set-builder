@@ -7,8 +7,35 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import numpy as np
 import pytest
 
+from pydantic import BaseModel, Field
+
 from app.core.errors import ValidationError
 from app.services.set_generation import SetGenerationService
+
+
+class SetGenerationRequest(BaseModel):
+    """Minimal stand-in for the deleted REST schema."""
+
+    model_config = {"extra": "forbid"}
+
+    population_size: int = Field(default=100, ge=10)
+    generations: int = Field(default=200, ge=10)
+    mutation_rate: float = 0.15
+    crossover_rate: float = 0.8
+    tournament_size: int = 5
+    elitism_count: int = 2
+    track_count: int | None = None
+    energy_arc_type: str = "classic"
+    seed: int | None = None
+    playlist_id: int | None = None
+    template_name: str | None = None
+    exclude_track_ids: list[int] | None = None
+    pinned_track_ids: list[int] | None = None
+    version_label: str | None = None
+    w_transition: float = 0.50
+    w_energy_arc: float = 0.30
+    w_bpm_smooth: float = 0.20
+    tier1_threshold: float = 0.15
 
 
 def _make_features_mock(track_id: int, bpm: float = 128.0) -> MagicMock:
@@ -102,8 +129,6 @@ async def test_playlist_filter_limits_tracks() -> None:
 
     svc = _make_service(all_features=all_features, playlist_items=playlist_items)
 
-    from app.schemas.set_generation import SetGenerationRequest
-
     req = SetGenerationRequest(
         playlist_id=42,
         population_size=10,
@@ -131,8 +156,6 @@ async def test_empty_playlist_raises_validation_error() -> None:
 
     svc = _make_service(all_features=all_features, playlist_items=playlist_items)
 
-    from app.schemas.set_generation import SetGenerationRequest
-
     req = SetGenerationRequest(playlist_id=5, population_size=10, generations=10)
 
     with pytest.raises(ValidationError, match="No tracks with audio features in playlist 5"):
@@ -143,8 +166,6 @@ async def test_no_playlist_id_uses_all_tracks() -> None:
     """Without playlist_id, all tracks should be used (backward compat)."""
     all_features = [_make_features_mock(i) for i in range(1, 4)]
     svc = _make_service(all_features=all_features)
-
-    from app.schemas.set_generation import SetGenerationRequest
 
     req = SetGenerationRequest(population_size=10, generations=10, track_count=3)
 
@@ -171,8 +192,6 @@ async def test_sections_repo_called_with_track_ids() -> None:
 
     svc = _make_service(all_features=all_features, sections_map=sections_map)
 
-    from app.schemas.set_generation import SetGenerationRequest
-
     req = SetGenerationRequest(population_size=10, generations=10, track_count=2)
 
     mock_gen_cls, mock_matrix, _ = _patch_ga_and_matrix()
@@ -194,8 +213,6 @@ async def test_no_template_no_track_count_defaults_to_20() -> None:
     # Create 50 features to exceed default
     all_features = [_make_features_mock(i) for i in range(1, 51)]
     svc = _make_service(all_features=all_features)
-
-    from app.schemas.set_generation import SetGenerationRequest
 
     req = SetGenerationRequest(population_size=10, generations=10)
 

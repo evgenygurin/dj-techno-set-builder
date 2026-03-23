@@ -5,12 +5,46 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pydantic import BaseModel, Field
+
 from app.core.errors import NotFoundError
 from app.core.models.catalog import Track
 from app.core.models.dj import DjPlaylist
 from app.infrastructure.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
-from app.schemas.playlists import DjPlaylistCreate, DjPlaylistItemCreate, DjPlaylistUpdate
 from app.services.playlists import DjPlaylistService
+
+
+class DjPlaylistCreate(BaseModel):
+    """Minimal stand-in for the deleted REST schema."""
+
+    model_config = {"extra": "forbid"}
+
+    name: str = Field(min_length=1, max_length=500)
+    parent_playlist_id: int | None = None
+    source_app: int | None = None
+    source_of_truth: str = "local"
+    platform_ids: dict[str, str] | None = None
+
+
+class DjPlaylistUpdate(BaseModel):
+    """Minimal stand-in for the deleted REST schema."""
+
+    model_config = {"extra": "forbid"}
+
+    name: str | None = None
+    parent_playlist_id: int | None = None
+    source_app: int | None = None
+    source_of_truth: str | None = None
+    platform_ids: dict[str, str] | None = None
+
+
+class DjPlaylistItemCreate(BaseModel):
+    """Minimal stand-in for the deleted REST schema."""
+
+    model_config = {"extra": "forbid"}
+
+    track_id: int
+    sort_index: int = Field(ge=0)
 
 # Unique prefix to avoid collisions with other tests
 _PREFIX = "plsvc_"

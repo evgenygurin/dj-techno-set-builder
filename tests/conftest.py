@@ -2,7 +2,6 @@ import os
 from collections.abc import AsyncIterator
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -11,8 +10,6 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
-from app.infrastructure.database import get_session
-from app.main import create_app
 from app.core.models import Base
 
 
@@ -111,30 +108,3 @@ async def session(_connection) -> AsyncIterator[AsyncSession]:
     await sess.close()
 
 
-@pytest.fixture
-async def client(_connection) -> AsyncIterator[AsyncClient]:
-    """Function-scoped HTTP client with full rollback after each test.
-
-    Overrides FastAPI's ``get_session`` dependency to yield sessions
-    bound to the same connection and outer transaction as the
-    ``session`` fixture, so all data written through the API is
-    rolled back after the test.
-    """
-
-    async def _override_session() -> AsyncIterator[AsyncSession]:
-        sess = AsyncSession(
-            bind=_connection,
-            join_transaction_mode="create_savepoint",
-            expire_on_commit=False,
-        )
-        try:
-            yield sess
-        finally:
-            await sess.close()
-
-    application = create_app()
-    application.dependency_overrides[get_session] = _override_session
-
-    transport = ASGITransport(app=application)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
