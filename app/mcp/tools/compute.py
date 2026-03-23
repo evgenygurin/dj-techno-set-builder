@@ -43,14 +43,10 @@ def register_compute_tools(mcp: FastMCP) -> None:
             if ref.ref_type != RefType.LOCAL or ref.local_id is None:
                 raise ToolError("analyze requires local track ref or audio_path")
 
-            # Look up file path from DjLibraryItem
-            from sqlalchemy import select
+            # Look up file path from DjLibraryItem via repository
+            from app.repositories.dj_library_items import DjLibraryItemRepository
 
-            from app.models.dj import DjLibraryItem
-
-            stmt = select(DjLibraryItem).where(DjLibraryItem.track_id == ref.local_id)
-            result = await session.execute(stmt)
-            lib_item = result.scalar_one_or_none()
+            lib_item = await DjLibraryItemRepository(session).get_by_track_id(ref.local_id)
             if lib_item is None:
                 raise ToolError(
                     f"No local file found for track {track_ref}. "
@@ -127,21 +123,13 @@ def register_compute_tools(mcp: FastMCP) -> None:
             exclude_track_ids: Track IDs to exclude from selection.
         """
         from app.mcp.dependencies import get_set_generation_service
-        from app.repositories.sets import (
-            DjSetItemRepository,
-            DjSetRepository,
-            DjSetVersionRepository,
-        )
         from app.schemas.set_generation import SetGenerationRequest
         from app.schemas.sets import DjSetCreate
-        from app.services.sets import DjSetService
+        from app.services._factories import build_set_service
 
         try:
             # We need to create a temp set (GA needs a set_id) — will delete after
-            set_repo = DjSetRepository(session)
-            version_repo = DjSetVersionRepository(session)
-            item_repo = DjSetItemRepository(session)
-            set_svc = DjSetService(set_repo, version_repo, item_repo)
+            set_svc = build_set_service(session)
 
             temp_set = await set_svc.create(DjSetCreate(name="__temp_compute__"))
 
