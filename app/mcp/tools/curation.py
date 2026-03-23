@@ -192,76 +192,24 @@ def register_curation_tools(mcp: FastMCP) -> None:
         no_features = 0
         failures: list[dict[str, object]] = []
 
+        from app.services.techno_criteria import audit_track_features
+
         for i, item in enumerate(items):
             await ctx.report_progress(progress=i, total=total)
 
-            # Get track title for reporting
             try:
                 track = await track_svc.get(item.track_id)
                 title = track.title
             except NotFoundError:
                 title = f"track#{item.track_id}"
 
-            # Get latest features
             try:
                 feat = await features_svc.get_latest(item.track_id)
             except NotFoundError:
                 no_features += 1
                 continue
 
-            reasons: list[str] = []
-
-            # BPM: 120-155
-            if feat.bpm < 120:
-                reasons.append(f"BPM {feat.bpm:.1f} < 120")
-            elif feat.bpm > 155:
-                reasons.append(f"BPM {feat.bpm:.1f} > 155")
-
-            # LUFS: -20 to -4
-            if feat.lufs_i < -20:
-                reasons.append(f"LUFS {feat.lufs_i:.1f} < -20")
-            elif feat.lufs_i > -4:
-                reasons.append(f"LUFS {feat.lufs_i:.1f} > -4")
-
-            # energy_mean > 0.05
-            if feat.energy_mean <= 0.05:
-                reasons.append(f"energy {feat.energy_mean:.3f} <= 0.05")
-
-            # onset_rate_mean > 1.0
-            if feat.onset_rate_mean is not None and feat.onset_rate_mean <= 1.0:
-                reasons.append(f"onset_rate {feat.onset_rate_mean:.2f} <= 1.0")
-
-            # kick_prominence > 0.05
-            if feat.kick_prominence is not None and feat.kick_prominence <= 0.05:
-                reasons.append(f"kick {feat.kick_prominence:.3f} <= 0.05")
-
-            # centroid: 300-10000 Hz
-            if feat.centroid_mean_hz is not None:
-                if feat.centroid_mean_hz < 300:
-                    reasons.append(f"centroid {feat.centroid_mean_hz:.0f}Hz < 300")
-                elif feat.centroid_mean_hz > 10000:
-                    reasons.append(f"centroid {feat.centroid_mean_hz:.0f}Hz > 10000")
-
-            # flatness < 0.5
-            if feat.flatness_mean is not None and feat.flatness_mean >= 0.5:
-                reasons.append(f"flatness {feat.flatness_mean:.3f} >= 0.5")
-
-            # tempo_confidence > 0.3
-            if feat.tempo_confidence <= 0.3:
-                reasons.append(f"tempo_conf {feat.tempo_confidence:.2f} <= 0.3")
-
-            # bpm_stability > 0.3
-            if feat.bpm_stability <= 0.3:
-                reasons.append(f"bpm_stab {feat.bpm_stability:.2f} <= 0.3")
-
-            # pulse_clarity > 0.02
-            if feat.pulse_clarity is not None and feat.pulse_clarity <= 0.02:
-                reasons.append(f"pulse {feat.pulse_clarity:.3f} <= 0.02")
-
-            # hp_ratio < 8.0
-            if feat.hp_ratio is not None and feat.hp_ratio >= 8.0:
-                reasons.append(f"hp_ratio {feat.hp_ratio:.2f} >= 8.0")
-
+            reasons = audit_track_features(feat)
             if reasons:
                 failures.append(
                     {
