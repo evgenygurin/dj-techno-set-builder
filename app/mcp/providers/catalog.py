@@ -10,10 +10,10 @@ if TYPE_CHECKING:
 
 def register_catalog_tools(mcp: FastMCP) -> None:
     """Register all catalog CRUD tools on the given MCP server."""
-    from app.mcp.tools.track import register_track_tools
+    from app.mcp.tools.features import register_features_tools
     from app.mcp.tools.playlist import register_playlist_tools
     from app.mcp.tools.set import register_set_tools
-    from app.mcp.tools.features import register_features_tools
+    from app.mcp.tools.track import register_track_tools
 
     register_track_tools(mcp)
     register_playlist_tools(mcp)

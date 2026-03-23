@@ -8,13 +8,13 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
+from app.audio.camelot import key_code_to_camelot
 from app.core.errors import NotFoundError
 from app.mcp.dependencies import get_features_service, get_playlist_service
 from app.mcp.resolve import resolve_local_id
 from app.mcp.types import SimilarTracksResult
 from app.services.features import AudioFeaturesService
 from app.services.playlists import DjPlaylistService
-from app.audio.camelot import key_code_to_camelot
 
 
 def register_discovery_tools(mcp: FastMCP) -> None:

@@ -10,14 +10,13 @@ from fastmcp import FastMCP
 from fastmcp.server.context import Context
 
 from app.mcp.prompts import register_prompts
-from app.mcp.resources import register_resources
-
 from app.mcp.providers.analysis import register_analysis_tools
 from app.mcp.providers.catalog import register_catalog_tools
 from app.mcp.providers.discovery import register_discovery_tools
 from app.mcp.providers.export import register_export_tools
 from app.mcp.providers.setbuilder import register_setbuilder_tools
 from app.mcp.providers.sync import register_sync_tools
+from app.mcp.resources import register_resources
 
 
 def _register_visibility_tools(mcp: FastMCP) -> None:

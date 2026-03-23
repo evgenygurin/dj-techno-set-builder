@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING
 
+from app.audio.camelot import key_code_to_camelot
 from app.mcp.types import (
     ArtistSummary,
     PlaylistSummary,
@@ -16,7 +17,6 @@ from app.mcp.types import (
     TrackDetail,
     TrackSummary,
 )
-from app.audio.camelot import key_code_to_camelot
 
 if TYPE_CHECKING:
     from app.core.models.catalog import Artist, Track

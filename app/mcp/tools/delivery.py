@@ -25,9 +25,10 @@ from fastmcp.server.context import Context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.clients.yandex_music import YandexMusicClient
+from app.audio.camelot import key_code_to_camelot
 from app.core.config import settings
 from app.core.errors import NotFoundError
+from app.infrastructure.clients.yandex_music import YandexMusicClient
 from app.mcp.dependencies import (
     get_features_service,
     get_session,
@@ -37,14 +38,13 @@ from app.mcp.dependencies import (
     get_ym_client,
 )
 from app.mcp.elicitation import resolve_conflict
-from app.mcp.resolve import resolve_local_id
 from app.mcp.providers._scoring_helpers import sanitize_filename, score_consecutive_transitions
+from app.mcp.resolve import resolve_local_id
 from app.mcp.types.workflows import DeliveryResult, TransitionScoreResult, TransitionSummary
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
-from app.audio.camelot import key_code_to_camelot
 
 logger = logging.getLogger(__name__)
 

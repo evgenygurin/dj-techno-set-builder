@@ -90,10 +90,10 @@ async def _export_m3u(
     """Generate M3U8 content."""
     import contextlib
 
+    from app.audio.camelot import key_code_to_camelot
     from app.core.errors import NotFoundError
     from app.mcp.providers._scoring_helpers import sanitize_filename
     from app.services.set_export import export_m3u
-    from app.audio.camelot import key_code_to_camelot
 
     track_ids = [item.track_id for item in items]
     artists_map = await track_svc.get_track_artists(track_ids)
@@ -152,9 +152,9 @@ async def _export_json(
     import contextlib
     import json as json_mod
 
+    from app.audio.camelot import key_code_to_camelot
     from app.core.errors import NotFoundError
     from app.services.set_export import export_json_guide
-    from app.audio.camelot import key_code_to_camelot
 
     track_ids = [item.track_id for item in items]
     artists_map = await track_svc.get_track_artists(track_ids)
@@ -211,11 +211,11 @@ async def _export_rekordbox(
     import contextlib
     from urllib.parse import quote
 
+    from app.audio.camelot import key_code_to_camelot
     from app.core.errors import NotFoundError
     from app.mcp.providers._scoring_helpers import sanitize_filename
     from app.services.rekordbox_types import RekordboxTrackData
     from app.services.set_export import export_rekordbox_xml
-    from app.audio.camelot import key_code_to_camelot
 
     track_ids = [item.track_id for item in items]
     artists_map = await track_svc.get_track_artists(track_ids)

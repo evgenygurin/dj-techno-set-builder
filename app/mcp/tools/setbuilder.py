@@ -8,6 +8,8 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
+from app.audio.greedy_chain import build_greedy_chain
+from app.audio.set_generator import TrackData, lufs_to_energy
 from app.core.errors import NotFoundError, ValidationError
 from app.mcp.dependencies import (
     get_features_service,
@@ -17,9 +19,9 @@ from app.mcp.dependencies import (
     get_track_service,
     get_unified_scoring,
 )
+from app.mcp.providers._scoring_helpers import score_consecutive_transitions
 from app.mcp.resolve import resolve_local_id
 from app.mcp.session_state import save_build_result
-from app.mcp.providers._scoring_helpers import score_consecutive_transitions
 from app.mcp.types import SetBuildResult, TransitionScoreResult
 from app.schemas.set_generation import SetGenerationRequest
 from app.schemas.sets import DjSetCreate, DjSetItemCreate, DjSetVersionCreate
@@ -29,8 +31,6 @@ from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
-from app.audio.greedy_chain import build_greedy_chain
-from app.audio.set_generator import TrackData, lufs_to_energy
 
 
 async def _run_greedy_build(

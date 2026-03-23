@@ -42,7 +42,7 @@ def init_observability() -> None:
 
     Moved from app/main.py during MCP-first refactoring.
     """
-    global _observability_initialized  # noqa: PLW0603
+    global _observability_initialized
     if _observability_initialized:
         return
     _observability_initialized = True
@@ -62,7 +62,7 @@ def init_observability() -> None:
         from sentry_sdk.integrations.fastapi import FastApiIntegration
 
         integrations.append(FastApiIntegration())
-    except (ImportError, Exception):  # noqa: BLE001
+    except (ImportError, Exception):
         # DidNotEnable raised when FastAPI not installed
         pass
 

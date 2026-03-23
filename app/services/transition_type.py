@@ -9,8 +9,8 @@ Pure function, no DB dependencies.
 
 from __future__ import annotations
 
-from app.services.transition_scoring import TrackFeatures
 from app.audio._types import TransitionRecommendation, TransitionType
+from app.services.transition_scoring import TrackFeatures
 
 
 def recommend_transition(

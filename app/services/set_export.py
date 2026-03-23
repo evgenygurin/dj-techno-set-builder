@@ -27,8 +27,8 @@ import xml.etree.ElementTree as ET
 from io import BytesIO
 from typing import Any
 
-from app.services.rekordbox_types import RekordboxTrackData
 from app.audio._types import TransitionRecommendation
+from app.services.rekordbox_types import RekordboxTrackData
 
 # ---------------------------------------------------------------------------
 # M3U export

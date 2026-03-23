@@ -6,6 +6,8 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
+from app.audio.mood_classifier import TrackMood
+from app.audio.set_templates import TemplateName, get_template
 from app.core.errors import NotFoundError
 from app.mcp.dependencies import (
     get_features_service,
@@ -14,8 +16,8 @@ from app.mcp.dependencies import (
     get_track_service,
     get_unified_scoring,
 )
-from app.mcp.resolve import resolve_local_id
 from app.mcp.providers._scoring_helpers import score_consecutive_transitions
+from app.mcp.resolve import resolve_local_id
 from app.mcp.types import (
     ClassifyResult,
     DistributeResult,
@@ -32,8 +34,6 @@ from app.services.set_curation import SetCurationService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
-from app.audio.mood_classifier import TrackMood
-from app.audio.set_templates import TemplateName, get_template
 
 
 def register_curation_tools(mcp: FastMCP) -> None:

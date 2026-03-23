@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
-from app.mcp.types import LibraryStats
 from app.core.models.catalog import Track
 from app.core.models.dj import DjPlaylist
 from app.core.models.features import TrackAudioFeaturesComputed
 from app.core.models.sets import DjSet
+from app.mcp.types import LibraryStats
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession

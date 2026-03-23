@@ -6,15 +6,6 @@ from typing import Any
 
 import numpy as np
 
-from app.core.errors import NotFoundError, ValidationError
-from app.core.models.features import TrackAudioFeaturesComputed
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.playlists import DjPlaylistItemRepository
-from app.infrastructure.repositories.sections import SectionsRepository
-from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
-from app.schemas.set_generation import SetGenerationRequest, SetGenerationResponse
-from app.services.base import BaseService
-from app.services.transition_scoring import TrackFeatures, TransitionScoringService
 from app.audio.mood_classifier import classify_track
 from app.audio.set_generator import (
     EnergyArcType,
@@ -25,6 +16,19 @@ from app.audio.set_generator import (
     lufs_to_energy,
 )
 from app.audio.set_templates import SetSlot, TemplateName, get_template
+from app.core.errors import NotFoundError, ValidationError
+from app.core.models.features import TrackAudioFeaturesComputed
+from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+from app.infrastructure.repositories.playlists import DjPlaylistItemRepository
+from app.infrastructure.repositories.sections import SectionsRepository
+from app.infrastructure.repositories.sets import (
+    DjSetItemRepository,
+    DjSetRepository,
+    DjSetVersionRepository,
+)
+from app.schemas.set_generation import SetGenerationRequest, SetGenerationResponse
+from app.services.base import BaseService
+from app.services.transition_scoring import TrackFeatures, TransitionScoringService
 
 # Default track count when neither template nor explicit count is provided.
 # Prevents runaway GA on large playlists (O(n^3) complexity).
@@ -356,8 +360,8 @@ class SetGenerationService(BaseService):
         import logging
         import time
 
-        from app.services.camelot_lookup import CamelotLookupService
         from app.audio.feature_conversion import orm_features_to_track_features
+        from app.services.camelot_lookup import CamelotLookupService
 
         logger = logging.getLogger(__name__)
 

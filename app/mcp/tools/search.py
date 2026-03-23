@@ -9,6 +9,10 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.repositories.artists import ArtistRepository
+from app.infrastructure.repositories.playlists import DjPlaylistRepository
+from app.infrastructure.repositories.sets import DjSetRepository
+from app.infrastructure.repositories.tracks import TrackRepository
 from app.mcp.dependencies import get_session
 from app.mcp.entity_finder import ArtistFinder, PlaylistFinder, SetFinder, TrackFinder
 from app.mcp.library_stats import get_library_stats
@@ -20,10 +24,6 @@ from app.mcp.types import (
     PaginationInfo,
     SearchResponse,
 )
-from app.infrastructure.repositories.artists import ArtistRepository
-from app.infrastructure.repositories.playlists import DjPlaylistRepository
-from app.infrastructure.repositories.sets import DjSetRepository
-from app.infrastructure.repositories.tracks import TrackRepository
 
 
 def register_search_tools(mcp: FastMCP) -> None:
@@ -140,9 +140,9 @@ def register_search_tools(mcp: FastMCP) -> None:
             limit: Max results (default 50, max 100).
             cursor: Pagination cursor.
         """
+        from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
         from app.mcp.converters import track_to_summary
         from app.mcp.response import wrap_list
-        from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
 
         offset, clamped = paginate_params(cursor=cursor, limit=limit)
         features_repo = AudioFeaturesRepository(session)

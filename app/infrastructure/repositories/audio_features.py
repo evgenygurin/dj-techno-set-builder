@@ -5,9 +5,9 @@ from typing import Any
 
 from sqlalchemy import select
 
+from app.audio._types import TrackFeatures
 from app.core.models.features import TrackAudioFeaturesComputed
 from app.infrastructure.repositories.base import BaseRepository
-from app.audio._types import TrackFeatures
 
 
 class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):

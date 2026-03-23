@@ -4,16 +4,16 @@ import asyncio
 import math
 from pathlib import Path
 
-from app.core.errors import NotFoundError
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.sections import SectionsRepository
-from app.infrastructure.repositories.tracks import TrackRepository
-from app.services.base import BaseService
 from app.audio import TrackFeatures
 from app.audio._errors import AudioAnalysisError, AudioValidationError
 from app.audio._types import BeatsResult, MfccResult
 from app.audio.loader import load_audio, validate_audio
 from app.audio.pipeline import extract_all_features
+from app.core.errors import NotFoundError
+from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+from app.infrastructure.repositories.sections import SectionsRepository
+from app.infrastructure.repositories.tracks import TrackRepository
+from app.services.base import BaseService
 
 
 class TrackAnalysisService(BaseService):
