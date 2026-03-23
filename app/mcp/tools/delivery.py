@@ -256,25 +256,6 @@ def _copy_mp3_files(tracks: list[dict[str, Any]], out_dir: Path) -> tuple[int, i
     return copied, skipped
 
 
-def _write_m3u8(set_name: str, tracks: list[dict[str, Any]]) -> str:
-    """Generate M3U8 content from track data."""
-    lines = ["#EXTM3U", f"#PLAYLIST:{set_name}"]
-    for tr in tracks:
-        title = tr.get("title", f"Track {tr['track_id']}")
-        artists = tr.get("artists", "")
-        display = f"{artists} - {title}" if artists else title
-        safe = sanitize_filename(display).strip(". ")
-        duration = tr.get("duration_s", -1)
-        lines.append(f"#EXTINF:{duration},{title}")
-        if tr.get("bpm"):
-            lines.append(f"#EXTDJ-BPM:{tr['bpm']}")
-        if tr.get("key"):
-            lines.append(f"#EXTDJ-KEY:{tr['key']}")
-        if tr.get("lufs"):
-            lines.append(f"#EXTDJ-ENERGY:{tr['lufs']}")
-        lines.append(f"{tr['position']:03d}. {safe}.mp3")
-    return "\n".join(lines) + "\n"
-
 
 def _write_json_guide(
     set_name: str,
@@ -455,8 +436,26 @@ def register_delivery_tools(mcp: FastMCP) -> None:
 
         files_written: list[str] = []
 
+        # Copy MP3s first so we can set local paths for M3U
+        mp3_copied, mp3_skipped = _copy_mp3_files(tracks, out_dir)
+
+        # Set local path for export_m3u (relative to output dir)
+        for tr in tracks:
+            title = tr.get("title", f"Track {tr['track_id']}")
+            artists = tr.get("artists", "")
+            display = f"{artists} - {title}" if artists else title
+            safe = sanitize_filename(display).strip(". ")
+            tr["path"] = f"{tr['position']:03d}. {safe}.mp3"
+            # Map lufs → energy for export_m3u compatibility
+            if "lufs" in tr and "energy" not in tr:
+                tr["energy"] = tr["lufs"]
+
+        from app.services.set_export import export_m3u
+
         m3u_path = out_dir / f"{set_name}.m3u8"
-        m3u_path.write_text(_write_m3u8(set_name, tracks), encoding="utf-8")
+        m3u_path.write_text(
+            export_m3u(tracks, set_name=set_name), encoding="utf-8"
+        )
         files_written.append(m3u_path.name)
 
         json_path = out_dir / f"{set_name}.json"
@@ -466,8 +465,6 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         cheat_path = out_dir / "cheat_sheet.txt"
         cheat_path.write_text(_generate_cheat_sheet(set_name, tracks, scores), encoding="utf-8")
         files_written.append(cheat_path.name)
-
-        mp3_copied, mp3_skipped = _copy_mp3_files(tracks, out_dir)
         if mp3_copied:
             await ctx.info(
                 f"Written: {', '.join(files_written)} + {mp3_copied} MP3 files"
