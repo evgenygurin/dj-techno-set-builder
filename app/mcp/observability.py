@@ -62,7 +62,8 @@ def init_observability() -> None:
         from sentry_sdk.integrations.fastapi import FastApiIntegration
 
         integrations.append(FastApiIntegration())
-    except ImportError:
+    except (ImportError, Exception):  # noqa: BLE001
+        # DidNotEnable raised when FastAPI not installed
         pass
 
     try:

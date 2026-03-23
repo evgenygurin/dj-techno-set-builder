@@ -4,9 +4,7 @@ version = "0.1.0"
 description = "DJ Techno Set Builder — automated set construction from track analysis"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115",
     "fastmcp>=3.1.1",
-    "uvicorn[standard]>=0.34",
     "sqlalchemy[asyncio]>=2.0",
     "aiosqlite>=0.21",
     "pydantic>=2.10",
@@ -14,8 +12,6 @@ dependencies = [
     "alembic>=1.14",
     "typing_extensions>=4.13",
     "sentry-sdk>=2.52.0",
-    "typer>=0.15",
-    "rich>=13.9",
     # Core audio dependencies - required by _types.py and core modules
     "numpy>=1.26,<2.4",  # numba (via librosa) needs numpy<2.4
     "scipy>=1.12",
@@ -50,10 +46,8 @@ dev = [
     "ruff>=0.9",
     "mypy>=1.14",
     "pytest-cov>=7.0.0",
+    "uvicorn[standard]>=0.34",  # needed for `make mcp-dev` HTTP server
 ]
-
-[project.scripts]
-dj = "app.cli.main:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
@@ -74,9 +68,9 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 "app/mcp/dependencies.py" = ["B008"]  # Depends() in defaults is the FastMCP DI pattern
 "app/mcp/tools/*.py" = ["B008"]
+"app/mcp/providers/*.py" = ["B008"]
 "app/mcp/resources/status.py" = ["B008"]  # Depends() in defaults is the FastMCP DI pattern
 "scripts/*.py" = ["E402"]  # sys.path.insert before app imports
-"app/cli/**/*.py" = ["UP007", "B008"]  # Typer: Optional[X] syntax + Option() in defaults
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
@@ -122,10 +116,6 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["key_value.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["typer.*"]
 ignore_missing_imports = true
 
 # ── Pytest ────────────────────────────────────────────────────────────────────
