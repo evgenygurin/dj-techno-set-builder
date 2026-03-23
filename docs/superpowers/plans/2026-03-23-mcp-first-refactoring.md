@@ -230,41 +230,43 @@ This is the largest mechanical change. Use `sed` or a script to bulk-replace.
 
 - [ ] **Step 1: Update imports in app/ (services, mcp, etc.)**
 
-Priority import replacements (order matters — longest match first):
+Priority import replacements (order matters — longest match first).
+
+**CRITICAL**: Exclude shim files to avoid double-replacement (`app.core.core.config` etc.):
 
 ```bash
-# Core
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.models\.base/from app.core.models.base/g' {} +
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.models\./from app.core.models./g' {} +
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.models import/from app.core.models import/g' {} +
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.config/from app.core.config/g' {} +
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.errors/from app.core.errors/g' {} +
+# Define exclusion list for shim files
+EXCLUDE="-not -path ./app/config.py -not -path ./app/errors.py -not -path ./app/database.py -not -path './app/models/*' -not -path './app/repositories/*' -not -path './app/clients/*' -not -path './app/utils/*'"
 
-# Infrastructure
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.repositories\./from app.infrastructure.repositories./g' {} +
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.repositories import/from app.infrastructure.repositories import/g' {} +
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.database/from app.infrastructure.database/g' {} +
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.clients\./from app.infrastructure.clients./g' {} +
+# Core (run from project root)
+find app/ -name "*.py" \
+  -not -path "app/config.py" -not -path "app/errors.py" -not -path "app/database.py" \
+  -not -path "app/models/*" -not -path "app/repositories/*" -not -path "app/clients/*" \
+  -not -path "app/utils/*" \
+  -exec sed -i '' 's/from app\.models\.base/from app.core.models.base/g' {} +
 
-# Audio
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.utils\.audio\./from app.audio./g' {} +
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.utils\.audio import/from app.audio import/g' {} +
-find app/ -name "*.py" -exec sed -i '' \
-  's/from app\.utils\.text_sort/from app.core.text_sort/g' {} +
+# Repeat same exclusions for every sed command below:
+find app/ -name "*.py" \
+  -not -path "app/config.py" -not -path "app/errors.py" -not -path "app/database.py" \
+  -not -path "app/models/*" -not -path "app/repositories/*" -not -path "app/clients/*" \
+  -not -path "app/utils/*" \
+  -exec sed -i '' 's/from app\.models\./from app.core.models./g' {} +
+
+# ... same pattern for all remaining replacements:
+# from app.models import -> from app.core.models import
+# from app.config -> from app.core.config
+# from app.errors -> from app.core.errors
+# from app.repositories. -> from app.infrastructure.repositories.
+# from app.repositories import -> from app.infrastructure.repositories import
+# from app.database -> from app.infrastructure.database
+# from app.clients. -> from app.infrastructure.clients.
+# from app.utils.audio. -> from app.audio.
+# from app.utils.audio import -> from app.audio import
+# from app.utils.text_sort -> from app.core.text_sort
+# import app.models -> import app.core.models (bare imports)
 ```
 
-**IMPORTANT**: Do NOT replace imports inside the shim files themselves. Exclude `app/config.py`, `app/errors.py`, `app/database.py`, `app/models/`, `app/repositories/`, `app/clients/`, `app/utils/`.
+**NOTE**: Also handle bare `import app.models` patterns (without `from`).
 
 - [ ] **Step 2: Update imports in tests/**
 
@@ -303,11 +305,15 @@ git add -A && git commit -m "refactor: bulk-update import paths to new structure
 Read current `app/main.py` lines 16-49 to get the exact Sentry init code.
 Add `init_observability()` function to `app/mcp/observability.py`.
 
-- [ ] **Step 2: Call init_observability() from gateway.py**
+- [ ] **Step 2: Remove/guard sentry init in app/main.py**
+
+Comment out or delete the `_init_sentry()` call and function in `app/main.py` to prevent double-initialization. Tests that import `create_app` from `app.main` will still work — they just won't auto-init Sentry anymore (which is fine for tests).
+
+- [ ] **Step 3: Call init_observability() from gateway.py**
 
 Add call at the top of `create_dj_mcp()` before any tool registration.
 
-- [ ] **Step 3: Run tests**
+- [ ] **Step 4: Run tests**
 
 Run: `uv run pytest tests/ -x -q --tb=short 2>&1 | tail -20`
 
@@ -407,12 +413,65 @@ from app.mcp.providers import create_workflow_mcp
 
 Keep `mcp.mount("dj", wf)` — this preserves the `dj_` prefix on all tool names.
 
-- [ ] **Step 6: Run MCP tests to verify all tools registered**
+- [ ] **Step 6: Update MCP test imports to use new provider paths**
+
+These test files import directly from `app.mcp.tools` — update BEFORE deleting tools/:
+
+```python
+# tests/mcp/conftest.py:
+# OLD: from app.mcp.tools import create_workflow_mcp
+# NEW: from app.mcp.providers import create_workflow_mcp
+
+# tests/mcp/test_e2e_all_dj_tools.py:
+# OLD: from app.mcp.tools import create_workflow_mcp
+# NEW: from app.mcp.providers import create_workflow_mcp
+
+# tests/mcp/test_workflow_delivery.py:
+# OLD: from app.mcp.tools.delivery import _build_transition_summary, _generate_cheat_sheet, _safe_name
+# NEW: from app.mcp.providers.setbuilder import _build_transition_summary, _generate_cheat_sheet, _safe_name
+
+# tests/mcp/test_workflow_download.py:
+# OLD: from app.mcp.tools.download import register_download_tools
+# NEW: from app.mcp.providers.discovery import register_download_tools  (or test via Client)
+```
+
+Search for ALL remaining `from app.mcp.tools` imports in tests/:
+```bash
+grep -rn "from app\.mcp\.tools" tests/ --include="*.py"
+```
+Update every match.
+
+- [ ] **Step 7: Verify all 16 original tool registrations are covered**
+
+Current `server.py` calls these 16 registration functions. Each must map to a provider:
+
+| Original registration | Target provider |
+|----------------------|----------------|
+| `register_track_tools` | `catalog.py` |
+| `register_playlist_tools` | `catalog.py` |
+| `register_set_tools` | `catalog.py` |
+| `register_features_tools` | `catalog.py` |
+| `register_search_tools` | `discovery.py` |
+| `register_compute_tools` | `analysis.py` |
+| `register_curation_tools` | `analysis.py` |
+| `register_curation_discovery_tools` | `discovery.py` |
+| `register_setbuilder_tools` | `setbuilder.py` |
+| `register_delivery_tools` | `setbuilder.py` |
+| `register_sync_tools` | `sync.py` |
+| `register_discovery_tools` | `discovery.py` |
+| `register_download_tools` | `discovery.py` |
+| `register_export_tools` | `export.py` |
+| `register_unified_export_tools` | `export.py` |
+| `_register_visibility_tools` | `admin.py` |
+
+Verify: `make mcp-list 2>&1 | wc -l` — must match pre-refactoring count.
+
+- [ ] **Step 8: Run MCP tests to verify all tools registered**
 
 Run: `uv run pytest tests/mcp/ -x -q --tb=short 2>&1 | tail -20`
 Expected: All MCP tests pass, tool names unchanged (still `dj_*` prefixed)
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add -A && git commit -m "refactor(mcp): consolidate 18 tool files into 7 domain providers"
@@ -435,28 +494,55 @@ git add -A && git commit -m "refactor(mcp): consolidate 18 tool files into 7 dom
 
 - [ ] **Step 1: Update tests/conftest.py FIRST (critical ordering)**
 
+This MUST happen before deleting `app/main.py` — otherwise ALL tests fail at collection time.
+
 Remove `client` fixture and REST-specific imports:
 ```python
-# REMOVE these imports:
-# from httpx import ASGITransport, AsyncClient
-# from app.main import create_app
-# from app.dependencies import get_session  (if present)
+# REMOVE these lines:
+from httpx import ASGITransport, AsyncClient  # line ~4
+from app.database import get_session            # line ~14 (NOT app.dependencies!)
+from app.main import create_app                 # line ~15
 
-# REMOVE the entire `client` fixture
+# REMOVE the entire `client` fixture (the one that creates AsyncClient)
 
 # KEEP engine, session, _connection, seed_providers fixtures
-# UPDATE their imports to new paths (app.core.models, app.infrastructure.database)
+# Their imports should already be updated to new paths by Task 4
+# (from app.core.models import Base, from app.infrastructure.database import ...)
 ```
+
+**NOTE**: The actual import is `from app.database import get_session` (NOT `from app.dependencies`). Double-check line numbers in the actual file.
 
 - [ ] **Step 2: Fix service tests that import from app.schemas**
 
-4 service test files import REST schemas as DTOs:
-- `tests/services/test_analysis_service.py` — uses `AnalysisRequest`
-- `tests/services/test_playlists_service.py` — uses playlist schemas
-- `tests/services/test_tracks_service.py` — uses track schemas
-- `tests/services/test_set_generation.py` — uses set generation schemas
+4 service test files import REST schemas as DTOs. Replace with direct keyword args:
 
-Replace REST schema imports with direct dict/model construction. These services accept Pydantic models or keyword args — pass those directly instead of REST schema objects.
+**`tests/services/test_analysis_service.py`**:
+```python
+# OLD: from app.schemas.analysis import AnalysisRequest, AnalysisResponse
+# NEW: Remove import. Replace AnalysisRequest(track_id=1) with dict: {"track_id": 1}
+# Or call the service method directly with keyword args.
+```
+
+**`tests/services/test_playlists_service.py`**:
+```python
+# OLD: from app.schemas.playlists import DjPlaylistCreate, DjPlaylistItemCreate
+# NEW: Create inline Pydantic models or use dicts:
+#   playlist = await service.create(name="Test", source_app=None)
+```
+
+**`tests/services/test_tracks_service.py`**:
+```python
+# OLD: from app.schemas.tracks import TrackCreate, TrackUpdate
+# NEW: Call service.create(title="Test", duration_ms=300000) directly
+```
+
+**`tests/services/test_set_generation.py`**:
+```python
+# OLD: from app.schemas.set_generation import SetGenerationRequest
+# NEW: Call service method with keyword args directly
+```
+
+The services accept **keyword arguments**, not schema objects. The schemas were just used as convenient wrappers in tests. Replace with direct args or simple dicts.
 
 - [ ] **Step 3: Delete REST/CLI/old-tools directories**
 
@@ -511,6 +597,17 @@ Remove `[project.scripts]`:
 # DELETE this:
 # [project.scripts]
 # dj = "app.cli.main:app"
+```
+
+Update ruff per-file-ignores:
+```toml
+# OLD:
+# "app/mcp/tools/*.py" = ["B008"]
+# "app/cli/**/*.py" = ["UP007", "B008"]
+
+# NEW:
+# "app/mcp/providers/*.py" = ["B008"]
+# (remove cli line entirely)
 ```
 
 Check if `rich` is used by anything other than CLI. If not, remove it too.
