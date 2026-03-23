@@ -110,15 +110,14 @@ async def compute_transition(
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
     await db.commit()
-    # result is now a float (quality score) after v2 migration
     return TransitionComputeResponse(
-        transition_quality=result,
-        bpm_distance=0.0,
-        key_distance_weighted=0.0,
-        energy_step=0.0,
-        low_conflict_score=0.0,
-        overlap_score=0.0,
-        groove_similarity=0.0,
+        transition_quality=result.transition_quality,
+        bpm_distance=result.bpm_distance,
+        key_distance_weighted=result.key_distance_weighted,
+        energy_step=result.energy_step,
+        low_conflict_score=0.0,  # v2 scorer doesn't compute this component
+        overlap_score=0.0,  # v2 scorer doesn't compute this component
+        groove_similarity=result.groove_similarity,
     )
 
 

@@ -62,12 +62,15 @@ class TestTransitionPersistenceService:
         feat_b = _mock_features(2, bpm=142.0, key_code=18)
         service.features_repo.get_by_track = AsyncMock(side_effect=[feat_a, feat_b])
 
-        quality = await service.score_pair(
+        result = await service.score_pair(
             from_track_id=1,
             to_track_id=2,
             run_id=1,
         )
-        assert quality > 0
+        assert result.transition_quality > 0
+        assert result.bpm_distance == pytest.approx(2.0)
+        assert result.key_distance_weighted >= 0
+        assert isinstance(result.energy_step, float)
         service.transitions_repo.create.assert_awaited_once()
 
     async def test_score_pair_missing_features(
