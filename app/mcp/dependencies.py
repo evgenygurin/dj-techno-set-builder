@@ -1,6 +1,7 @@
 """Dependency injection providers for MCP tools.
 
 Uses FastMCP's Depends() for automatic DI chain resolution.
+Delegates to services/_factories.py for actual construction.
 Session is created once per-request and shared across all services.
 """
 
@@ -12,22 +13,23 @@ from contextlib import asynccontextmanager
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.infrastructure.clients.yandex_music import YandexMusicClient as YMApiClient
 from app.infrastructure.database import session_factory
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.playlists import (
-    DjPlaylistItemRepository,
-    DjPlaylistRepository,
+from app.mcp.platforms.factory import create_platform_registry
+from app.mcp.platforms.registry import PlatformRegistry
+from app.mcp.sync.engine import SyncEngine
+from app.mcp.sync.track_mapper import DbTrackMapper
+from app.services._factories import (
+    create_analysis_service,
+    create_features_service,
+    create_playlist_service,
+    create_set_generation_service,
+    create_set_service,
+    create_track_service,
+    create_transition_service,
+    create_unified_scoring,
+    create_ym_api_client,
+    create_ym_download_client,
 )
-from app.infrastructure.repositories.sections import SectionsRepository
-from app.infrastructure.repositories.sets import (
-    DjSetItemRepository,
-    DjSetRepository,
-    DjSetVersionRepository,
-)
-from app.infrastructure.repositories.tracks import TrackRepository
-from app.infrastructure.repositories.transitions import TransitionRepository
 from app.services.features import AudioFeaturesService
 from app.services.playlists import DjPlaylistService
 from app.services.set_generation import SetGenerationService
@@ -38,13 +40,15 @@ from app.services.transition_scoring_unified import UnifiedTransitionScoringServ
 from app.services.transitions import TransitionService
 from app.services.yandex_music_client import YandexMusicClient as YMDownloadClient
 
+# Re-export for backward compatibility
+from app.infrastructure.clients.yandex_music import YandexMusicClient as YMApiClient  # noqa: F401
+
 
 @asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
     """Provide an async DB session scoped to a single MCP tool call.
 
-    Commits on success, rolls back on exception.  Without this,
-    repository ``flush()`` writes are lost when the session closes.
+    Commits on success, rolls back on exception.
     """
     async with session_factory() as session:
         try:
@@ -58,113 +62,67 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 def get_track_service(
     session: AsyncSession = Depends(get_session),
 ) -> TrackService:
-    """Build a TrackService with all required repositories."""
-    return TrackService(TrackRepository(session))
+    return create_track_service(session)
 
 
 def get_playlist_service(
     session: AsyncSession = Depends(get_session),
 ) -> DjPlaylistService:
-    """Build a DjPlaylistService with playlist and item repositories."""
-    return DjPlaylistService(
-        DjPlaylistRepository(session),
-        DjPlaylistItemRepository(session),
-    )
+    return create_playlist_service(session)
 
 
 def get_features_service(
     session: AsyncSession = Depends(get_session),
 ) -> AudioFeaturesService:
-    """Build an AudioFeaturesService with features and track repositories."""
-    return AudioFeaturesService(
-        AudioFeaturesRepository(session),
-        TrackRepository(session),
-    )
+    return create_features_service(session)
 
 
 def get_analysis_service(
     session: AsyncSession = Depends(get_session),
 ) -> TrackAnalysisService:
-    """Build a TrackAnalysisService with track, features, and sections repos."""
-    return TrackAnalysisService(
-        TrackRepository(session),
-        AudioFeaturesRepository(session),
-        SectionsRepository(session),
-    )
+    return create_analysis_service(session)
 
 
 def get_set_service(
     session: AsyncSession = Depends(get_session),
 ) -> DjSetService:
-    """Build a DjSetService with set, version, and item repositories."""
-    return DjSetService(
-        DjSetRepository(session),
-        DjSetVersionRepository(session),
-        DjSetItemRepository(session),
-    )
+    return create_set_service(session)
 
 
 def get_set_generation_service(
     session: AsyncSession = Depends(get_session),
 ) -> SetGenerationService:
-    """Build a SetGenerationService with all required repositories."""
-    return SetGenerationService(
-        DjSetRepository(session),
-        DjSetVersionRepository(session),
-        DjSetItemRepository(session),
-        AudioFeaturesRepository(session),
-        SectionsRepository(session),
-        DjPlaylistItemRepository(session),
-    )
+    return create_set_generation_service(session)
 
 
 def get_transition_service(
     session: AsyncSession = Depends(get_session),
 ) -> TransitionService:
-    """Build a TransitionService with a transition repository."""
-    return TransitionService(TransitionRepository(session))
+    return create_transition_service(session)
 
 
 def get_unified_scoring(
     session: AsyncSession = Depends(get_session),
 ) -> UnifiedTransitionScoringService:
-    """Build a UnifiedTransitionScoringService with DB session."""
-    return UnifiedTransitionScoringService(session)
+    return create_unified_scoring(session)
 
 
 def get_ym_client() -> YMApiClient:
-    """Build a YandexMusicClient API client from application settings."""
-    return YMApiClient(
-        token=settings.yandex_music_token,
-        base_url=settings.yandex_music_base_url,
-    )
+    return create_ym_api_client()
 
 
 def get_ym_download_client() -> YMDownloadClient:
-    """Build a YandexMusicClient download client from application settings."""
-    return YMDownloadClient(
-        token=settings.yandex_music_token,
-        user_id=settings.yandex_music_user_id,
-    )
+    return create_ym_download_client()
 
 
-# --- Phase 3: Platform registry + sync ---
+# --- Platform registry + sync ---
 
-from app.mcp.platforms.factory import create_platform_registry  # noqa: E402
-from app.mcp.platforms.registry import PlatformRegistry  # noqa: E402
-from app.mcp.sync.engine import SyncEngine  # noqa: E402
-from app.mcp.sync.track_mapper import DbTrackMapper  # noqa: E402
-
-# Module-level singleton — created once, shared across all MCP tool calls.
 _platform_registry: PlatformRegistry | None = None
 
 
 def get_platform_registry() -> PlatformRegistry:
-    """Provide the global PlatformRegistry singleton.
-
-    Created on first call via create_platform_registry().
-    """
-    global _platform_registry
+    """Provide the global PlatformRegistry singleton."""
+    global _platform_registry  # noqa: PLW0603
     if _platform_registry is None:
         _platform_registry = create_platform_registry()
     return _platform_registry
@@ -174,9 +132,6 @@ def get_sync_engine(
     session: AsyncSession = Depends(get_session),
 ) -> SyncEngine:
     """Build a SyncEngine with playlist service and track mapper."""
-    playlist_svc = DjPlaylistService(
-        DjPlaylistRepository(session),
-        DjPlaylistItemRepository(session),
-    )
+    playlist_svc = create_playlist_service(session)
     mapper = DbTrackMapper(session)
     return SyncEngine(playlist_svc=playlist_svc, track_mapper=mapper)
