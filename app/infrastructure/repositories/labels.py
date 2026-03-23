@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.models.catalog import Label
+from app.core.models.catalog import Label
 from app.infrastructure.repositories.base import BaseRepository
 
 

@@ -4,8 +4,8 @@ import pytest
 
 essentia = pytest.importorskip("essentia")
 
-from app.utils.audio import AudioSignal, LoudnessResult  # noqa: E402
-from app.utils.audio.loudness import measure_loudness  # noqa: E402
+from app.audio import AudioSignal, LoudnessResult  # noqa: E402
+from app.audio.loudness import measure_loudness  # noqa: E402
 
 
 class TestMeasureLoudness:

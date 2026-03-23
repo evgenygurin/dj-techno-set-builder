@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from app.config import settings
+from app.core.config import settings
 from app.mcp.lifespan import mcp_lifespan
 from app.mcp.observability import apply_observability
 from app.mcp.tools import create_workflow_mcp

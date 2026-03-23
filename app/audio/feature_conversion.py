@@ -13,12 +13,12 @@ import contextlib
 import json as _json
 from typing import TYPE_CHECKING
 
-from app.models.enums import SectionType
+from app.core.models.enums import SectionType
 from app.services.transition_scoring import TrackFeatures
 
 if TYPE_CHECKING:
-    from app.models.features import TrackAudioFeaturesComputed
-    from app.models.sections import TrackSection
+    from app.core.models.features import TrackAudioFeaturesComputed
+    from app.core.models.sections import TrackSection
 
 # Centralised fallback defaults for Phase-2 nullable ORM fields.
 # Each value is the neutral/median assumption when the real value is missing.

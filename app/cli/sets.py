@@ -23,7 +23,7 @@ def list_sets(
 
 
 async def _list_sets(*, search: str | None, limit: int, offset: int) -> None:
-    from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+    from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
     from app.services.sets import DjSetService
 
     async with open_session() as session:
@@ -52,7 +52,7 @@ def get_set(
 
 
 async def _get_set(*, set_id: int) -> None:
-    from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+    from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
     from app.services.sets import DjSetService
 
     async with open_session() as session:
@@ -107,9 +107,9 @@ def show_set_tracks(
 
 
 async def _show_set_tracks(*, set_id: int, version_id: int | None, limit: int) -> None:
-    from app.repositories.audio_features import AudioFeaturesRepository
-    from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
-    from app.repositories.tracks import TrackRepository
+    from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+    from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+    from app.infrastructure.repositories.tracks import TrackRepository
     from app.services.features import AudioFeaturesService
     from app.services.sets import DjSetService
     from app.services.tracks import TrackService
@@ -167,7 +167,7 @@ async def _show_set_tracks(*, set_id: int, version_id: int | None, limit: int) -
                 bpm_str = f"{feat.bpm:.1f}"
                 lufs_str = f"{feat.lufs_i:.1f}"
                 try:
-                    from app.utils.audio.camelot import key_code_to_camelot as _ktc
+                    from app.audio.camelot import key_code_to_camelot as _ktc
 
                     key_str = _ktc(feat.key_code)
                 except (ValueError, KeyError):
@@ -200,7 +200,7 @@ def create_set(
 
 
 async def _create_set(*, name: str, template: str | None) -> None:
-    from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+    from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
     from app.schemas.sets import DjSetCreate
     from app.services.sets import DjSetService
 
@@ -226,7 +226,7 @@ def delete_set(
 
 
 async def _delete_set(*, set_id: int) -> None:
-    from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+    from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
     from app.services.sets import DjSetService
 
     async with open_session() as session:

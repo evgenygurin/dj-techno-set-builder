@@ -16,13 +16,13 @@ from app.mcp.types import (
     TrackDetail,
     TrackSummary,
 )
-from app.utils.audio.camelot import key_code_to_camelot
+from app.audio.camelot import key_code_to_camelot
 
 if TYPE_CHECKING:
-    from app.models.catalog import Artist, Track
-    from app.models.dj import DjPlaylist
-    from app.models.features import TrackAudioFeaturesComputed
-    from app.models.sets import DjSet
+    from app.core.models.catalog import Artist, Track
+    from app.core.models.dj import DjPlaylist
+    from app.core.models.features import TrackAudioFeaturesComputed
+    from app.core.models.sets import DjSet
 
 
 def track_to_summary(

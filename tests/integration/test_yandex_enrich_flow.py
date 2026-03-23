@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
-from app.repositories.yandex_metadata import YandexMetadataRepository
+from app.infrastructure.repositories.yandex_metadata import YandexMetadataRepository
 
 
 def _make_ym_track(ym_id: int, title: str, artist: str, genre: str, label: str, year: int) -> dict:
@@ -49,7 +49,7 @@ async def _mock_search(query: str) -> list[dict]:
 
 async def test_full_enrich_flow(session, seed_providers):
     """Create tracks → enrich → verify metadata chain."""
-    from app.models import Track
+    from app.core.models import Track
     from app.services.import_yandex import ImportYandexService
 
     # 1. Create tracks directly via session

@@ -5,9 +5,9 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.models.features import TrackAudioFeaturesComputed
+from app.core.models.features import TrackAudioFeaturesComputed
 from app.infrastructure.repositories.base import BaseRepository
-from app.utils.audio._types import TrackFeatures
+from app.audio._types import TrackFeatures
 
 
 class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
@@ -45,7 +45,7 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         """
         from sqlalchemy import func as sa_func
 
-        from app.models.catalog import Track
+        from app.core.models.catalog import Track
 
         return (
             select(
@@ -94,7 +94,7 @@ class AudioFeaturesRepository(BaseRepository[TrackAudioFeaturesComputed]):
         """
         from sqlalchemy import func as sa_func
 
-        from app.models.harmony import Key
+        from app.core.models.harmony import Key
 
         latest = self._latest_subquery()
 

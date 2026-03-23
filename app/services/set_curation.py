@@ -9,8 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from app.utils.audio.mood_classifier import TrackMood, classify_track
-from app.utils.audio.set_templates import SetSlot, SetTemplate, TemplateName, get_template
+from app.audio.mood_classifier import TrackMood, classify_track
+from app.audio.set_templates import SetSlot, SetTemplate, TemplateName, get_template
 
 
 @dataclass(frozen=True, slots=True)

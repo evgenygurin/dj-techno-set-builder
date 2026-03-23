@@ -26,10 +26,10 @@ def list_features(
 
 
 async def _list_features(*, limit: int) -> None:
-    from app.repositories.audio_features import AudioFeaturesRepository
-    from app.repositories.tracks import TrackRepository
+    from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+    from app.infrastructure.repositories.tracks import TrackRepository
     from app.services.features import AudioFeaturesService
-    from app.utils.audio.camelot import key_code_to_camelot
+    from app.audio.camelot import key_code_to_camelot
 
     async with open_session() as session:
         svc = AudioFeaturesService(AudioFeaturesRepository(session), TrackRepository(session))
@@ -76,7 +76,7 @@ def classify_tracks(
 
 
 async def _classify_tracks(*, limit: int) -> None:
-    from app.repositories.audio_features import AudioFeaturesRepository
+    from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
     from app.services.set_curation import SetCurationService
 
     async with open_session() as session:
@@ -118,9 +118,9 @@ def analyze_gaps(
 
 
 async def _analyze_gaps(*, template: str) -> None:
-    from app.repositories.audio_features import AudioFeaturesRepository
+    from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
     from app.services.set_curation import SetCurationService
-    from app.utils.audio.set_templates import TemplateName, get_template
+    from app.audio.set_templates import TemplateName, get_template
 
     async with open_session() as session:
         features_repo = AudioFeaturesRepository(session)
@@ -173,8 +173,8 @@ def inspect_track(
 
 
 async def _inspect_track(*, track_id: int) -> None:
-    from app.repositories.audio_features import AudioFeaturesRepository
-    from app.repositories.tracks import TrackRepository
+    from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+    from app.infrastructure.repositories.tracks import TrackRepository
     from app.services.features import AudioFeaturesService
     from app.services.tracks import TrackService
 

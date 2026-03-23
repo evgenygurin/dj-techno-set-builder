@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.repositories.sections import SectionsRepository
-from app.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.sections import SectionsRepository
+from app.infrastructure.repositories.tracks import TrackRepository
 from app.routers.v1._openapi import RESPONSES_GET
 from app.schemas.sections import SectionList
 from app.services.sections import SectionsService

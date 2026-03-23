@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models.dj import DjPlaylist
+from app.core.models.dj import DjPlaylist
 
 
 class TestDjPlaylistSyncFields:

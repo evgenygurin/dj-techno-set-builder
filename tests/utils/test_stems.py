@@ -6,8 +6,8 @@ import pytest
 torch = pytest.importorskip("torch")
 demucs = pytest.importorskip("demucs")
 
-from app.utils.audio import AudioSignal, StemsResult  # noqa: E402
-from app.utils.audio.stems import separate_stems  # noqa: E402
+from app.audio import AudioSignal, StemsResult  # noqa: E402
+from app.audio.stems import separate_stems  # noqa: E402
 
 SR = 44100
 

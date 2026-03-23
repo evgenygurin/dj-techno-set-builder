@@ -2,7 +2,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.models.sections import TrackSection
+from app.core.models.sections import TrackSection
 from app.infrastructure.repositories.base import BaseRepository
 
 

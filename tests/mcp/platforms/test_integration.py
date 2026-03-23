@@ -16,11 +16,11 @@ from app.mcp.platforms.registry import PlatformRegistry
 from app.mcp.sync.diff import SyncDirection
 from app.mcp.sync.engine import SyncEngine
 from app.mcp.sync.track_mapper import DbTrackMapper
-from app.models.catalog import Track
-from app.models.dj import DjPlaylist, DjPlaylistItem
-from app.models.ingestion import ProviderTrackId
-from app.models.providers import Provider
-from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
+from app.core.models.catalog import Track
+from app.core.models.dj import DjPlaylist, DjPlaylistItem
+from app.core.models.ingestion import ProviderTrackId
+from app.core.models.providers import Provider
+from app.infrastructure.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
 from app.services.playlists import DjPlaylistService
 
 

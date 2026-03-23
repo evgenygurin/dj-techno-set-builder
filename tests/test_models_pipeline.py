@@ -2,9 +2,9 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.assets import AudioAsset
-from app.models.catalog import Track
-from app.models.runs import FeatureExtractionRun, TransitionRun
+from app.core.models.assets import AudioAsset
+from app.core.models.catalog import Track
+from app.core.models.runs import FeatureExtractionRun, TransitionRun
 
 
 async def test_create_feature_extraction_run(session: AsyncSession) -> None:

@@ -16,7 +16,7 @@ from app.cli._context import console
 
 def _key_code_to_camelot(key_code: int) -> str:
     """Lazy import wrapper — avoids eager numpy import via audio.__init__."""
-    from app.utils.audio.camelot import key_code_to_camelot
+    from app.audio.camelot import key_code_to_camelot
 
     return key_code_to_camelot(key_code)
 

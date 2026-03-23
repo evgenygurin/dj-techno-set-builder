@@ -2,7 +2,7 @@
 
 from sqlalchemy import select
 
-from app.models.dj import DjLibraryItem
+from app.core.models.dj import DjLibraryItem
 from app.infrastructure.repositories.base import BaseRepository
 
 

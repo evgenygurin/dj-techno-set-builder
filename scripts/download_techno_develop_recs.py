@@ -15,13 +15,13 @@ from pathlib import Path
 
 from sqlalchemy import select, text
 
-from app.config import settings
-from app.database import close_db, init_db, session_factory
-from app.models.catalog import Track
-from app.models.dj import DjPlaylistItem
-from app.models.ingestion import ProviderTrackId
-from app.models.providers import Provider
-from app.repositories.dj_library_items import DjLibraryItemRepository
+from app.core.config import settings
+from app.infrastructure.database import close_db, init_db, session_factory
+from app.core.models.catalog import Track
+from app.core.models.dj import DjPlaylistItem
+from app.core.models.ingestion import ProviderTrackId
+from app.core.models.providers import Provider
+from app.infrastructure.repositories.dj_library_items import DjLibraryItemRepository
 from app.services.yandex_music_client import YandexMusicClient
 
 logging.basicConfig(

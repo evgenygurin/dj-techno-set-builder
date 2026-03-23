@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
+from app.infrastructure.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
 from app.routers.v1._openapi import (
     RESPONSES_CREATE,
     RESPONSES_DELETE,

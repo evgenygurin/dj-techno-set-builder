@@ -20,10 +20,10 @@ from app.mcp.types import (
     PaginationInfo,
     SearchResponse,
 )
-from app.repositories.artists import ArtistRepository
-from app.repositories.playlists import DjPlaylistRepository
-from app.repositories.sets import DjSetRepository
-from app.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.artists import ArtistRepository
+from app.infrastructure.repositories.playlists import DjPlaylistRepository
+from app.infrastructure.repositories.sets import DjSetRepository
+from app.infrastructure.repositories.tracks import TrackRepository
 
 
 def register_search_tools(mcp: FastMCP) -> None:
@@ -142,7 +142,7 @@ def register_search_tools(mcp: FastMCP) -> None:
         """
         from app.mcp.converters import track_to_summary
         from app.mcp.response import wrap_list
-        from app.repositories.audio_features import AudioFeaturesRepository
+        from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
 
         offset, clamped = paginate_params(cursor=cursor, limit=limit)
         features_repo = AudioFeaturesRepository(session)

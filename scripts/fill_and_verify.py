@@ -53,16 +53,16 @@ from sqlalchemy import select, text
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config import settings
-from app.database import close_db, init_db, session_factory
-from app.models.catalog import Track
-from app.models.dj import DjLibraryItem, DjPlaylist, DjPlaylistItem
-from app.models.features import TrackAudioFeaturesComputed
-from app.models.ingestion import ProviderTrackId
-from app.models.metadata_yandex import YandexMetadata
-from app.models.runs import FeatureExtractionRun
+from app.core.config import settings
+from app.infrastructure.database import close_db, init_db, session_factory
+from app.core.models.catalog import Track
+from app.core.models.dj import DjLibraryItem, DjPlaylist, DjPlaylistItem
+from app.core.models.features import TrackAudioFeaturesComputed
+from app.core.models.ingestion import ProviderTrackId
+from app.core.models.metadata_yandex import YandexMetadata
+from app.core.models.runs import FeatureExtractionRun
 from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
-from app.utils.audio.mood_classifier import TrackMood, classify_track
+from app.audio.mood_classifier import TrackMood, classify_track
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
@@ -990,7 +990,7 @@ async def audit_playlist_tracks(
                     )
                     # Save to DB
                     async with session_factory() as session:
-                        from app.repositories.audio_features import AudioFeaturesRepository
+                        from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
 
                         run = FeatureExtractionRun(
                             pipeline_name="audit",
@@ -1227,7 +1227,7 @@ def _extract_sync(audio_path: str) -> Any:
     Essentia/scipy/soundfile are C-extensions that can segfault on corrupt audio.
     Running in a subprocess means a segfault kills only the worker, not the main script.
     """
-    from app.utils.audio.pipeline import extract_all_features
+    from app.audio.pipeline import extract_all_features
 
     return extract_all_features(audio_path)
 
@@ -1284,7 +1284,7 @@ async def analyze_candidate(candidate: Candidate, sem: asyncio.Semaphore) -> boo
 
     # Save to DB
     async with session_factory() as session:
-        from app.repositories.audio_features import AudioFeaturesRepository
+        from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
 
         run = FeatureExtractionRun(
             pipeline_name="fill_and_verify",

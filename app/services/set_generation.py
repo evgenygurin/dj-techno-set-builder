@@ -6,17 +6,17 @@ from typing import Any
 
 import numpy as np
 
-from app.errors import NotFoundError, ValidationError
-from app.models.features import TrackAudioFeaturesComputed
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.playlists import DjPlaylistItemRepository
-from app.repositories.sections import SectionsRepository
-from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+from app.core.errors import NotFoundError, ValidationError
+from app.core.models.features import TrackAudioFeaturesComputed
+from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+from app.infrastructure.repositories.playlists import DjPlaylistItemRepository
+from app.infrastructure.repositories.sections import SectionsRepository
+from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
 from app.schemas.set_generation import SetGenerationRequest, SetGenerationResponse
 from app.services.base import BaseService
 from app.services.transition_scoring import TrackFeatures, TransitionScoringService
-from app.utils.audio.mood_classifier import classify_track
-from app.utils.audio.set_generator import (
+from app.audio.mood_classifier import classify_track
+from app.audio.set_generator import (
     EnergyArcType,
     GAConfig,
     GAConstraints,
@@ -24,7 +24,7 @@ from app.utils.audio.set_generator import (
     TrackData,
     lufs_to_energy,
 )
-from app.utils.audio.set_templates import SetSlot, TemplateName, get_template
+from app.audio.set_templates import SetSlot, TemplateName, get_template
 
 # Default track count when neither template nor explicit count is provided.
 # Prevents runaway GA on large playlists (O(n^3) complexity).
@@ -94,7 +94,7 @@ class SetGenerationService(BaseService):
         """Load primary artist_id for each track (role=0)."""
         from sqlalchemy import select
 
-        from app.models.catalog import TrackArtist
+        from app.core.models.catalog import TrackArtist
 
         artist_map: dict[int, int] = {}
         if track_ids:
@@ -357,7 +357,7 @@ class SetGenerationService(BaseService):
         import time
 
         from app.services.camelot_lookup import CamelotLookupService
-        from app.utils.audio.feature_conversion import orm_features_to_track_features
+        from app.audio.feature_conversion import orm_features_to_track_features
 
         logger = logging.getLogger(__name__)
 

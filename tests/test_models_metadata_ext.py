@@ -2,9 +2,9 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.metadata_beatport import BeatportMetadata
-from app.models.metadata_soundcloud import SoundCloudMetadata
+from app.core.models.catalog import Track
+from app.core.models.metadata_beatport import BeatportMetadata
+from app.core.models.metadata_soundcloud import SoundCloudMetadata
 
 
 async def test_create_soundcloud_metadata(session: AsyncSession) -> None:

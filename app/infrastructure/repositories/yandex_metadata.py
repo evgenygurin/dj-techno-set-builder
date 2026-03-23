@@ -5,8 +5,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.metadata_yandex import YandexMetadata
+from app.core.models.catalog import Track
+from app.core.models.metadata_yandex import YandexMetadata
 
 
 class YandexMetadataRepository:

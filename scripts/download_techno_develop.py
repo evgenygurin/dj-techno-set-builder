@@ -18,15 +18,15 @@ from sqlalchemy import select, text
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # fmt: on
 
-from app.config import settings
-from app.database import (
+from app.core.config import settings
+from app.infrastructure.database import (
     close_db,
     init_db,
     session_factory,
 )
-from app.models.catalog import Track
-from app.models.dj import DjLibraryItem
-from app.models.ingestion import ProviderTrackId
+from app.core.models.catalog import Track
+from app.core.models.dj import DjLibraryItem
+from app.core.models.ingestion import ProviderTrackId
 from app.services.yandex_music_client import YandexMusicClient
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")

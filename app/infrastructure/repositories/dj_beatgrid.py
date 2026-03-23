@@ -2,7 +2,7 @@
 
 from sqlalchemy import select
 
-from app.models.dj import DjBeatgrid
+from app.core.models.dj import DjBeatgrid
 from app.infrastructure.repositories.base import BaseRepository
 
 

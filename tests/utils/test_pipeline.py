@@ -6,8 +6,8 @@ import pytest
 
 essentia = pytest.importorskip("essentia")
 
-from app.utils.audio import AudioAnalysisError, AudioValidationError, TrackFeatures  # noqa: E402
-from app.utils.audio.pipeline import _run_stage, extract_all_features  # noqa: E402
+from app.audio import AudioAnalysisError, AudioValidationError, TrackFeatures  # noqa: E402
+from app.audio.pipeline import _run_stage, extract_all_features  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -44,7 +44,7 @@ class TestExtractAllFeatures:
 class TestRunStage:
     def test_wraps_unexpected_error(self) -> None:
         """Unexpected exceptions are wrapped in AudioAnalysisError."""
-        from app.utils.audio import AudioSignal
+        from app.audio import AudioSignal
 
         dummy = AudioSignal(
             samples=__import__("numpy").zeros(100, dtype="float32"),
@@ -64,7 +64,7 @@ class TestRunStage:
 
     def test_passthrough_file_not_found(self) -> None:
         """FileNotFoundError should not be wrapped."""
-        from app.utils.audio import AudioSignal
+        from app.audio import AudioSignal
 
         dummy = AudioSignal(
             samples=__import__("numpy").zeros(100, dtype="float32"),

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.config import settings
+from app.core.config import settings
 
 _connect_args: dict[str, object] = {}
 if settings.database_url.startswith("sqlite"):
@@ -29,10 +29,10 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 
 async def init_db() -> None:
     """Import models so metadata is populated, then (for dev) create tables."""
-    import app.models  # noqa: F401
+    import app.core.models  # noqa: F401
 
     if settings.database_url.startswith("sqlite"):
-        from app.models.base import Base
+        from app.core.models.base import Base
 
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -42,7 +42,7 @@ async def init_db() -> None:
 
 async def _seed_providers() -> None:
     """Ensure standard providers exist."""
-    from app.repositories.providers import ProviderRepository
+    from app.infrastructure.repositories.providers import ProviderRepository
 
     async with session_factory() as session:
         repo = ProviderRepository(session)

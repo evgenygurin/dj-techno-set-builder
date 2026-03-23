@@ -34,7 +34,7 @@ async def open_session() -> AsyncIterator[AsyncSession]:
 
     Commits on clean exit, rolls back on exception.
     """
-    from app.database import session_factory
+    from app.infrastructure.database import session_factory
 
     async with session_factory() as session:
         try:

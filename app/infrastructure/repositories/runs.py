@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from app.models.runs import FeatureExtractionRun, TransitionRun
+from app.core.models.runs import FeatureExtractionRun, TransitionRun
 from app.infrastructure.repositories.base import BaseRepository
 
 

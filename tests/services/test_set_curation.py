@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 from app.services.set_curation import SetCurationService
-from app.utils.audio.mood_classifier import TrackMood
+from app.audio.mood_classifier import TrackMood
 
 
 def _make_mock_feature(

@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy import text
 
-from app.database import close_db, init_db, session_factory
+from app.infrastructure.database import close_db, init_db, session_factory
 
 WORKER_SCRIPT = Path(__file__).parent / "_analyze_worker.py"
 LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"

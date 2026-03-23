@@ -2,7 +2,7 @@
 
 from app.services.transition_scoring import TrackFeatures
 from app.services.transition_type import recommend_transition
-from app.utils.audio._types import TransitionType
+from app.audio._types import TransitionType
 
 
 def _make_features(**overrides: object) -> TrackFeatures:

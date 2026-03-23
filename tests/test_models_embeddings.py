@@ -2,9 +2,9 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.embeddings import EmbeddingType, TrackEmbedding
-from app.models.runs import FeatureExtractionRun
+from app.core.models.catalog import Track
+from app.core.models.embeddings import EmbeddingType, TrackEmbedding
+from app.core.models.runs import FeatureExtractionRun
 
 
 async def test_create_embedding_type(session: AsyncSession) -> None:

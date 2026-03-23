@@ -22,7 +22,7 @@ def list_tracks(
 
 
 async def _list_tracks(*, search: str | None, limit: int, offset: int) -> None:
-    from app.repositories.tracks import TrackRepository
+    from app.infrastructure.repositories.tracks import TrackRepository
     from app.services.tracks import TrackService
 
     async with open_session() as session:
@@ -50,8 +50,8 @@ def get_track(
 
 
 async def _get_track(*, track_id: int, show_features: bool) -> None:
-    from app.repositories.audio_features import AudioFeaturesRepository
-    from app.repositories.tracks import TrackRepository
+    from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+    from app.infrastructure.repositories.tracks import TrackRepository
     from app.services.features import AudioFeaturesService
     from app.services.tracks import TrackService
 
@@ -94,7 +94,7 @@ def create_track(
 
 
 async def _create_track(*, title: str, duration_ms: int) -> None:
-    from app.repositories.tracks import TrackRepository
+    from app.infrastructure.repositories.tracks import TrackRepository
     from app.schemas.tracks import TrackCreate
     from app.services.tracks import TrackService
 
@@ -116,7 +116,7 @@ def delete_track(
 
 
 async def _delete_track(*, track_id: int) -> None:
-    from app.repositories.tracks import TrackRepository
+    from app.infrastructure.repositories.tracks import TrackRepository
     from app.services.tracks import TrackService
 
     async with open_session() as session:

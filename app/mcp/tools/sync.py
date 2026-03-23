@@ -14,9 +14,9 @@ from fastmcp.server.context import Context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.yandex_music import YandexMusicClient
-from app.config import settings
-from app.errors import NotFoundError
+from app.infrastructure.clients.yandex_music import YandexMusicClient
+from app.core.config import settings
+from app.core.errors import NotFoundError
 from app.mcp.dependencies import (
     get_platform_registry,
     get_playlist_service,
@@ -31,8 +31,8 @@ from app.mcp.platforms.registry import PlatformRegistry
 from app.mcp.resolve import resolve_local_id
 from app.mcp.sync.diff import SyncDirection
 from app.mcp.sync.engine import SyncEngine, TrackMapper
-from app.models.metadata_yandex import YandexMetadata
-from app.models.sets import DjSet
+from app.core.models.metadata_yandex import YandexMetadata
+from app.core.models.sets import DjSet
 from app.services.playlists import DjPlaylistService
 from app.services.sets import DjSetService
 

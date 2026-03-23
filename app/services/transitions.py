@@ -1,5 +1,5 @@
-from app.errors import NotFoundError
-from app.repositories.transitions import TransitionRepository
+from app.core.errors import NotFoundError
+from app.infrastructure.repositories.transitions import TransitionRepository
 from app.schemas.transitions import TransitionList, TransitionRead
 from app.services.base import BaseService
 

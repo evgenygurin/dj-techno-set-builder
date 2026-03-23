@@ -18,7 +18,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.errors import NotFoundError
+from app.core.errors import NotFoundError
 from app.mcp.converters import set_to_summary
 from app.mcp.dependencies import (
     get_features_service,
@@ -40,13 +40,13 @@ from app.mcp.types import (
     SetVersionSummary,
     TransitionSummary,
 )
-from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
 from app.schemas.sets import DjSetCreate, DjSetItemCreate, DjSetUpdate, DjSetVersionCreate
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
-from app.utils.audio.camelot import key_code_to_camelot
+from app.audio.camelot import key_code_to_camelot
 
 
 def _make_svc(session: AsyncSession) -> DjSetService:

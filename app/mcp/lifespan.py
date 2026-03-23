@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from fastmcp.server.lifespan import lifespan
 
-from app.config import settings
+from app.core.config import settings
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.trace import TracerProvider

@@ -127,7 +127,7 @@ async def test_gateway_has_dj_deliver_set(gateway_mcp: FastMCP):
 
 async def test_deliver_set_empty_version(workflow_mcp_with_db: FastMCP, session, tmp_path):
     """deliver_set on a version with 0 items → ok with no transitions, all 3 files written."""
-    from app.models.sets import DjSet, DjSetVersion
+    from app.core.models.sets import DjSet, DjSetVersion
 
     # Seed via the shared test session (same connection as MCP server)
     dj_set = DjSet(name="Test Delivery Set")

@@ -1,6 +1,6 @@
 from sqlalchemy import select
 
-from app.models.harmony import Key
+from app.core.models.harmony import Key
 from app.infrastructure.repositories.base import BaseRepository
 
 

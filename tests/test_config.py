@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.config import Settings
+from app.core.config import Settings
 
 
 def test_yandex_settings_have_defaults(monkeypatch: pytest.MonkeyPatch):

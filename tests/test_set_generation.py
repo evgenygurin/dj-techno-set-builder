@@ -10,12 +10,12 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.features import TrackAudioFeaturesComputed
-from app.models.harmony import Key
-from app.models.runs import FeatureExtractionRun
-from app.models.sets import DjSet
-from app.utils.audio.set_generator import (
+from app.core.models.catalog import Track
+from app.core.models.features import TrackAudioFeaturesComputed
+from app.core.models.harmony import Key
+from app.core.models.runs import FeatureExtractionRun
+from app.core.models.sets import DjSet
+from app.audio.set_generator import (
     _ARC_BREAKPOINTS,
     EnergyArcType,
     GAConfig,

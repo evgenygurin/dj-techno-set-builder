@@ -7,9 +7,9 @@ import pytest
 
 essentia = pytest.importorskip("essentia")
 
-from app.errors import NotFoundError  # noqa: E402
+from app.core.errors import NotFoundError  # noqa: E402
 from app.services.track_analysis import TrackAnalysisService  # noqa: E402
-from app.utils.audio import (  # noqa: E402
+from app.audio import (  # noqa: E402
     AudioSignal,
     BandEnergyResult,
     BeatsResult,
@@ -174,7 +174,7 @@ class TestTrackAnalysisService:
             patch.object(svc, "_extract_full_sync", return_value=features),
             patch("app.services.track_analysis.load_audio", return_value=dummy_signal),
             patch(
-                "app.utils.audio.structure.segment_structure",
+                "app.audio.structure.segment_structure",
                 return_value=sections,
             ) as mock_segment,
         ):

@@ -1,8 +1,8 @@
-from app.errors import NotFoundError
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.runs import FeatureRunRepository
-from app.repositories.sections import SectionsRepository
-from app.repositories.tracks import TrackRepository
+from app.core.errors import NotFoundError
+from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+from app.infrastructure.repositories.runs import FeatureRunRepository
+from app.infrastructure.repositories.sections import SectionsRepository
+from app.infrastructure.repositories.tracks import TrackRepository
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.services.base import BaseService
 from app.services.track_analysis import TrackAnalysisService

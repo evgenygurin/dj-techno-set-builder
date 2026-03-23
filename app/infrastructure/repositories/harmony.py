@@ -2,7 +2,7 @@
 
 from sqlalchemy import select
 
-from app.models.harmony import Key, KeyEdge
+from app.core.models.harmony import Key, KeyEdge
 from app.infrastructure.repositories.base import BaseRepository
 
 

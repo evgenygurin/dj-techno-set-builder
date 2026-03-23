@@ -2,7 +2,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 
-from app.models.sets import DjSet, DjSetItem, DjSetVersion
+from app.core.models.sets import DjSet, DjSetItem, DjSetVersion
 from app.infrastructure.repositories.base import BaseRepository
 
 

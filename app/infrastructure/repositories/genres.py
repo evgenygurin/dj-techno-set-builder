@@ -1,4 +1,4 @@
-from app.models.catalog import Genre
+from app.core.models.catalog import Genre
 from app.infrastructure.repositories.base import BaseRepository
 
 

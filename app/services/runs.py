@@ -1,5 +1,5 @@
-from app.errors import NotFoundError
-from app.repositories.runs import FeatureRunRepository, TransitionRunRepository
+from app.core.errors import NotFoundError
+from app.infrastructure.repositories.runs import FeatureRunRepository, TransitionRunRepository
 from app.schemas.runs import (
     FeatureRunCreate,
     FeatureRunList,

@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 
 from app.dependencies import DbSession
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.runs import FeatureRunRepository
-from app.repositories.sections import SectionsRepository
-from app.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+from app.infrastructure.repositories.runs import FeatureRunRepository
+from app.infrastructure.repositories.sections import SectionsRepository
+from app.infrastructure.repositories.tracks import TrackRepository
 from app.routers.v1._openapi import RESPONSES_GET
 from app.schemas.analysis import (
     AnalysisRequest,
@@ -13,7 +13,7 @@ from app.schemas.analysis import (
     BatchAnalysisResponse,
 )
 from app.services.analysis import AnalysisOrchestrator
-from app.utils.audio._errors import AudioAnalysisError, AudioValidationError
+from app.audio._errors import AudioAnalysisError, AudioValidationError
 
 router = APIRouter(prefix="/tracks", tags=["analysis"])
 

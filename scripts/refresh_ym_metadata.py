@@ -30,8 +30,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import httpx
 from sqlalchemy import text
 
-from app.config import settings
-from app.database import close_db, init_db, session_factory
+from app.core.config import settings
+from app.infrastructure.database import close_db, init_db, session_factory
 
 LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 LOGS_DIR.mkdir(exist_ok=True)

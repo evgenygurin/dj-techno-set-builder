@@ -9,11 +9,11 @@ import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.models import Base
-from app.models.catalog import Track
-from app.models.features import TrackAudioFeaturesComputed
-from app.models.runs import FeatureExtractionRun
-from app.repositories.audio_features import AudioFeaturesRepository
+from app.core.models import Base
+from app.core.models.catalog import Track
+from app.core.models.features import TrackAudioFeaturesComputed
+from app.core.models.runs import FeatureExtractionRun
+from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
 
 
 @pytest.fixture

@@ -10,10 +10,10 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.errors import NotFoundError, ValidationError
+from app.core.errors import NotFoundError, ValidationError
 from app.mcp.dependencies import get_session
 from app.mcp.refs import RefType, parse_ref
-from app.utils.audio._errors import AudioAnalysisError, AudioValidationError
+from app.audio._errors import AudioAnalysisError, AudioValidationError
 
 
 def register_compute_tools(mcp: FastMCP) -> None:
@@ -46,7 +46,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
             # Look up file path from DjLibraryItem
             from sqlalchemy import select
 
-            from app.models.dj import DjLibraryItem
+            from app.core.models.dj import DjLibraryItem
 
             stmt = select(DjLibraryItem).where(DjLibraryItem.track_id == ref.local_id)
             result = await session.execute(stmt)
@@ -63,7 +63,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
 
         # Run analysis pipeline (imports are heavy — lazy load)
         try:
-            from app.utils.audio.pipeline import extract_all_features
+            from app.audio.pipeline import extract_all_features
 
             features = extract_all_features(file_path)
 
@@ -127,7 +127,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
             exclude_track_ids: Track IDs to exclude from selection.
         """
         from app.mcp.dependencies import get_set_generation_service
-        from app.repositories.sets import (
+        from app.infrastructure.repositories.sets import (
             DjSetItemRepository,
             DjSetRepository,
             DjSetVersionRepository,

@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.errors import NotFoundError
-from app.models.catalog import Track
-from app.repositories.tracks import TrackRepository
+from app.core.errors import NotFoundError
+from app.core.models.catalog import Track
+from app.infrastructure.repositories.tracks import TrackRepository
 from app.schemas.tracks import TrackCreate, TrackUpdate
 from app.services.tracks import TrackService
 

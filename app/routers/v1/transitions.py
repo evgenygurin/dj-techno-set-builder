@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.errors import ValidationError
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.candidates import CandidateRepository
-from app.repositories.transitions import TransitionRepository
+from app.core.errors import ValidationError
+from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+from app.infrastructure.repositories.candidates import CandidateRepository
+from app.infrastructure.repositories.transitions import TransitionRepository
 from app.routers.v1._openapi import RESPONSES_DELETE, RESPONSES_GET
 from app.schemas.transitions import (
     TransitionComputeRequest,

@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.models.catalog import Release
+from app.core.models.catalog import Release
 from app.infrastructure.repositories.base import BaseRepository
 
 

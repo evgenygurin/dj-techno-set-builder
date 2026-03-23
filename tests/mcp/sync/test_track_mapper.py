@@ -6,9 +6,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.mcp.sync.track_mapper import DbTrackMapper
-from app.models.catalog import Track
-from app.models.ingestion import ProviderTrackId
-from app.models.providers import Provider
+from app.core.models.catalog import Track
+from app.core.models.ingestion import ProviderTrackId
+from app.core.models.providers import Provider
 
 
 @pytest.fixture

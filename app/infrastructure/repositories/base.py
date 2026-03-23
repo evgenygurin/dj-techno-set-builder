@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.base import Base
+from app.core.models.base import Base
 
 
 class BaseRepository[ModelT: Base]:

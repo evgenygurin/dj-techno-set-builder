@@ -2,9 +2,9 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.dj import DjLibraryItem
-from app.repositories.dj_library_items import DjLibraryItemRepository
+from app.core.models.catalog import Track
+from app.core.models.dj import DjLibraryItem
+from app.infrastructure.repositories.dj_library_items import DjLibraryItemRepository
 
 
 class TestDjLibraryItemRepository:

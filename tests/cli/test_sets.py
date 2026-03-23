@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from typer.testing import CliRunner
 
 from app.cli.main import app
-from app.models.sets import DjSet, DjSetVersion
+from app.core.models.sets import DjSet, DjSetVersion
 
 
 async def _seed_sets(factory: async_sessionmaker[AsyncSession]) -> list[int]:

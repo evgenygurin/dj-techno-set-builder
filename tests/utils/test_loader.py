@@ -7,8 +7,8 @@ import pytest
 
 soundfile = pytest.importorskip("soundfile")
 
-from app.utils.audio import AudioSignal, AudioValidationError  # noqa: E402
-from app.utils.audio.loader import load_audio, validate_audio  # noqa: E402
+from app.audio import AudioSignal, AudioValidationError  # noqa: E402
+from app.audio.loader import load_audio, validate_audio  # noqa: E402
 
 
 class TestLoadAudio:

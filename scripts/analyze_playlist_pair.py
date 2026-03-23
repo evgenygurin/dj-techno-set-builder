@@ -27,11 +27,11 @@ from sqlalchemy import select, text
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config import settings
-from app.database import close_db, init_db, session_factory
-from app.models.features import TrackAudioFeaturesComputed
-from app.models.ingestion import ProviderTrackId
-from app.models.metadata_yandex import YandexMetadata
+from app.core.config import settings
+from app.infrastructure.database import close_db, init_db, session_factory
+from app.core.models.features import TrackAudioFeaturesComputed
+from app.core.models.ingestion import ProviderTrackId
+from app.core.models.metadata_yandex import YandexMetadata
 
 
 @dataclass

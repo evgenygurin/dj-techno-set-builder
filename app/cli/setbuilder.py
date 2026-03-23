@@ -56,10 +56,10 @@ async def _build_set(
     generations: int,
     population: int,
 ) -> None:
-    from app.repositories.audio_features import AudioFeaturesRepository
-    from app.repositories.playlists import DjPlaylistItemRepository
-    from app.repositories.sections import SectionsRepository
-    from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+    from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+    from app.infrastructure.repositories.playlists import DjPlaylistItemRepository
+    from app.infrastructure.repositories.sections import SectionsRepository
+    from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
     from app.schemas.set_generation import SetGenerationRequest
     from app.schemas.sets import DjSetCreate
     from app.services.set_generation import SetGenerationService
@@ -148,10 +148,10 @@ async def _rebuild_set(
     pinned: list[int] | None,
     exclude: list[int] | None,
 ) -> None:
-    from app.repositories.audio_features import AudioFeaturesRepository
-    from app.repositories.playlists import DjPlaylistItemRepository
-    from app.repositories.sections import SectionsRepository
-    from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+    from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+    from app.infrastructure.repositories.playlists import DjPlaylistItemRepository
+    from app.infrastructure.repositories.sections import SectionsRepository
+    from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
     from app.schemas.set_generation import SetGenerationRequest
     from app.services.set_generation import SetGenerationService
     from app.services.sets import DjSetService
@@ -240,8 +240,8 @@ def score_transitions(
 
 
 async def _score_transitions(*, set_id: int, version_id: int | None) -> None:
-    from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
-    from app.repositories.tracks import TrackRepository
+    from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+    from app.infrastructure.repositories.tracks import TrackRepository
     from app.services.sets import DjSetService
     from app.services.tracks import TrackService
     from app.services.transition_scoring_unified import UnifiedTransitionScoringService

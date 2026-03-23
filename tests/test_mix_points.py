@@ -7,7 +7,7 @@ professional DJ practice.
 
 from __future__ import annotations
 
-from app.models.enums import SectionType
+from app.core.models.enums import SectionType
 from app.services.mix_points import (
     MixPoint,
     SectionInfo,

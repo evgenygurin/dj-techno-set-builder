@@ -25,9 +25,9 @@ from fastmcp.server.context import Context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.yandex_music import YandexMusicClient
-from app.config import settings
-from app.errors import NotFoundError
+from app.infrastructure.clients.yandex_music import YandexMusicClient
+from app.core.config import settings
+from app.core.errors import NotFoundError
 from app.mcp.dependencies import (
     get_features_service,
     get_session,
@@ -44,7 +44,7 @@ from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
-from app.utils.audio.camelot import key_code_to_camelot
+from app.audio.camelot import key_code_to_camelot
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +186,7 @@ async def _collect_track_data(
     # Batch-load file paths from dj_library_items
     file_path_map: dict[int, str] = {}
     if session is not None:
-        from app.models.dj import DjLibraryItem
+        from app.core.models.dj import DjLibraryItem
 
         stmt = select(DjLibraryItem.track_id, DjLibraryItem.file_path).where(
             DjLibraryItem.track_id.in_(track_ids),
@@ -314,7 +314,7 @@ async def _sync_to_ym(
     session_factory directly. Uses ORM query instead of raw SQL to prevent
     SQL injection (Issue #64, findings 1+2).
     """
-    from app.models.metadata_yandex import YandexMetadata
+    from app.core.models.metadata_yandex import YandexMetadata
 
     track_ids = [tr["track_id"] for tr in tracks]
     ym_tracks: list[dict[str, str]] = []

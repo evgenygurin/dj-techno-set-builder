@@ -8,7 +8,7 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
-from app.errors import NotFoundError, ValidationError
+from app.core.errors import NotFoundError, ValidationError
 from app.mcp.dependencies import (
     get_features_service,
     get_playlist_service,
@@ -29,8 +29,8 @@ from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
-from app.utils.audio.greedy_chain import build_greedy_chain
-from app.utils.audio.set_generator import TrackData, lufs_to_energy
+from app.audio.greedy_chain import build_greedy_chain
+from app.audio.set_generator import TrackData, lufs_to_energy
 
 
 async def _run_greedy_build(

@@ -12,7 +12,7 @@ import httpx
 import yaml
 from fastmcp import FastMCP
 
-from app.config import settings
+from app.core.config import settings
 from app.mcp.yandex_music.config import EXCLUDE_ROUTE_MAPS, build_mcp_names
 from app.mcp.yandex_music.response_filters import clean_ym_response
 

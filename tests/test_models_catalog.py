@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import (
+from app.core.models.catalog import (
     Artist,
     Genre,
     Label,
@@ -84,7 +84,7 @@ async def test_track_release_composite_pk(session: AsyncSession) -> None:
 
 
 async def test_track_genre_with_provider(session: AsyncSession) -> None:
-    from app.models.providers import Provider
+    from app.core.models.providers import Provider
 
     track = Track(title="T", duration_ms=300000)
     genre = Genre(name="Techno")

@@ -2,7 +2,7 @@
 
 from sqlalchemy import select
 
-from app.models.dj import DjCuePoint
+from app.core.models.dj import DjCuePoint
 from app.infrastructure.repositories.base import BaseRepository
 
 

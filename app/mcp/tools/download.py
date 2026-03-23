@@ -9,7 +9,7 @@ from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.core.config import settings
 from app.mcp.dependencies import get_session, get_ym_download_client
 from app.services.download import DownloadResult, DownloadService
 from app.services.yandex_music_client import YandexMusicClient

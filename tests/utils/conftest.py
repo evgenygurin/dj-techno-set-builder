@@ -9,7 +9,7 @@ import pytest
 import soundfile as sf
 from numpy.typing import NDArray
 
-from app.utils.audio import AudioSignal
+from app.audio import AudioSignal
 
 SR = 44100
 

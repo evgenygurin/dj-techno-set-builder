@@ -14,8 +14,8 @@ from pathlib import Path
 
 from sqlalchemy import text
 
-from app.config import settings
-from app.database import close_db, init_db, session_factory
+from app.core.config import settings
+from app.infrastructure.database import close_db, init_db, session_factory
 
 PLAYLIST_ID = 2
 AUDIO_DIR = Path(settings.dj_library_path).expanduser().parent / "techno-develop-recs"

@@ -5,8 +5,8 @@ import pytest
 
 essentia = pytest.importorskip("essentia")
 
-from app.utils.audio import AudioSignal, BeatsResult  # noqa: E402
-from app.utils.audio.beats import detect_beats  # noqa: E402
+from app.audio import AudioSignal, BeatsResult  # noqa: E402
+from app.audio.beats import detect_beats  # noqa: E402
 
 SR = 44100
 

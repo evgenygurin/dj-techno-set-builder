@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+from app.infrastructure.repositories.tracks import TrackRepository
 from app.routers.v1._openapi import RESPONSES_GET
 from app.schemas.features import AudioFeaturesList, AudioFeaturesRead
 from app.services.features import AudioFeaturesService

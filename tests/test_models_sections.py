@@ -2,9 +2,9 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.runs import FeatureExtractionRun
-from app.models.sections import TrackSection
+from app.core.models.catalog import Track
+from app.core.models.runs import FeatureExtractionRun
+from app.core.models.sections import TrackSection
 
 
 async def test_create_section(session: AsyncSession) -> None:

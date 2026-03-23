@@ -11,12 +11,12 @@ import json
 
 from fastmcp import Client
 
-from app.models.catalog import Track
-from app.models.dj import DjPlaylist
-from app.models.features import TrackAudioFeaturesComputed
-from app.models.harmony import Key
-from app.models.runs import FeatureExtractionRun
-from app.models.sets import DjSet
+from app.core.models.catalog import Track
+from app.core.models.dj import DjPlaylist
+from app.core.models.features import TrackAudioFeaturesComputed
+from app.core.models.harmony import Key
+from app.core.models.runs import FeatureExtractionRun
+from app.core.models.sets import DjSet
 
 
 async def _seed_keys(session) -> None:

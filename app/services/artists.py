@@ -1,5 +1,5 @@
-from app.errors import NotFoundError
-from app.repositories.artists import ArtistRepository
+from app.core.errors import NotFoundError
+from app.infrastructure.repositories.artists import ArtistRepository
 from app.schemas.artists import ArtistCreate, ArtistList, ArtistRead, ArtistUpdate
 from app.services.base import BaseService
 

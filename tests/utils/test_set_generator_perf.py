@@ -12,7 +12,7 @@ import time
 import numpy as np
 import pytest
 
-from app.utils.audio.set_generator import (
+from app.audio.set_generator import (
     GAConfig,
     GeneticSetGenerator,
     TrackData,

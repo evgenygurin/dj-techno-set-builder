@@ -7,7 +7,7 @@ Uses in-memory SQLite from conftest.py fixtures.
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import (
+from app.core.models.catalog import (
     Genre,
     Label,
     Release,
@@ -15,16 +15,16 @@ from app.models.catalog import (
     TrackGenre,
     TrackRelease,
 )
-from app.models.dj import DjBeatgrid, DjCuePoint, DjSavedLoop
-from app.models.harmony import Key
-from app.models.runs import FeatureExtractionRun
-from app.models.sections import TrackSection
-from app.repositories.dj_beatgrid import DjBeatgridRepository
-from app.repositories.dj_cue_points import DjCuePointRepository
-from app.repositories.dj_saved_loops import DjSavedLoopRepository
-from app.repositories.keys import KeyRepository
-from app.repositories.sections import SectionsRepository
-from app.repositories.tracks import TrackRepository
+from app.core.models.dj import DjBeatgrid, DjCuePoint, DjSavedLoop
+from app.core.models.harmony import Key
+from app.core.models.runs import FeatureExtractionRun
+from app.core.models.sections import TrackSection
+from app.infrastructure.repositories.dj_beatgrid import DjBeatgridRepository
+from app.infrastructure.repositories.dj_cue_points import DjCuePointRepository
+from app.infrastructure.repositories.dj_saved_loops import DjSavedLoopRepository
+from app.infrastructure.repositories.keys import KeyRepository
+from app.infrastructure.repositories.sections import SectionsRepository
+from app.infrastructure.repositories.tracks import TrackRepository
 
 
 @pytest.fixture

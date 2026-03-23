@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.repositories.keys import KeyRepository
+from app.infrastructure.repositories.keys import KeyRepository
 from app.routers.v1._openapi import RESPONSES_GET
 from app.schemas.keys import KeyList, KeyRead
 from app.services.keys import KeyService

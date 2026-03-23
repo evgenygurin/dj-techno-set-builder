@@ -1,4 +1,4 @@
-from app.models.enums import ArtistRole, AssetType, RunStatus, SectionType, SourceApp
+from app.core.models.enums import ArtistRole, AssetType, RunStatus, SectionType, SourceApp
 
 
 def test_artist_role_values() -> None:

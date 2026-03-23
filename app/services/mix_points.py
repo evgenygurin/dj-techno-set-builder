@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.models.enums import SectionType
+from app.core.models.enums import SectionType
 
 # ── Types ──────────────────────────────────────────────────
 

@@ -11,9 +11,9 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
-from app.database import get_session
+from app.infrastructure.database import get_session
 from app.main import create_app
-from app.models import Base
+from app.core.models import Base
 
 
 def _is_sqlite(url: str) -> bool:
@@ -80,7 +80,7 @@ async def seed_providers(session: AsyncSession) -> None:
     Uses merge() to handle cases where the provider already exists
     (e.g., created by the test itself before requesting this fixture).
     """
-    from app.models.providers import Provider
+    from app.core.models.providers import Provider
 
     for pid, code, name in [
         (1, "spotify", "Spotify"),

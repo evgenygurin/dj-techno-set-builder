@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.errors import NotFoundError
-from app.models.catalog import Track
-from app.models.dj import DjPlaylist
-from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
+from app.core.errors import NotFoundError
+from app.core.models.catalog import Track
+from app.core.models.dj import DjPlaylist
+from app.infrastructure.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
 from app.schemas.playlists import DjPlaylistCreate, DjPlaylistItemCreate, DjPlaylistUpdate
 from app.services.playlists import DjPlaylistService
 

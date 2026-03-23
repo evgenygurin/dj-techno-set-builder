@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Track, YandexMetadata
+from app.core.models import Track, YandexMetadata
 
 
 async def test_create_yandex_metadata(session):

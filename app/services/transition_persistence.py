@@ -5,20 +5,20 @@ import json
 
 import numpy as np
 
-from app.models.features import TrackAudioFeaturesComputed
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.candidates import CandidateRepository
-from app.repositories.transitions import TransitionRepository
+from app.core.models.features import TrackAudioFeaturesComputed
+from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+from app.infrastructure.repositories.candidates import CandidateRepository
+from app.infrastructure.repositories.transitions import TransitionRepository
 from app.services.base import BaseService
-from app.utils.audio._types import (
+from app.audio._types import (
     BandEnergyResult,
     BpmResult,
     KeyResult,
     SpectralResult,
     TransitionScore,
 )
-from app.utils.audio.camelot import camelot_distance
-from app.utils.audio.transition_score import score_transition
+from app.audio.camelot import camelot_distance
+from app.audio.transition_score import score_transition
 
 
 class TransitionPersistenceService(BaseService):

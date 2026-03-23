@@ -2,8 +2,8 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.dj import (
+from app.core.models.catalog import Track
+from app.core.models.dj import (
     DjAppExport,
     DjBeatgrid,
     DjBeatgridChangePoint,

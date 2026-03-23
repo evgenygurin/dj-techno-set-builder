@@ -2,7 +2,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.models.catalog import (
+from app.core.models.catalog import (
     Artist,
     Genre,
     Label,

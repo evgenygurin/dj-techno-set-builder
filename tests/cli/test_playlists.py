@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from typer.testing import CliRunner
 
 from app.cli.main import app
-from app.models.dj import DjPlaylist
+from app.core.models.dj import DjPlaylist
 
 
 async def _seed_playlists(factory: async_sessionmaker[AsyncSession]) -> list[int]:

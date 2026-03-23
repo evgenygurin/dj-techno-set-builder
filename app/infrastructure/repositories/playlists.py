@@ -2,7 +2,7 @@ from typing import Any
 
 from sqlalchemy import func, select
 
-from app.models.dj import DjPlaylist, DjPlaylistItem
+from app.core.models.dj import DjPlaylist, DjPlaylistItem
 from app.infrastructure.repositories.base import BaseRepository
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from app.config import Settings
+from app.core.config import Settings
 
 
 def _make_settings(**overrides: object) -> Settings:

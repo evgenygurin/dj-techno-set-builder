@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from typer.testing import CliRunner
 
 from app.cli.main import app
-from app.models.catalog import Track
+from app.core.models.catalog import Track
 
 
 async def _seed_tracks(factory: async_sessionmaker[AsyncSession]) -> list[int]:

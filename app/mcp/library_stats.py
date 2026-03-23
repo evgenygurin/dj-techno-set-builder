@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, select
 
 from app.mcp.types import LibraryStats
-from app.models.catalog import Track
-from app.models.dj import DjPlaylist
-from app.models.features import TrackAudioFeaturesComputed
-from app.models.sets import DjSet
+from app.core.models.catalog import Track
+from app.core.models.dj import DjPlaylist
+from app.core.models.features import TrackAudioFeaturesComputed
+from app.core.models.sets import DjSet
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession

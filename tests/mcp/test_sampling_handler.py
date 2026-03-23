@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.config import Settings
+from app.core.config import Settings
 
 
 def test_sampling_settings_defaults(monkeypatch: pytest.MonkeyPatch):

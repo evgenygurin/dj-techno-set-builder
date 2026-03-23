@@ -2,10 +2,10 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.runs import FeatureExtractionRun, TransitionRun
-from app.models.timeseries import TrackTimeseriesRef
-from app.models.transitions import Transition, TransitionCandidate
+from app.core.models.catalog import Track
+from app.core.models.runs import FeatureExtractionRun, TransitionRun
+from app.core.models.timeseries import TrackTimeseriesRef
+from app.core.models.transitions import Transition, TransitionCandidate
 
 
 async def test_create_timeseries_ref(session: AsyncSession) -> None:

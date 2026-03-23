@@ -18,10 +18,10 @@ from app.mcp.types import (
 )
 
 if TYPE_CHECKING:
-    from app.repositories.artists import ArtistRepository
-    from app.repositories.playlists import DjPlaylistRepository
-    from app.repositories.sets import DjSetRepository
-    from app.repositories.tracks import TrackRepository
+    from app.infrastructure.repositories.artists import ArtistRepository
+    from app.infrastructure.repositories.playlists import DjPlaylistRepository
+    from app.infrastructure.repositories.sets import DjSetRepository
+    from app.infrastructure.repositories.tracks import TrackRepository
 
 
 class TrackFinder:

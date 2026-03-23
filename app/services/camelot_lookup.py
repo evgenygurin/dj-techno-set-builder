@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.repositories.harmony import KeyEdgeRepository
+from app.infrastructure.repositories.harmony import KeyEdgeRepository
 from app.services.base import BaseService
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ class CamelotLookupService(BaseService):
 
         if self.session is None:
             # Use pitch-class overlap scoring (no DB needed)
-            from app.utils.audio.camelot import build_pitch_class_lookup
+            from app.audio.camelot import build_pitch_class_lookup
 
             self._lookup = build_pitch_class_lookup()
             self._built = True
@@ -45,7 +45,7 @@ class CamelotLookupService(BaseService):
             self._lookup[(edge.from_key_code, edge.to_key_code)] = edge.weight
 
         # Ensure all 24x24 pairs exist — use pitch-class overlap as fallback
-        from app.utils.audio.camelot import camelot_score
+        from app.audio.camelot import camelot_score
 
         for i in range(24):
             for j in range(24):

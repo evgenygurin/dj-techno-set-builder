@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.harmony import Key, KeyEdge
+from app.core.models.harmony import Key, KeyEdge
 
 
 async def test_create_key(session: AsyncSession) -> None:

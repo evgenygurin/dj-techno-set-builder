@@ -2,10 +2,10 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.features import TrackAudioFeaturesComputed
-from app.models.harmony import Key
-from app.models.runs import FeatureExtractionRun
+from app.core.models.catalog import Track
+from app.core.models.features import TrackAudioFeaturesComputed
+from app.core.models.harmony import Key
+from app.core.models.runs import FeatureExtractionRun
 
 
 def _make_features(**overrides: object) -> dict:

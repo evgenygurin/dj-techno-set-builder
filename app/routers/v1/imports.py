@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.config import settings
+from app.core.config import settings
 from app.dependencies import DbSession
 from app.schemas.imports import (
     YandexEnrichRequest,

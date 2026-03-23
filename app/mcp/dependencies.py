@@ -12,15 +12,15 @@ from contextlib import asynccontextmanager
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.yandex_music import YandexMusicClient as YMApiClient
-from app.config import settings
-from app.database import session_factory
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
-from app.repositories.sections import SectionsRepository
-from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
-from app.repositories.tracks import TrackRepository
-from app.repositories.transitions import TransitionRepository
+from app.infrastructure.clients.yandex_music import YandexMusicClient as YMApiClient
+from app.core.config import settings
+from app.infrastructure.database import session_factory
+from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+from app.infrastructure.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
+from app.infrastructure.repositories.sections import SectionsRepository
+from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+from app.infrastructure.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.transitions import TransitionRepository
 from app.services.features import AudioFeaturesService
 from app.services.playlists import DjPlaylistService
 from app.services.set_generation import SetGenerationService

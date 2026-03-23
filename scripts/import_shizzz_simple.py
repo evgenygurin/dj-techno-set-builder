@@ -6,10 +6,10 @@ import asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import close_db, init_db, session_factory
-from app.models.catalog import Track
-from app.models.ingestion import ProviderTrackId
-from app.models.providers import Provider
+from app.infrastructure.database import close_db, init_db, session_factory
+from app.core.models.catalog import Track
+from app.core.models.ingestion import ProviderTrackId
+from app.core.models.providers import Provider
 
 # Track IDs and metadata from Yandex Music playlist "Shizzz"
 TRACKS = [

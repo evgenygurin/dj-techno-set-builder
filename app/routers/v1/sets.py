@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.playlists import DjPlaylistItemRepository
-from app.repositories.sections import SectionsRepository
-from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+from app.infrastructure.repositories.playlists import DjPlaylistItemRepository
+from app.infrastructure.repositories.sections import SectionsRepository
+from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
 from app.routers.v1._openapi import (
     RESPONSES_CREATE,
     RESPONSES_DELETE,

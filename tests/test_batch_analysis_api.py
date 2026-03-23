@@ -5,7 +5,7 @@ import pytest
 
 essentia = pytest.importorskip("essentia")
 
-from app.utils.audio import (  # noqa: E402
+from app.audio import (  # noqa: E402
     BandEnergyResult,
     BpmResult,
     KeyResult,

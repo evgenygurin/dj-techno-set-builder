@@ -10,8 +10,8 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.errors import NotFoundError
-from app.models.catalog import (
+from app.core.errors import NotFoundError
+from app.core.models.catalog import (
     Artist,
     Genre,
     Label,
@@ -21,13 +21,13 @@ from app.models.catalog import (
     TrackGenre,
     TrackRelease,
 )
-from app.models.enums import ArtistRole
-from app.models.ingestion import ProviderTrackId, RawProviderResponse
-from app.repositories.providers import ProviderRepository
-from app.repositories.yandex_metadata import YandexMetadataRepository
+from app.core.models.enums import ArtistRole
+from app.core.models.ingestion import ProviderTrackId, RawProviderResponse
+from app.infrastructure.repositories.providers import ProviderRepository
+from app.infrastructure.repositories.yandex_metadata import YandexMetadataRepository
 from app.services.base import BaseService
 from app.services.yandex_music_client import ParsedYmTrack, YandexMusicClient, parse_ym_track
-from app.utils.text_sort import sort_key
+from app.core.text_sort import sort_key
 
 _PROVIDER_CODE = "ym"
 

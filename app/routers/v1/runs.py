@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.repositories.runs import FeatureRunRepository, TransitionRunRepository
+from app.infrastructure.repositories.runs import FeatureRunRepository, TransitionRunRepository
 from app.routers.v1._openapi import RESPONSES_CREATE, RESPONSES_GET
 from app.schemas.runs import (
     FeatureRunCreate,

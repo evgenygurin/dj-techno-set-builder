@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.errors import NotFoundError
+from app.core.errors import NotFoundError
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.services.analysis import AnalysisOrchestrator
 

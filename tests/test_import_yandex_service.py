@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock
 
 from sqlalchemy import text
 
-from app.models import Track
+from app.core.models import Track
 
 
 async def test_enrich_track_creates_metadata(session, seed_providers):
@@ -40,7 +40,7 @@ async def test_enrich_track_creates_metadata(session, seed_providers):
     assert result is True
 
     # Verify YandexMetadata
-    from app.repositories.yandex_metadata import YandexMetadataRepository
+    from app.infrastructure.repositories.yandex_metadata import YandexMetadataRepository
 
     meta = await YandexMetadataRepository(session).get_by_track_id(track.track_id)
     assert meta is not None
@@ -110,7 +110,7 @@ async def test_enrich_track_skips_already_enriched(session):
     await session.flush()
 
     # Pre-create metadata
-    from app.models.metadata_yandex import YandexMetadata
+    from app.core.models.metadata_yandex import YandexMetadata
 
     meta = YandexMetadata(
         track_id=track.track_id,

@@ -1,5 +1,5 @@
-from app.errors import NotFoundError
-from app.repositories.keys import KeyRepository
+from app.core.errors import NotFoundError
+from app.infrastructure.repositories.keys import KeyRepository
 from app.schemas.keys import KeyList, KeyRead
 from app.services.base import BaseService
 

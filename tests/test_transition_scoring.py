@@ -4,7 +4,7 @@ import pytest
 
 essentia = pytest.importorskip("essentia")
 
-from app.models.features import TrackAudioFeaturesComputed  # noqa: E402
+from app.core.models.features import TrackAudioFeaturesComputed  # noqa: E402
 from app.services.transition_persistence import TransitionPersistenceService  # noqa: E402
 
 

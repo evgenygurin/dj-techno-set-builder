@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 import sentry_sdk
 from fastapi import FastAPI
 
-from app.config import settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +50,8 @@ _init_sentry()
 
 from fastmcp.utilities.lifespan import combine_lifespans  # noqa: E402
 
-from app.database import close_db, init_db  # noqa: E402
-from app.errors import register_error_handlers  # noqa: E402
+from app.infrastructure.database import close_db, init_db  # noqa: E402
+from app.core.errors import register_error_handlers  # noqa: E402
 from app.mcp import create_dj_mcp  # noqa: E402
 from app.middleware import apply_middleware  # noqa: E402
 from app.routers import register_routers  # noqa: E402

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import numpy as np
 import pytest
 
-from app.errors import ValidationError
+from app.core.errors import ValidationError
 from app.services.set_generation import SetGenerationService
 
 

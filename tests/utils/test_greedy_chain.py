@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from app.utils.audio.greedy_chain import GreedyChainResult, build_greedy_chain
-from app.utils.audio.set_generator import TrackData
+from app.audio.greedy_chain import GreedyChainResult, build_greedy_chain
+from app.audio.set_generator import TrackData
 
 
 def _make_tracks(count: int) -> list[TrackData]:

@@ -2,8 +2,8 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.sets import DjSet, DjSetConstraint, DjSetFeedback, DjSetItem, DjSetVersion
+from app.core.models.catalog import Track
+from app.core.models.sets import DjSet, DjSetConstraint, DjSetFeedback, DjSetItem, DjSetVersion
 
 
 async def test_create_set(session: AsyncSession) -> None:

@@ -6,7 +6,7 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
-from app.errors import NotFoundError
+from app.core.errors import NotFoundError
 from app.mcp.dependencies import (
     get_features_service,
     get_playlist_service,
@@ -32,8 +32,8 @@ from app.services.set_curation import SetCurationService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
-from app.utils.audio.mood_classifier import TrackMood
-from app.utils.audio.set_templates import TemplateName, get_template
+from app.audio.mood_classifier import TrackMood
+from app.audio.set_templates import TemplateName, get_template
 
 
 def register_curation_tools(mcp: FastMCP) -> None:
@@ -155,7 +155,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
             version_id: Set version to review.
             template: Template to compare energy arc against (default: classic_60).
         """
-        from app.utils.audio.set_generator import TrackData, lufs_to_energy, variety_score
+        from app.audio.set_generator import TrackData, lufs_to_energy, variety_score
 
         set_id = resolve_local_id(set_ref, "set")
         set_obj = await set_svc.get(set_id)

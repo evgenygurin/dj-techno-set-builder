@@ -5,8 +5,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.ingestion import ProviderTrackId
-from app.models.providers import Provider
+from app.core.models.ingestion import ProviderTrackId
+from app.core.models.providers import Provider
 
 
 class DbTrackMapper:

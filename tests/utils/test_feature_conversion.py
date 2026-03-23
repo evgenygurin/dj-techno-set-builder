@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from app.utils.audio.feature_conversion import orm_features_to_track_features
+from app.audio.feature_conversion import orm_features_to_track_features
 
 
 def _make_feat(**overrides: object) -> MagicMock:

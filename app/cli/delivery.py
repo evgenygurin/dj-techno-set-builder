@@ -44,15 +44,15 @@ async def _deliver_set(
     import json
     from pathlib import Path
 
-    from app.config import settings
-    from app.repositories.audio_features import AudioFeaturesRepository
-    from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
-    from app.repositories.tracks import TrackRepository
+    from app.core.config import settings
+    from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+    from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+    from app.infrastructure.repositories.tracks import TrackRepository
     from app.services.features import AudioFeaturesService
     from app.services.sets import DjSetService
     from app.services.tracks import TrackService
     from app.services.transition_scoring_unified import UnifiedTransitionScoringService
-    from app.utils.audio.camelot import key_code_to_camelot
+    from app.audio.camelot import key_code_to_camelot
 
     async with open_session() as session:
         set_svc = DjSetService(
@@ -227,7 +227,7 @@ async def _deliver_set(
         if sync_ym:
             console.print("\n[bold]Stage 3/3[/bold] — Syncing to Yandex Music...")
             try:
-                from app.clients.yandex_music import YandexMusicClient
+                from app.infrastructure.clients.yandex_music import YandexMusicClient
 
                 if not settings.yandex_music_token or not settings.yandex_music_user_id:
                     err_console.print(

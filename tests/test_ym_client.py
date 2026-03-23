@@ -1,6 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock
 
-from app.clients.yandex_music import YandexMusicClient
+from app.infrastructure.clients.yandex_music import YandexMusicClient
 
 
 async def test_search_tracks() -> None:

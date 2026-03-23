@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.repositories.labels import LabelRepository
+from app.infrastructure.repositories.labels import LabelRepository
 from app.routers.v1._openapi import (
     RESPONSES_CREATE,
     RESPONSES_DELETE,

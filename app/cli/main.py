@@ -58,7 +58,7 @@ def info() -> None:
 
 async def _info() -> None:
     from app.cli._context import open_session
-    from app.config import settings
+    from app.core.config import settings
 
     lines = [
         f"[bold]App:[/bold] {settings.app_name}",

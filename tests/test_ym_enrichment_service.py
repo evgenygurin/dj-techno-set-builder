@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.providers import Provider
+from app.core.models.catalog import Track
+from app.core.models.providers import Provider
 from app.services.yandex_music_enrichment import YandexMusicEnrichmentService
 
 

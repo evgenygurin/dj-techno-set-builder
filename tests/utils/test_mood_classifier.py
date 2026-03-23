@@ -10,7 +10,7 @@ discriminative features while keeping other features near the dataset median.
 
 import pytest
 
-from app.utils.audio.mood_classifier import (
+from app.audio.mood_classifier import (
     MoodClassification,
     TrackMood,
     classify_track,

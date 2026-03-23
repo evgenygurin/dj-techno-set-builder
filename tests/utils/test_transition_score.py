@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from app.utils.audio import (
+from app.audio import (
     BandEnergyResult,
     BpmResult,
     KeyResult,
     SpectralResult,
 )
-from app.utils.audio.transition_score import (
+from app.audio.transition_score import (
     TransitionScore,
     score_transition,
 )

@@ -19,7 +19,7 @@ from app.services.rekordbox_types import (
     RekordboxTrackData,
 )
 from app.services.set_export import export_json_guide, export_m3u, export_rekordbox_xml
-from app.utils.audio._types import TransitionRecommendation, TransitionType
+from app.audio._types import TransitionRecommendation, TransitionType
 
 # ---------------------------------------------------------------------------
 # Helpers

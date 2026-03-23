@@ -43,7 +43,7 @@ async def test_feature_run_list_schema():
 
 
 async def test_create_feature_run(session):
-    from app.repositories.runs import FeatureRunRepository
+    from app.infrastructure.repositories.runs import FeatureRunRepository
 
     repo = FeatureRunRepository(session)
     run = await repo.create(
@@ -57,7 +57,7 @@ async def test_create_feature_run(session):
 
 
 async def test_complete_feature_run(session):
-    from app.repositories.runs import FeatureRunRepository
+    from app.infrastructure.repositories.runs import FeatureRunRepository
 
     repo = FeatureRunRepository(session)
     run = await repo.create(
@@ -72,7 +72,7 @@ async def test_complete_feature_run(session):
 
 
 async def test_fail_feature_run(session):
-    from app.repositories.runs import FeatureRunRepository
+    from app.infrastructure.repositories.runs import FeatureRunRepository
 
     repo = FeatureRunRepository(session)
     run = await repo.create(

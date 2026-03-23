@@ -5,9 +5,9 @@ import asyncio
 import hashlib
 from pathlib import Path
 
-from app.config import settings
-from app.database import close_db, init_db, session_factory
-from app.repositories.dj_library_items import DjLibraryItemRepository
+from app.core.config import settings
+from app.infrastructure.database import close_db, init_db, session_factory
+from app.infrastructure.repositories.dj_library_items import DjLibraryItemRepository
 
 # All track IDs from import
 TRACK_IDS = [

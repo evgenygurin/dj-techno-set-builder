@@ -1,7 +1,7 @@
 """Tests for set templates and slot definitions."""
 
-from app.utils.audio.mood_classifier import TrackMood
-from app.utils.audio.set_templates import (
+from app.audio.mood_classifier import TrackMood
+from app.audio.set_templates import (
     SetSlot,
     TemplateName,
     get_template,

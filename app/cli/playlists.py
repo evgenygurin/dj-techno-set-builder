@@ -22,7 +22,7 @@ def list_playlists(
 
 
 async def _list_playlists(*, search: str | None, limit: int, offset: int) -> None:
-    from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
+    from app.infrastructure.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
     from app.services.playlists import DjPlaylistService
 
     async with open_session() as session:
@@ -49,8 +49,8 @@ def get_playlist(
 
 
 async def _get_playlist(*, playlist_id: int, show_tracks: bool, limit: int) -> None:
-    from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
-    from app.repositories.tracks import TrackRepository
+    from app.infrastructure.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
+    from app.infrastructure.repositories.tracks import TrackRepository
     from app.services.playlists import DjPlaylistService
     from app.services.tracks import TrackService
 
@@ -106,7 +106,7 @@ def create_playlist(
 
 
 async def _create_playlist(*, name: str) -> None:
-    from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
+    from app.infrastructure.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
     from app.schemas.playlists import DjPlaylistCreate
     from app.services.playlists import DjPlaylistService
 
@@ -128,7 +128,7 @@ def delete_playlist(
 
 
 async def _delete_playlist(*, playlist_id: int) -> None:
-    from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
+    from app.infrastructure.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
     from app.services.playlists import DjPlaylistService
 
     async with open_session() as session:

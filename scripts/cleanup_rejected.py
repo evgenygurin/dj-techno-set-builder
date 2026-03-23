@@ -22,8 +22,8 @@ from pathlib import Path
 import httpx
 from sqlalchemy import text
 
-from app.config import settings
-from app.database import close_db, init_db, session_factory
+from app.core.config import settings
+from app.infrastructure.database import close_db, init_db, session_factory
 
 # ── Logging ──────────────────────────────────────────────
 LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"

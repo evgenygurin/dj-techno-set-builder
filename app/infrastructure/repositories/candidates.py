@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.models.transitions import TransitionCandidate
+from app.core.models.transitions import TransitionCandidate
 from app.infrastructure.repositories.base import BaseRepository
 
 

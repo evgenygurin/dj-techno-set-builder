@@ -4,8 +4,8 @@ import pytest
 
 essentia = pytest.importorskip("essentia")
 
-from app.utils.audio import AudioSignal, BpmResult  # noqa: E402
-from app.utils.audio.bpm import estimate_bpm  # noqa: E402
+from app.audio import AudioSignal, BpmResult  # noqa: E402
+from app.audio.bpm import estimate_bpm  # noqa: E402
 
 
 class TestEstimateBpm:

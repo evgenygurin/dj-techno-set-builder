@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from fastmcp import FastMCP
     from fastmcp.server.middleware import MiddlewareContext
 
-    from app.config import Settings
+    from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
 

@@ -21,7 +21,7 @@ from sqlalchemy import text
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # fmt: on
 
-from app.database import close_db, init_db, session_factory
+from app.infrastructure.database import close_db, init_db, session_factory
 
 # Worker script for subprocess isolation
 WORKER_SCRIPT = Path(__file__).parent / "_analyze_worker.py"

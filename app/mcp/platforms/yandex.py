@@ -6,7 +6,7 @@ import contextlib
 import logging
 from typing import Any
 
-from app.clients.yandex_music import YandexMusicClient as YMApiClient
+from app.infrastructure.clients.yandex_music import YandexMusicClient as YMApiClient
 from app.mcp.platforms.protocol import (
     PlatformCapability,
     PlatformPlaylist,

@@ -1,8 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.catalog import Track
-from app.models.ingestion import ProviderTrackId, RawProviderResponse
-from app.models.providers import Provider
+from app.core.models.catalog import Track
+from app.core.models.ingestion import ProviderTrackId, RawProviderResponse
+from app.core.models.providers import Provider
 
 
 async def test_create_provider_track_id(session: AsyncSession) -> None:
