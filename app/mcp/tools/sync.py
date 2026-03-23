@@ -11,7 +11,6 @@ import logging
 from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -30,8 +29,6 @@ from app.mcp.platforms.registry import PlatformRegistry
 from app.mcp.resolve import resolve_local_id
 from app.mcp.sync.diff import SyncDirection
 from app.mcp.sync.engine import SyncEngine, TrackMapper
-from app.models.metadata_yandex import YandexMetadata
-from app.models.sets import DjSet
 from app.services.playlists import DjPlaylistService
 from app.services.sets import DjSetService
 from app.services.yandex_music_client import YandexMusicClient
@@ -111,6 +108,10 @@ async def _do_sync_set_to_ym(
     ym_id_to_album: dict[str, str] = {}
 
     if session is not None:
+        from sqlalchemy import select
+
+        from app.models.metadata_yandex import YandexMetadata
+
         ym_ids_list = list(id_map.values())
         if ym_ids_list:
             stmt = select(YandexMetadata).where(
@@ -156,6 +157,8 @@ async def _do_sync_set_to_ym(
 
     # Update dj_sets.ym_playlist_id
     if session is not None:
+        from app.models.sets import DjSet
+
         dj_set_obj = await session.get(DjSet, set_id)
         if dj_set_obj is not None:
             dj_set_obj.ym_playlist_id = kind
