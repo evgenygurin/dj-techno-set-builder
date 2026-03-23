@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 async def _build_playlist_detail(
-    playlist_id: int, svc: DjPlaylistService,
+    playlist_id: int,
+    svc: DjPlaylistService,
 ) -> PlaylistDetail | None:
     """Build PlaylistDetail with track stats."""
     playlist = await svc.repo.get_by_id(playlist_id)
@@ -63,7 +64,9 @@ def register_playlist_tools(mcp: FastMCP) -> None:
 
         if search:
             playlists, total = await svc.repo.search_by_name(
-                search, offset=offset, limit=clamped,
+                search,
+                offset=offset,
+                limit=clamped,
             )
         else:
             playlists, total = await svc.repo.list(offset=offset, limit=clamped)
@@ -72,8 +75,7 @@ def register_playlist_tools(mcp: FastMCP) -> None:
             [p.playlist_id for p in playlists],
         )
         summaries = [
-            playlist_to_summary(p, item_count=counts.get(p.playlist_id, 0))
-            for p in playlists
+            playlist_to_summary(p, item_count=counts.get(p.playlist_id, 0)) for p in playlists
         ]
         return await wrap_list(summaries, total, offset, clamped, session)
 
@@ -100,7 +102,11 @@ def register_playlist_tools(mcp: FastMCP) -> None:
             finder = PlaylistFinder(svc.repo)
             found = await finder.find(ref, limit=20)
             return await wrap_list(
-                found.entities, len(found.entities), 0, 20, session,
+                found.entities,
+                len(found.entities),
+                0,
+                20,
+                session,
             )
 
         raise ToolError(f"Platform refs not yet supported: {playlist_ref}")
@@ -203,7 +209,8 @@ def register_playlist_tools(mcp: FastMCP) -> None:
         await ctx.info(f"Fetching tracks from YM playlist kind={ym_kind}...")
 
         ym_tracks = await ym_client.fetch_playlist_tracks(
-            user_id=str(user_id), kind=str(ym_kind),
+            user_id=str(user_id),
+            kind=str(ym_kind),
         )
         total_ym = len(ym_tracks)
 
@@ -219,7 +226,8 @@ def register_playlist_tools(mcp: FastMCP) -> None:
 
         matched_track_ids = await svc.match_ym_ids_to_track_ids(ym_ids)
         added, skipped = await svc.populate_from_track_ids(
-            playlist_id, matched_track_ids,
+            playlist_id,
+            matched_track_ids,
         )
         await svc.link_platform(playlist_id, "ym", str(ym_kind))
 

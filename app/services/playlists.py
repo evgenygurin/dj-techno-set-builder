@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import builtins
+
 from sqlalchemy import select
 
 from app.errors import NotFoundError
@@ -96,8 +98,10 @@ class DjPlaylistService(BaseService):
         return total
 
     async def match_ym_ids_to_track_ids(
-        self, ym_ids: list[str], ym_provider_id: int = 4,
-    ) -> set[int]:
+        self,
+        ym_ids: builtins.list[str],
+        ym_provider_id: int = 4,
+    ) -> builtins.set[int]:
         """Match YM track IDs to local track_ids via provider_track_ids."""
         session = self.item_repo.session
         stmt = select(ProviderTrackId.track_id).where(
@@ -108,11 +112,15 @@ class DjPlaylistService(BaseService):
         return {row[0] for row in result}
 
     async def populate_from_track_ids(
-        self, playlist_id: int, track_ids: set[int],
+        self,
+        playlist_id: int,
+        track_ids: set[int],
     ) -> tuple[int, int]:
         """Add track_ids to playlist, skipping duplicates. Returns (added, skipped)."""
         existing_items, _ = await self.item_repo.list_by_playlist(
-            playlist_id, offset=0, limit=10000,
+            playlist_id,
+            offset=0,
+            limit=10000,
         )
         existing = {item.track_id for item in existing_items}
         next_sort = len(existing_items)
@@ -137,7 +145,10 @@ class DjPlaylistService(BaseService):
         return added, skipped
 
     async def link_platform(
-        self, playlist_id: int, platform: str, platform_id: str,
+        self,
+        playlist_id: int,
+        platform: str,
+        platform_id: str,
     ) -> None:
         """Update platform_ids on a playlist."""
         playlist = await self.repo.get_by_id(playlist_id)
