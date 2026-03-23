@@ -29,8 +29,8 @@ from app.services.set_generation import SetGenerationService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.utils.audio.feature_conversion import orm_to_track_data
 from app.utils.audio.greedy_chain import build_greedy_chain
-from app.utils.audio.set_generator import TrackData, lufs_to_energy
 
 
 async def _run_greedy_build(
@@ -70,16 +70,8 @@ async def _run_greedy_build(
         if not all_features:
             raise ValidationError("All tracks were excluded")
 
-    # Convert to TrackData (LUFS-based energy matching GA convention)
-    tracks = [
-        TrackData(
-            track_id=f.track_id,
-            bpm=f.bpm,
-            energy=lufs_to_energy(f.lufs_i),
-            key_code=f.key_code or 0,
-        )
-        for f in all_features
-    ]
+    # Convert to TrackData via unified converter (includes mood classification)
+    tracks = [orm_to_track_data(f) for f in all_features]
 
     await ctx.report_progress(progress=30, total=100)
     await ctx.info(f"Loaded {len(tracks)} tracks, running greedy chain...")

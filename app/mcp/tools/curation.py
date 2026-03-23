@@ -32,6 +32,7 @@ from app.services.set_curation import SetCurationService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.utils.audio.feature_conversion import orm_to_track_data
 from app.utils.audio.mood_classifier import TrackMood
 from app.utils.audio.set_templates import TemplateName, get_template
 
@@ -155,7 +156,7 @@ def register_curation_tools(mcp: FastMCP) -> None:
             version_id: Set version to review.
             template: Template to compare energy arc against (default: classic_60).
         """
-        from app.utils.audio.set_generator import TrackData, lufs_to_energy, variety_score
+        from app.utils.audio.set_generator import variety_score
 
         set_id = resolve_local_id(set_ref, "set")
         set_obj = await set_svc.get(set_id)
@@ -201,22 +202,12 @@ def register_curation_tools(mcp: FastMCP) -> None:
         # Variety scoring
         all_features = await features_svc.list_all()
         feat_map = {f.track_id: f for f in all_features}
-        classified = svc.classify_features(all_features)
 
-        track_data_list = []
-        for item in items:
-            feat = feat_map.get(item.track_id)
-            mood_int = classified.get(item.track_id, TrackMood.DRIVING).intensity
-            if feat:
-                track_data_list.append(
-                    TrackData(
-                        track_id=item.track_id,
-                        bpm=feat.bpm,
-                        energy=lufs_to_energy(feat.lufs_i),
-                        key_code=feat.key_code or 0,
-                        mood=mood_int,
-                    )
-                )
+        track_data_list = [
+            orm_to_track_data(feat_map[item.track_id])
+            for item in items
+            if item.track_id in feat_map
+        ]
         var_score = variety_score(track_data_list) if track_data_list else 0.0
 
         # Energy arc adherence: compare actual LUFS curve to template

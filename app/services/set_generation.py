@@ -15,14 +15,13 @@ from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVer
 from app.schemas.set_generation import SetGenerationRequest, SetGenerationResponse
 from app.services.base import BaseService
 from app.services.transition_scoring import TrackFeatures, TransitionScoringService
-from app.utils.audio.mood_classifier import classify_track
+from app.utils.audio.feature_conversion import orm_to_track_data
 from app.utils.audio.set_generator import (
     EnergyArcType,
     GAConfig,
     GAConstraints,
     GeneticSetGenerator,
     TrackData,
-    lufs_to_energy,
 )
 from app.utils.audio.set_templates import SetSlot, TemplateName, get_template
 
@@ -160,32 +159,12 @@ class SetGenerationService(BaseService):
             track_ids = [f.track_id for f in features_list]
             sections_map = await self.sections_repo.get_latest_by_track_ids(track_ids)
 
-        # Classify moods for all tracks
-        mood_map: dict[int, int] = {}
-        for f in features_list:
-            classification = classify_track(
-                bpm=f.bpm,
-                lufs_i=f.lufs_i,
-                kick_prominence=f.kick_prominence or 0.5,
-                spectral_centroid_mean=f.centroid_mean_hz or 2500.0,
-                onset_rate=f.onset_rate_mean or 5.0,
-                hp_ratio=f.hp_ratio or 0.5,
-            )
-            mood_map[f.track_id] = classification.mood.intensity
-
         # Load primary artist_id for each track (for variety scoring in GA)
         artist_map = await self._load_artist_map([f.track_id for f in features_list])
 
-        # Build TrackData list (LUFS-based energy for accurate perceived loudness)
+        # Build TrackData list via unified converter (fixes hp_ratio default bug)
         tracks = [
-            TrackData(
-                track_id=f.track_id,
-                bpm=f.bpm,
-                energy=lufs_to_energy(f.lufs_i),
-                key_code=f.key_code or 0,
-                mood=mood_map.get(f.track_id, 0),
-                artist_id=artist_map.get(f.track_id, 0),
-            )
+            orm_to_track_data(f, artist_id=artist_map.get(f.track_id, 0))
             for f in features_list
         ]
 

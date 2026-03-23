@@ -1,7 +1,7 @@
-"""Convert ORM audio features to TransitionScoringService TrackFeatures.
+"""Convert ORM audio features to domain types.
 
 Single source of truth — every call-site that needs ORM → TrackFeatures
-must go through this function to prevent drift between scoring paths.
+or ORM → TrackData must go through these functions to prevent drift.
 
 Defaults are centralised in ``_DEFAULTS`` to avoid magic numbers scattered
 across the conversion logic.
@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import contextlib
 import json as _json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from app.models.enums import SectionType
 from app.services.transition_scoring import TrackFeatures
+from app.utils.audio.mood_classifier import classify_track
+from app.utils.audio.set_generator import TrackData, lufs_to_energy
 
 if TYPE_CHECKING:
     from app.models.features import TrackAudioFeaturesComputed
@@ -27,7 +29,7 @@ _DEFAULTS: dict[str, float] = {
     "kick_prominence": 0.5,  # neutral kick presence (mid-range)
     "hnr_db": 0.0,  # 0 dB HNR — equal harmonic/noise energy
     "spectral_slope": 0.0,  # flat spectrum — no tilt assumption
-    "hp_ratio": 0.5,  # equal harmonic/percussive — neutral balance
+    "hp_ratio": 2.0,  # P50 for techno ~2.2 (harmonic-dominant); was 0.5 (BUG)
 }
 
 
@@ -98,4 +100,69 @@ def orm_features_to_track_features(
         hp_ratio=(feat.hp_ratio if feat.hp_ratio is not None else _DEFAULTS["hp_ratio"]),
         first_section=first_section,
         last_section=last_section,
+    )
+
+
+# Centralised fallback defaults for mood classification.
+# Values are P50 medians from real techno data (N=583).
+_CLASSIFY_DEFAULTS: dict[str, float] = {
+    "kick_prominence": 0.5,
+    "spectral_centroid_mean": 2500.0,
+    "onset_rate": 5.0,
+    "hp_ratio": 2.0,  # P50 for techno ~2.2; NOT 0.5
+    "flux_mean": 0.18,
+    "flux_std": 0.10,
+    "energy_std": 0.13,
+    "energy_mean": 0.22,
+    "lra_lu": 6.6,
+    "crest_factor_db": 13.3,
+    "flatness_mean": 0.06,
+}
+
+
+def orm_to_track_data(
+    feat: TrackAudioFeaturesComputed | Any,
+    artist_id: int = 0,
+) -> TrackData:
+    """Convert a features object to ``TrackData`` with mood classification.
+
+    Accepts both ORM ``TrackAudioFeaturesComputed`` and Pydantic
+    ``AudioFeaturesRead`` — any object with matching attribute names.
+
+    Single source of truth — replaces 3+ duplicated inline patterns across
+    ``set_generation.py``, ``mcp/tools/setbuilder.py``, ``mcp/tools/curation.py``,
+    and ``services/set_curation.py``.
+
+    Uses the FULL 13-parameter ``classify_track()`` call with correct defaults
+    (fixes hp_ratio bug: was 0.5 in some call-sites, should be 2.0).
+    """
+    def _g(attr: str, default: float) -> float:
+        """Get float attr from feat, falling back to default if missing/non-numeric."""
+        val = getattr(feat, attr, None)
+        return val if isinstance(val, (int, float)) else default
+
+    d = _CLASSIFY_DEFAULTS
+    classification = classify_track(
+        bpm=feat.bpm,
+        lufs_i=feat.lufs_i,
+        kick_prominence=_g("kick_prominence", d["kick_prominence"]),
+        spectral_centroid_mean=_g("centroid_mean_hz", d["spectral_centroid_mean"]),
+        onset_rate=_g("onset_rate_mean", d["onset_rate"]),
+        hp_ratio=_g("hp_ratio", d["hp_ratio"]),
+        flux_mean=_g("flux_mean", d["flux_mean"]),
+        flux_std=_g("flux_std", d["flux_std"]),
+        energy_std=_g("energy_std", d["energy_std"]),
+        energy_mean=_g("energy_mean", d["energy_mean"]),
+        lra_lu=_g("lra_lu", d["lra_lu"]),
+        crest_factor_db=_g("crest_factor_db", d["crest_factor_db"]),
+        flatness_mean=_g("flatness_mean", d["flatness_mean"]),
+    )
+
+    return TrackData(
+        track_id=feat.track_id,
+        bpm=feat.bpm,
+        energy=lufs_to_energy(feat.lufs_i),
+        key_code=feat.key_code or 0,
+        mood=classification.mood.intensity,
+        artist_id=artist_id,
     )
