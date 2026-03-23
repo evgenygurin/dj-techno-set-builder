@@ -15,9 +15,9 @@ from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVer
 from app.schemas.set_generation import SetGenerationRequest, SetGenerationResponse
 from app.services.base import BaseService
 from app.services.transition_scoring import TrackFeatures, TransitionScoringService
+from app.utils.audio.energy_arcs import EnergyArcType
 from app.utils.audio.feature_conversion import orm_to_track_data
 from app.utils.audio.set_generator import (
-    EnergyArcType,
     GAConfig,
     GAConstraints,
     GeneticSetGenerator,

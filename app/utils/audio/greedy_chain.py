@@ -17,7 +17,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from app.utils.audio.camelot import camelot_distance, key_code_to_camelot
-from app.utils.audio.set_generator import EnergyArcType, TrackData
+from app.utils.audio.energy_arcs import EnergyArcType
+from app.utils.audio.set_generator import TrackData
 
 
 @dataclass(frozen=True, slots=True)

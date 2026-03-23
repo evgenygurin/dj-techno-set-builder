@@ -15,8 +15,9 @@ from typing import TYPE_CHECKING, Any
 
 from app.models.enums import SectionType
 from app.services.transition_scoring import TrackFeatures
+from app.utils.audio.energy_arcs import lufs_to_energy
 from app.utils.audio.mood_classifier import classify_track
-from app.utils.audio.set_generator import TrackData, lufs_to_energy
+from app.utils.audio.set_generator import TrackData
 
 if TYPE_CHECKING:
     from app.models.features import TrackAudioFeaturesComputed
