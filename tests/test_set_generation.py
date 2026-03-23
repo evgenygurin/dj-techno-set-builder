@@ -15,15 +15,17 @@ from app.models.features import TrackAudioFeaturesComputed
 from app.models.harmony import Key
 from app.models.runs import FeatureExtractionRun
 from app.models.sets import DjSet
-from app.utils.audio.set_generator import (
+from app.utils.audio.energy_arcs import (
     _ARC_BREAKPOINTS,
     EnergyArcType,
+    _interpolate_breakpoints,
+    target_energy_curve,
+)
+from app.utils.audio.set_generator import (
     GAConfig,
     GAResult,
     GeneticSetGenerator,
     TrackData,
-    _interpolate_breakpoints,
-    target_energy_curve,
 )
 
 # ═══════════════════════════════════════════════════════════

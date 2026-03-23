@@ -10,21 +10,16 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from enum import StrEnum
 
 import numpy as np
 from numpy.typing import NDArray
 
+from app.utils.audio.energy_arcs import (
+    EnergyArcType,
+    lufs_to_energy,  # noqa: F401 — re-exported for backward compat
+    target_energy_curve,
+)
 from app.utils.audio.set_templates import SetSlot
-
-
-class EnergyArcType(StrEnum):
-    """Predefined energy arc shapes for techno sets."""
-
-    CLASSIC = "classic"  # intro → buildup → peak → breakdown → peak2 → outro
-    PROGRESSIVE = "progressive"  # slow linear rise to a single peak, then drop
-    ROLLER = "roller"  # sustained high energy with minimal valleys
-    WAVE = "wave"  # multiple peaks and troughs
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,14 +35,11 @@ class GAConfig:
     track_count: int | None = None  # None = use all tracks
     energy_arc_type: EnergyArcType = EnergyArcType.CLASSIC
     seed: int | None = None
-    # Fitness weights (should sum to ~1.0)
-    # Without template: 0.40 + 0.25 + 0.15 + 0.20 + 0.00 = 1.0
-    # With template:    0.35 + 0.20 + 0.10 + 0.10 + 0.25 = 1.0
     w_transition: float = 0.40
     w_energy_arc: float = 0.25
     w_bpm_smooth: float = 0.15
     w_variety: float = 0.20
-    w_template: float = 0.0  # 0.0 = no template, 0.25 = recommended with template
+    w_template: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,119 +73,6 @@ class GAResult:
     energy_arc_score: float
     bpm_smoothness_score: float
     generations_run: int
-
-
-def _interpolate_breakpoints(
-    n: int, breakpoints: list[tuple[float, float]]
-) -> NDArray[np.float64]:
-    """Linearly interpolate breakpoints into an array of length *n*.
-
-    Args:
-        n: Output array length (≥1).
-        breakpoints: List of ``(position, energy)`` pairs where
-            position ∈ [0, 1] and energy ∈ [0, 1].  Must be sorted
-            by position and include endpoints 0.0 and 1.0.
-
-    Returns:
-        Piecewise-linear energy curve of length *n*, values in [0, 1].
-    """
-    bp_x = np.array([p for p, _ in breakpoints], dtype=np.float64)
-    bp_y = np.array([e for _, e in breakpoints], dtype=np.float64)
-    t = np.linspace(0.0, 1.0, n, dtype=np.float64)
-    return np.clip(np.interp(t, bp_x, bp_y), 0.0, 1.0)
-
-
-# ── Breakpoint definitions for each arc type ────────────────
-#
-# Each list is a sequence of (normalised_position, energy_level)
-# tuples modelling a real techno DJ set structure.
-#
-# Validated against:
-#   - Cliff (CMJ 2000): tension/release arcs in DJ mixes
-#   - Kim et al. (ISMIR 2020): energy trajectory analysis of 300+ DJ sets
-#   - Professional DJ set analysis (Objective 7 of research report)
-
-_CLASSIC_BREAKPOINTS: list[tuple[float, float]] = [
-    # intro → buildup → peak → breakdown → peak2 → outro
-    (0.00, 0.25),  # intro: gentle opener
-    (0.10, 0.40),  # warm-up
-    (0.25, 0.70),  # buildup
-    (0.40, 0.95),  # first peak
-    (0.55, 0.45),  # breakdown / tension release
-    (0.65, 0.75),  # rebuilding
-    (0.80, 1.00),  # main peak (climax)
-    (0.90, 0.80),  # winding down
-    (1.00, 0.30),  # outro
-]
-
-_PROGRESSIVE_BREAKPOINTS: list[tuple[float, float]] = [
-    # slow build to single climax at ~80%, then release
-    (0.00, 0.20),  # quiet start
-    (0.20, 0.30),  # slow build
-    (0.40, 0.50),  # mid-intensity plateau
-    (0.60, 0.70),  # gaining momentum
-    (0.80, 1.00),  # climax
-    (0.90, 0.60),  # rapid descent
-    (1.00, 0.25),  # outro
-]
-
-_ROLLER_BREAKPOINTS: list[tuple[float, float]] = [
-    # sustained high energy with a brief intro/outro ramp
-    (0.00, 0.50),  # short ramp in
-    (0.10, 0.80),  # quickly to high energy
-    (0.30, 0.90),  # plateau
-    (0.50, 0.85),  # slight dip
-    (0.70, 0.95),  # push higher
-    (0.90, 0.85),  # still high
-    (1.00, 0.55),  # brief ramp out
-]
-
-_WAVE_BREAKPOINTS: list[tuple[float, float]] = [
-    # three peaks of varying intensity
-    (0.00, 0.30),  # start
-    (0.12, 0.70),  # first peak
-    (0.25, 0.35),  # first valley
-    (0.40, 0.85),  # second peak (higher)
-    (0.55, 0.40),  # second valley
-    (0.72, 1.00),  # third peak (highest)
-    (0.85, 0.50),  # descent
-    (1.00, 0.25),  # outro
-]
-
-_ARC_BREAKPOINTS: dict[EnergyArcType, list[tuple[float, float]]] = {
-    EnergyArcType.CLASSIC: _CLASSIC_BREAKPOINTS,
-    EnergyArcType.PROGRESSIVE: _PROGRESSIVE_BREAKPOINTS,
-    EnergyArcType.ROLLER: _ROLLER_BREAKPOINTS,
-    EnergyArcType.WAVE: _WAVE_BREAKPOINTS,
-}
-
-
-def target_energy_curve(n: int, arc_type: EnergyArcType) -> NDArray[np.float64]:
-    """Generate a target energy array of length *n* for the given arc type.
-
-    Uses piecewise-linear interpolation between musically-meaningful
-    breakpoints.  This is strictly superior to the previous sinusoidal
-    approach because breakpoints directly model real DJ set structures
-    (intro → buildup → peak → breakdown → peak2 → outro).
-
-    Returns values in [0, 1].
-    """
-    if n <= 1:
-        return np.array([0.5], dtype=np.float64)
-
-    breakpoints = _ARC_BREAKPOINTS.get(arc_type)
-    if breakpoints is None:  # pragma: no cover — StrEnum guarantees exhaustive
-        return np.full(n, 0.5, dtype=np.float64)
-
-    return _interpolate_breakpoints(n, breakpoints)
-
-
-def lufs_to_energy(lufs: float) -> float:
-    """Map LUFS to [0, 1] energy range.
-
-    Techno range: -14 LUFS (ambient) to -6 LUFS (hard).
-    """
-    return max(0.0, min(1.0, (lufs - (-14.0)) / ((-6.0) - (-14.0))))
 
 
 def variety_score(tracks: list[TrackData]) -> float:

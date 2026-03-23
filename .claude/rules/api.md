@@ -45,7 +45,8 @@ Every router follows the same structure:
 router = APIRouter(prefix="/tracks", tags=["tracks"])
 
 def _service(db: DbSession) -> TrackService:
-    return TrackService(TrackRepository(db))
+    from app.services._factories import build_track_service
+    return build_track_service(db)  # Unified factory — same as MCP DI
 
 @router.get("", response_model=TrackList, responses=RESPONSES_GET,
             summary="List tracks", operation_id="listTracks")
@@ -135,24 +136,44 @@ Examples: `AnalysisOrchestrator` (4 repos), `SetGenerationService` (6 repos: 4 r
 
 ## Yandex Music client
 
-`app/clients/yandex_music.py` — `YandexMusicClient`:
-- Lazy httpx.AsyncClient initialization
+`app/services/yandex_music_client.py` — **единый** `YandexMusicClient` (merged from thin client + rate-limited client):
+- Rate limiting built-in (`asyncio.sleep` + lock)
+- Configurable `base_url` and `user_id`
 - Auth: OAuth token from `settings.yandex_music_token`
-- Configured via env vars: `YANDEX_MUSIC_TOKEN`, `YANDEX_MUSIC_BASE_URL`, `YANDEX_MUSIC_USER_ID`
 
 | Method | Args | Returns | Notes |
 |--------|------|---------|-------|
-| `search_tracks(query)` | str | list[dict] | Search YM catalog |
-| `fetch_tracks(track_ids)` | list[int] | list[dict] | Batch fetch by ID |
+| `search_tracks(query, page=0)` | str, int | list[dict] | Search YM catalog |
+| `fetch_tracks(track_ids)` | list[str] | dict[str, dict] | Batch fetch by ID (returns dict keyed by ID) |
+| `fetch_tracks_metadata(track_ids)` | list[str] | list[dict] | Batch fetch raw (returns list) |
+| `fetch_playlist_tracks(user_id, kind)` | str, str | list[dict] | All tracks from playlist |
 | `create_playlist(user_id, title, visibility)` | int, str, str | int | Returns `kind` (playlist ID) |
 | `add_tracks_to_playlist(user_id, kind, tracks, revision)` | int, int, list[dict], int | None | `tracks` = `[{"id": "...", "albumId": "..."}]` |
+| `delete_playlist(user_id, kind)` | int, int | None | Delete playlist |
+| `get_similar_tracks(track_id)` | str | list[dict] | Similar tracks for discovery |
+| `resolve_download_url(track_id)` | str | str | 3-step signed URL resolution |
+| `download_track(track_id, dest_path)` | str, str | int | Download MP3, returns file size |
 | `close()` | — | None | Close HTTP client |
 
-**YM diff format** — `add_tracks_to_playlist` sends JSON array (NOT object):
+**Note**: `app/clients/` directory deleted — all YM code is in `app/services/yandex_music_client.py`.
+
+## Unified DI factories
+
+`app/services/_factories.py` — 8 factory functions called by both FastAPI routers and FastMCP DI:
+
 ```python
-diff = [{"op": "insert", "at": 0, "tracks": [{"id": "123", "albumId": "456"}]}]
-await _post_form(f"/users/{uid}/playlists/{kind}/change", {"diff": json.dumps(diff), "revision": "1"})
+build_track_service(session) -> TrackService
+build_playlist_service(session) -> DjPlaylistService
+build_features_service(session) -> AudioFeaturesService
+build_set_service(session) -> DjSetService
+build_analysis_service(session) -> TrackAnalysisService
+build_generation_service(session) -> SetGenerationService
+build_transition_service(session) -> TransitionService
+build_unified_scoring(session) -> UnifiedTransitionScoringService
+build_analysis_orchestrator(session) -> AnalysisOrchestrator
 ```
+
+Eliminates duplication between `app/routers/v1/` inline `_service()` functions and `app/mcp/dependencies.py` factory functions.
 
 ## Configuration
 

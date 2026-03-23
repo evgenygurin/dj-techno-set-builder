@@ -28,14 +28,14 @@ paths:
 | `structure` | `segment_structure()` | `StructureResult` | Section boundaries (intro, drop, outro) |
 | `stems` | `separate_stems()` | `StemsResult` | Source separation via Demucs (ML) |
 | `camelot` | `key_code_to_camelot()` | `str` | Convert key code to Camelot notation |
-| `transition_score` | `score_transition()` | `TransitionResult` | Compatibility score between tracks |
-| `set_generator` | `generate_set()` | `SetResult` | GA for optimal track ordering |
+| `energy_arcs` | `target_energy_curve()`, `lufs_to_energy()` | `NDArray`, `float` | Energy arc breakpoints + LUFS mapping (extracted from set_generator) |
+| `set_generator` | `GeneticSetGenerator.run()` | `GAResult` | GA for optimal track ordering (791 LOC) |
 | `mfcc` | `extract_mfcc()` | `MfccResult` | 13 mean MFCC coefficients (librosa) |
 | `pipeline` | `extract_all_features()` | `AllFeatures` | Orchestrator — runs all analyses |
 | `mood_classifier` | `classify_track()` | `MoodClassification` | Rule-based 15-subgenre classification with fuzzy scoring |
 | `set_templates` | `get_template()` | `SetTemplate` | 8 DJ set templates with slot-based energy arcs |
 | `greedy_chain` | `build_greedy_chain()` | `list[TrackData]` | Greedy chain builder — fast alternative to GA |
-| `feature_conversion` | `orm_to_track_features()` | `TrackFeatures` | ORM→TrackFeatures single source of truth |
+| `feature_conversion` | `orm_to_track_features()`, `orm_to_track_data()` | `TrackFeatures`, `TrackData` | ORM→domain type converters (single source of truth) |
 
 **Pattern**: Each module exports one pure function returning a frozen `@dataclass(frozen=True, slots=True)`. All types defined in `_types.py`.
 

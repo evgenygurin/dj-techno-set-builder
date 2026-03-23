@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **hp_ratio default bug**: `set_generation.py` used 0.5 (percussive) instead of 2.0 (P50 for techno). Caused incorrect mood classification for ~40% of tracks.
+
+### Changed
+
+- **Unified `orm_to_track_data()`**: Single converter in `feature_conversion.py` with full 13-parameter `classify_track()` call. Replaces 3 duplicated inline patterns.
+- **Deleted v1 scoring module**: `transition_score.py` (165 LOC, 3-component) removed. `TransitionPersistenceService` migrated to v2 `TransitionScoringService` (6-component).
+- **Unified DI factories**: `services/_factories.py` — 8 factory functions called by both FastAPI and FastMCP DI. Eliminates divergence between two DI systems.
+- **Single M3U generator**: `delivery._write_m3u8()` replaced with `set_export.export_m3u()`. Delivery M3U now includes 15+ DJ-specific tags instead of 3.
+- **Single YandexMusicClient**: Merged `clients/yandex_music.py` (thin) and `services/yandex_music_client.py` (rate-limited). Added `create_playlist`, `add_tracks_to_playlist`, `get_similar_tracks`, `page` param to `search_tracks`. Deleted `app/clients/` directory.
+- **CandidateDiscoveryService**: Extracted from `curation_discovery.py` (563→150 LOC in MCP tool).
+- **DeliveryService**: Extracted from `delivery.py` (518→144 LOC in MCP tool).
+- **SetReviewService**: Extracted `review_set` logic (115 LOC) into `services/set_review.py`.
+- **DjPlaylistService expanded**: Added `match_ym_ids_to_track_ids`, `populate_from_track_ids`, `link_platform`, `get_track_count` methods.
+- **Energy arcs extracted**: `energy_arcs.py` (129 LOC) split from `set_generator.py` (912→791 LOC).
+- **Zero top-level cross-layer imports in MCP tools**: All direct repository, model, and sqlalchemy imports removed from `app/mcp/tools/` top-level.
+- **Services→MCP boundary enforced**: `sanitize_filename` moved to `app/utils/text_sort.py`, `score_consecutive_transitions` to `app/services/scoring_helpers.py`, domain types (`TransitionScoreResult`, `TransitionSummary`, `WeakTransition`, `SetReviewResult`) to `app/services/transition_types.py`. Services have zero imports from `app.mcp`.
+
+### Added
+
+- **import-linter contracts**: 3 contracts enforce layer boundaries in CI — audio domain purity, services→adapters isolation (including `app.mcp`), adapter independence. Added to `make check`.
+
 ## [0.3.0] - 2026-03-22
 
 ### Added

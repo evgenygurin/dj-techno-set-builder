@@ -50,6 +50,7 @@ dev = [
     "ruff>=0.9",
     "mypy>=1.14",
     "pytest-cov>=7.0.0",
+    "import-linter>=2.11",
 ]
 
 [project.scripts]
@@ -142,3 +143,55 @@ addopts = "-m 'not slow'"
 
 [tool.bandit]
 exclude_dirs = ["tests", "scripts", "migrations"]
+
+# ── Import Linter ─────────────────────────────────────────────────────────────
+# Enforces architectural boundaries between layers.
+# Run: uv run lint-imports
+
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Audio utils have zero framework dependencies"
+type = "forbidden"
+source_modules = ["app.utils.audio"]
+forbidden_modules = [
+    "sqlalchemy",
+    "fastapi",
+    "fastmcp",
+    "httpx",
+    "app.models",
+    "app.repositories",
+    "app.services",
+    "app.schemas",
+    "app.routers",
+    "app.mcp",
+    "app.cli",
+]
+# Allow imports of audio sub-modules and app.config/errors
+ignore_imports = [
+    "app.utils.audio.feature_conversion -> app.models.enums",
+    "app.utils.audio.feature_conversion -> app.services.transition_scoring",
+    "app.utils.audio.feature_conversion -> app.models.features",
+    "app.utils.audio.feature_conversion -> app.models.sections",
+]
+
+[[tool.importlinter.contracts]]
+name = "Services cannot import adapters"
+type = "forbidden"
+source_modules = ["app.services"]
+forbidden_modules = [
+    "app.routers",
+    "app.mcp",
+    "app.cli",
+]
+
+[[tool.importlinter.contracts]]
+name = "Adapters are independent (MCP cannot import routers, routers cannot import MCP)"
+type = "independence"
+modules = [
+    "app.routers",
+    "app.mcp",
+    "app.cli",
+]

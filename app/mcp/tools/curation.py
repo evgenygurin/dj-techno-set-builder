@@ -15,7 +15,6 @@ from app.mcp.dependencies import (
     get_unified_scoring,
 )
 from app.mcp.resolve import resolve_local_id
-from app.mcp.tools._scoring_helpers import score_consecutive_transitions
 from app.mcp.types import (
     ClassifyResult,
     DistributeResult,
@@ -23,7 +22,6 @@ from app.mcp.types import (
     LibraryGapResult,
     MoodDistribution,
     SetReviewResult,
-    WeakTransition,
 )
 from app.schemas.playlists import DjPlaylistCreate, DjPlaylistItemCreate
 from app.services.features import AudioFeaturesService
@@ -147,113 +145,22 @@ def register_curation_tools(mcp: FastMCP) -> None:
     ) -> SetReviewResult:
         """Review a DJ set version — identify weak spots and suggest improvements.
 
-        Analyses transitions, energy arc, and mood variety. Returns
-        weak transitions (score < 0.4), energy plateaus, and suggestions.
-
         Args:
             set_ref: DJ set ref (int, "42", or "local:42").
             version_id: Set version to review.
             template: Template to compare energy arc against (default: classic_60).
         """
-        from app.utils.audio.set_generator import TrackData, lufs_to_energy, variety_score
+        from app.services.set_review import review_set_version
 
         set_id = resolve_local_id(set_ref, "set")
-        set_obj = await set_svc.get(set_id)
-        items_list = await set_svc.list_items(version_id, offset=0, limit=500)
-
-        # Use set's template if available, otherwise fall back to provided template
-        actual_template = set_obj.template_name or template
-        items = sorted(items_list.items, key=lambda i: i.sort_index)
-
-        if len(items) < 2:
-            return SetReviewResult(
-                overall_score=0.0,
-                energy_arc_adherence=0.0,
-                variety_score=0.0,
-                weak_transitions=[],
-                suggestions=["Set too short"],
-            )
-
-        svc = SetCurationService()
-
-        # Score all transitions via shared helper
-        score_results = await score_consecutive_transitions(
-            items, unified_svc, track_svc, features_svc
-        )
-
-        weak: list[WeakTransition] = []
-        scores: list[float] = []
-        for i, sr in enumerate(score_results):
-            scores.append(sr.total)
-            if sr.total < 0.4:
-                weak.append(
-                    WeakTransition(
-                        position=i,
-                        from_track_id=sr.from_track_id,
-                        to_track_id=sr.to_track_id,
-                        score=round(sr.total, 3),
-                        reason=("Low transition quality" if sr.total > 0 else "Missing features"),
-                    )
-                )
-
-        avg_score = sum(scores) / len(scores) if scores else 0.0
-
-        # Variety scoring
-        all_features = await features_svc.list_all()
-        feat_map = {f.track_id: f for f in all_features}
-        classified = svc.classify_features(all_features)
-
-        track_data_list = []
-        for item in items:
-            feat = feat_map.get(item.track_id)
-            mood_int = classified.get(item.track_id, TrackMood.DRIVING).intensity
-            if feat:
-                track_data_list.append(
-                    TrackData(
-                        track_id=item.track_id,
-                        bpm=feat.bpm,
-                        energy=lufs_to_energy(feat.lufs_i),
-                        key_code=feat.key_code or 0,
-                        mood=mood_int,
-                    )
-                )
-        var_score = variety_score(track_data_list) if track_data_list else 0.0
-
-        # Energy arc adherence: compare actual LUFS curve to template
-        # Preserve original set positions - use None for missing features
-        track_lufs_with_positions: list[float | None] = []
-        for item in items:
-            if item.track_id in feat_map:
-                track_lufs_with_positions.append(feat_map[item.track_id].lufs_i)
-            else:
-                # For missing features, use None to mark gaps
-                track_lufs_with_positions.append(None)
-
-        # Compute arc score only if we have enough tracks with features
-        if sum(1 for x in track_lufs_with_positions if x is not None) >= 2:
-            arc_score = svc.compute_energy_arc_adherence_with_gaps(
-                track_lufs_with_positions, actual_template
-            )
-        else:
-            arc_score = 0.0
-
-        suggestions: list[str] = []
-        if weak:
-            suggestions.append(f"{len(weak)} weak transitions (score < 0.4)")
-        if var_score < 0.7:
-            suggestions.append("Low variety — consider diversifying mood/key sequences")
-        if arc_score < 0.5:
-            suggestions.append(
-                f"Energy arc adherence is low ({arc_score:.1%}) — "
-                f"set does not follow {actual_template} template energy curve"
-            )
-
-        return SetReviewResult(
-            overall_score=round(avg_score, 3),
-            energy_arc_adherence=arc_score,
-            variety_score=round(var_score, 3),
-            weak_transitions=weak,
-            suggestions=suggestions,
+        return await review_set_version(
+            set_id=set_id,
+            version_id=version_id,
+            template=template,
+            set_svc=set_svc,
+            unified_svc=unified_svc,
+            features_svc=features_svc,
+            track_svc=track_svc,
         )
 
     @mcp.tool(
@@ -285,76 +192,24 @@ def register_curation_tools(mcp: FastMCP) -> None:
         no_features = 0
         failures: list[dict[str, object]] = []
 
+        from app.services.techno_criteria import audit_track_features
+
         for i, item in enumerate(items):
             await ctx.report_progress(progress=i, total=total)
 
-            # Get track title for reporting
             try:
                 track = await track_svc.get(item.track_id)
                 title = track.title
             except NotFoundError:
                 title = f"track#{item.track_id}"
 
-            # Get latest features
             try:
                 feat = await features_svc.get_latest(item.track_id)
             except NotFoundError:
                 no_features += 1
                 continue
 
-            reasons: list[str] = []
-
-            # BPM: 120-155
-            if feat.bpm < 120:
-                reasons.append(f"BPM {feat.bpm:.1f} < 120")
-            elif feat.bpm > 155:
-                reasons.append(f"BPM {feat.bpm:.1f} > 155")
-
-            # LUFS: -20 to -4
-            if feat.lufs_i < -20:
-                reasons.append(f"LUFS {feat.lufs_i:.1f} < -20")
-            elif feat.lufs_i > -4:
-                reasons.append(f"LUFS {feat.lufs_i:.1f} > -4")
-
-            # energy_mean > 0.05
-            if feat.energy_mean <= 0.05:
-                reasons.append(f"energy {feat.energy_mean:.3f} <= 0.05")
-
-            # onset_rate_mean > 1.0
-            if feat.onset_rate_mean is not None and feat.onset_rate_mean <= 1.0:
-                reasons.append(f"onset_rate {feat.onset_rate_mean:.2f} <= 1.0")
-
-            # kick_prominence > 0.05
-            if feat.kick_prominence is not None and feat.kick_prominence <= 0.05:
-                reasons.append(f"kick {feat.kick_prominence:.3f} <= 0.05")
-
-            # centroid: 300-10000 Hz
-            if feat.centroid_mean_hz is not None:
-                if feat.centroid_mean_hz < 300:
-                    reasons.append(f"centroid {feat.centroid_mean_hz:.0f}Hz < 300")
-                elif feat.centroid_mean_hz > 10000:
-                    reasons.append(f"centroid {feat.centroid_mean_hz:.0f}Hz > 10000")
-
-            # flatness < 0.5
-            if feat.flatness_mean is not None and feat.flatness_mean >= 0.5:
-                reasons.append(f"flatness {feat.flatness_mean:.3f} >= 0.5")
-
-            # tempo_confidence > 0.3
-            if feat.tempo_confidence <= 0.3:
-                reasons.append(f"tempo_conf {feat.tempo_confidence:.2f} <= 0.3")
-
-            # bpm_stability > 0.3
-            if feat.bpm_stability <= 0.3:
-                reasons.append(f"bpm_stab {feat.bpm_stability:.2f} <= 0.3")
-
-            # pulse_clarity > 0.02
-            if feat.pulse_clarity is not None and feat.pulse_clarity <= 0.02:
-                reasons.append(f"pulse {feat.pulse_clarity:.3f} <= 0.02")
-
-            # hp_ratio < 8.0
-            if feat.hp_ratio is not None and feat.hp_ratio >= 8.0:
-                reasons.append(f"hp_ratio {feat.hp_ratio:.2f} >= 8.0")
-
+            reasons = audit_track_features(feat)
             if reasons:
                 failures.append(
                     {

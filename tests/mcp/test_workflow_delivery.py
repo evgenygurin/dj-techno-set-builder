@@ -7,8 +7,8 @@ from unittest.mock import patch
 import pytest
 from fastmcp import Client, FastMCP
 
-from app.mcp.tools.delivery import _build_transition_summary, _generate_cheat_sheet, _safe_name
 from app.mcp.types.workflows import TransitionScoreResult
+from app.services.delivery import DeliveryService, _safe_name
 
 # ── Unit tests for helpers ─────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ def test_safe_name_removes_bad_chars():
 
 
 def test_build_transition_summary_empty():
-    summary = _build_transition_summary([])
+    summary = DeliveryService.build_transition_summary([])
     assert summary.total == 0
     assert summary.hard_conflicts == 0
     assert summary.weak == 0
@@ -54,7 +54,7 @@ def _make_score(total: float, from_id: int = 1, to_id: int = 2) -> TransitionSco
 
 def test_build_transition_summary_counts():
     scores = [_make_score(0.0), _make_score(0.7), _make_score(0.9)]
-    summary = _build_transition_summary(scores)
+    summary = DeliveryService.build_transition_summary(scores)
     assert summary.total == 3
     assert summary.hard_conflicts == 1
     assert summary.weak == 1  # 0.7 < 0.85
@@ -68,7 +68,7 @@ def test_generate_cheat_sheet_basic():
         {"position": 2, "track_id": 2, "title": "Beta", "bpm": 142.0, "key": "9A", "lufs": -7.0},
     ]
     scores = [_make_score(0.92)]
-    sheet = _generate_cheat_sheet("Test Set", tracks, scores)
+    sheet = DeliveryService.generate_cheat_sheet("Test Set", tracks, scores)
     assert "Test Set" in sheet
     assert "Alpha" in sheet
     assert "Beta" in sheet
@@ -82,7 +82,7 @@ def test_generate_cheat_sheet_flags_weak():
         {"position": 2, "track_id": 2, "title": "B", "bpm": 142.0},
     ]
     scores = [_make_score(0.5)]  # < 0.85 → !
-    sheet = _generate_cheat_sheet("Test", tracks, scores)
+    sheet = DeliveryService.generate_cheat_sheet("Test", tracks, scores)
     assert "!" in sheet
 
 
@@ -141,7 +141,7 @@ async def test_deliver_set_empty_version(workflow_mcp_with_db: FastMCP, session,
     await session.commit()
 
     # Patch output dir to tmp_path so no real filesystem writes outside tests
-    with patch("app.mcp.tools.delivery._output_dir", return_value=tmp_path):
+    with patch("app.services.delivery.output_dir", return_value=tmp_path):
         async with Client(workflow_mcp_with_db) as c:
             raw = await c.call_tool(
                 "deliver_set",

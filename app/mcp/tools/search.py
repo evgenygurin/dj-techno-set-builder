@@ -9,7 +9,13 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.mcp.dependencies import get_session
+from app.mcp.dependencies import (
+    get_features_service,
+    get_playlist_service,
+    get_session,
+    get_set_service,
+    get_track_service,
+)
 from app.mcp.entity_finder import ArtistFinder, PlaylistFinder, SetFinder, TrackFinder
 from app.mcp.library_stats import get_library_stats
 from app.mcp.pagination import encode_cursor, paginate_params
@@ -20,10 +26,10 @@ from app.mcp.types import (
     PaginationInfo,
     SearchResponse,
 )
-from app.repositories.artists import ArtistRepository
-from app.repositories.playlists import DjPlaylistRepository
-from app.repositories.sets import DjSetRepository
-from app.repositories.tracks import TrackRepository
+from app.services.features import AudioFeaturesService
+from app.services.playlists import DjPlaylistService
+from app.services.sets import DjSetService
+from app.services.tracks import TrackService
 
 
 def register_search_tools(mcp: FastMCP) -> None:
@@ -36,6 +42,9 @@ def register_search_tools(mcp: FastMCP) -> None:
         limit: int = 20,
         cursor: str | None = None,
         session: AsyncSession = Depends(get_session),
+        track_svc: TrackService = Depends(get_track_service),
+        playlist_svc: DjPlaylistService = Depends(get_playlist_service),
+        set_svc: DjSetService = Depends(get_set_service),
     ) -> SearchResponse:
         """Universal search across all entities and platforms.
 
@@ -57,10 +66,14 @@ def register_search_tools(mcp: FastMCP) -> None:
         results: dict[str, list[dict[str, Any]]] = {}
         total_matches: dict[str, int] = {}
 
-        track_repo = TrackRepository(session)
-        playlist_repo = DjPlaylistRepository(session)
-        set_repo = DjSetRepository(session)
-        artist_repo = ArtistRepository(session)
+        track_repo = track_svc.repo
+        playlist_repo = playlist_svc.repo
+        set_repo = set_svc.repo
+
+        # ArtistRepository shares session via track_repo's session
+        from app.repositories.artists import ArtistRepository
+
+        artist_repo = ArtistRepository(track_repo.session)
 
         if scope in ("all", "tracks"):
             finder = TrackFinder(track_repo, track_repo)
@@ -117,11 +130,10 @@ def register_search_tools(mcp: FastMCP) -> None:
         limit: int = 50,
         cursor: str | None = None,
         session: AsyncSession = Depends(get_session),
+        track_svc_f: TrackService = Depends(get_track_service),
+        features_svc_f: AudioFeaturesService = Depends(get_features_service),
     ) -> EntityListResponse:
         """Filter tracks by audio parameters (BPM, key, energy, spectral).
-
-        Uses SQL-level filtering — efficient for large libraries.
-        Returns paginated track list with BPM/key/energy populated.
 
         Args:
             bpm_min: Minimum BPM (e.g. 138.0).
@@ -142,11 +154,10 @@ def register_search_tools(mcp: FastMCP) -> None:
         """
         from app.mcp.converters import track_to_summary
         from app.mcp.response import wrap_list
-        from app.repositories.audio_features import AudioFeaturesRepository
 
         offset, clamped = paginate_params(cursor=cursor, limit=limit)
-        features_repo = AudioFeaturesRepository(session)
-        track_repo = TrackRepository(session)
+        features_repo = features_svc_f.features_repo
+        track_repo = track_svc_f.repo
 
         # Build key_codes list from range if provided
         key_codes: list[int] | None = None

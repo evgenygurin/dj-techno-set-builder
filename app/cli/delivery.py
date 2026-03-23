@@ -227,7 +227,7 @@ async def _deliver_set(
         if sync_ym:
             console.print("\n[bold]Stage 3/3[/bold] — Syncing to Yandex Music...")
             try:
-                from app.clients.yandex_music import YandexMusicClient
+                from app.services.yandex_music_client import YandexMusicClient
 
                 if not settings.yandex_music_token or not settings.yandex_music_user_id:
                     err_console.print(

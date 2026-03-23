@@ -12,15 +12,18 @@ from contextlib import asynccontextmanager
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.yandex_music import YandexMusicClient as YMApiClient
 from app.config import settings
 from app.database import session_factory
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
-from app.repositories.sections import SectionsRepository
-from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
-from app.repositories.tracks import TrackRepository
-from app.repositories.transitions import TransitionRepository
+from app.services._factories import (
+    build_analysis_service,
+    build_features_service,
+    build_generation_service,
+    build_playlist_service,
+    build_set_service,
+    build_track_service,
+    build_transition_service,
+    build_unified_scoring,
+)
 from app.services.features import AudioFeaturesService
 from app.services.playlists import DjPlaylistService
 from app.services.set_generation import SetGenerationService
@@ -29,7 +32,7 @@ from app.services.track_analysis import TrackAnalysisService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 from app.services.transitions import TransitionService
-from app.services.yandex_music_client import YandexMusicClient as YMDownloadClient
+from app.services.yandex_music_client import YandexMusicClient
 
 
 @asynccontextmanager
@@ -51,91 +54,70 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 def get_track_service(
     session: AsyncSession = Depends(get_session),
 ) -> TrackService:
-    """Build a TrackService with all required repositories."""
-    return TrackService(TrackRepository(session))
+    """Build a TrackService via shared factory."""
+    return build_track_service(session)
 
 
 def get_playlist_service(
     session: AsyncSession = Depends(get_session),
 ) -> DjPlaylistService:
-    """Build a DjPlaylistService with playlist and item repositories."""
-    return DjPlaylistService(
-        DjPlaylistRepository(session),
-        DjPlaylistItemRepository(session),
-    )
+    """Build a DjPlaylistService via shared factory."""
+    return build_playlist_service(session)
 
 
 def get_features_service(
     session: AsyncSession = Depends(get_session),
 ) -> AudioFeaturesService:
-    """Build an AudioFeaturesService with features and track repositories."""
-    return AudioFeaturesService(
-        AudioFeaturesRepository(session),
-        TrackRepository(session),
-    )
+    """Build an AudioFeaturesService via shared factory."""
+    return build_features_service(session)
 
 
 def get_analysis_service(
     session: AsyncSession = Depends(get_session),
 ) -> TrackAnalysisService:
-    """Build a TrackAnalysisService with track, features, and sections repos."""
-    return TrackAnalysisService(
-        TrackRepository(session),
-        AudioFeaturesRepository(session),
-        SectionsRepository(session),
-    )
+    """Build a TrackAnalysisService via shared factory."""
+    return build_analysis_service(session)
 
 
 def get_set_service(
     session: AsyncSession = Depends(get_session),
 ) -> DjSetService:
-    """Build a DjSetService with set, version, and item repositories."""
-    return DjSetService(
-        DjSetRepository(session),
-        DjSetVersionRepository(session),
-        DjSetItemRepository(session),
-    )
+    """Build a DjSetService via shared factory."""
+    return build_set_service(session)
 
 
 def get_set_generation_service(
     session: AsyncSession = Depends(get_session),
 ) -> SetGenerationService:
-    """Build a SetGenerationService with all required repositories."""
-    return SetGenerationService(
-        DjSetRepository(session),
-        DjSetVersionRepository(session),
-        DjSetItemRepository(session),
-        AudioFeaturesRepository(session),
-        SectionsRepository(session),
-        DjPlaylistItemRepository(session),
-    )
+    """Build a SetGenerationService via shared factory."""
+    return build_generation_service(session)
 
 
 def get_transition_service(
     session: AsyncSession = Depends(get_session),
 ) -> TransitionService:
-    """Build a TransitionService with a transition repository."""
-    return TransitionService(TransitionRepository(session))
+    """Build a TransitionService via shared factory."""
+    return build_transition_service(session)
 
 
 def get_unified_scoring(
     session: AsyncSession = Depends(get_session),
 ) -> UnifiedTransitionScoringService:
-    """Build a UnifiedTransitionScoringService with DB session."""
-    return UnifiedTransitionScoringService(session)
+    """Build a UnifiedTransitionScoringService via shared factory."""
+    return build_unified_scoring(session)
 
 
-def get_ym_client() -> YMApiClient:
-    """Build a YandexMusicClient API client from application settings."""
-    return YMApiClient(
+def get_ym_client() -> YandexMusicClient:
+    """Build a YandexMusicClient for API operations."""
+    return YandexMusicClient(
         token=settings.yandex_music_token,
         base_url=settings.yandex_music_base_url,
     )
 
 
-def get_ym_download_client() -> YMDownloadClient:
-    """Build a YandexMusicClient download client from application settings."""
-    return YMDownloadClient(
+def get_ym_download_client() -> YandexMusicClient:
+    """Build a YandexMusicClient for download operations (with user_id)."""
+    return YandexMusicClient(
         token=settings.yandex_music_token,
         user_id=settings.yandex_music_user_id,
     )
@@ -167,9 +149,6 @@ def get_sync_engine(
     session: AsyncSession = Depends(get_session),
 ) -> SyncEngine:
     """Build a SyncEngine with playlist service and track mapper."""
-    playlist_svc = DjPlaylistService(
-        DjPlaylistRepository(session),
-        DjPlaylistItemRepository(session),
-    )
+    playlist_svc = build_playlist_service(session)
     mapper = DbTrackMapper(session)
     return SyncEngine(playlist_svc=playlist_svc, track_mapper=mapper)

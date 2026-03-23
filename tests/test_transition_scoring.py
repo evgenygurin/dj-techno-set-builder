@@ -19,6 +19,7 @@ def _mock_features(track_id: int, bpm: float = 140.0, key_code: int = 18) -> Mag
     feat.key_code = key_code
     feat.key_confidence = 0.85
     feat.is_atonal = False
+    feat.lufs_i = -9.0
     feat.sub_energy = 0.3
     feat.low_energy = 0.7
     feat.lowmid_energy = 0.5
@@ -35,6 +36,12 @@ def _mock_features(track_id: int, bpm: float = 140.0, key_code: int = 18) -> Mag
     feat.flux_std = 0.1
     feat.contrast_mean_db = 20.0
     feat.energy_mean = 0.4
+    feat.slope_db_per_oct = 0.0
+    feat.onset_rate_mean = 5.0
+    feat.kick_prominence = 0.5
+    feat.hnr_mean_db = 0.0
+    feat.hp_ratio = 2.0
+    feat.mfcc_vector = None
     feat.chroma = "[0,0,0,0,0,0,0,0,0,0,0,0]"
     feat.chroma_entropy = 0.5
     return feat
@@ -62,6 +69,8 @@ class TestTransitionPersistenceService:
         )
         assert result.transition_quality > 0
         assert result.bpm_distance == pytest.approx(2.0)
+        assert result.key_distance_weighted >= 0
+        assert isinstance(result.energy_step, float)
         service.transitions_repo.create.assert_awaited_once()
 
     async def test_score_pair_missing_features(

@@ -15,20 +15,18 @@ from app.utils.audio._types import (
 )
 from app.utils.audio.beats import detect_beats
 from app.utils.audio.camelot import camelot_distance, is_compatible, key_code_to_camelot
+from app.utils.audio.energy_arcs import EnergyArcType, target_energy_curve
 from app.utils.audio.greedy_chain import GreedyChainResult, build_greedy_chain
 from app.utils.audio.groove import groove_similarity
 from app.utils.audio.loader import load_audio, validate_audio
 from app.utils.audio.pipeline import extract_all_features
 from app.utils.audio.set_generator import (
-    EnergyArcType,
     GAConfig,
     GAResult,
     GeneticSetGenerator,
     TrackData,
-    target_energy_curve,
 )
 from app.utils.audio.structure import segment_structure
-from app.utils.audio.transition_score import score_transition
 
 __all__ = [
     "AudioAnalysisError",
@@ -60,7 +58,6 @@ __all__ = [
     "is_compatible",
     "key_code_to_camelot",
     "load_audio",
-    "score_transition",
     "segment_structure",
     "target_energy_curve",
     "validate_audio",

@@ -74,13 +74,26 @@ def parse_ym_track(track: dict[str, Any]) -> ParsedYmTrack:
 
 
 class YandexMusicClient(BaseService):
-    """HTTP client for Yandex Music API."""
+    """Unified HTTP client for Yandex Music API with rate limiting.
 
-    def __init__(self, token: str, user_id: str = "") -> None:
+    Merged from two separate clients:
+    - ``app/clients/yandex_music.py`` (thin, no rate limit, playlist CRUD)
+    - ``app/services/yandex_music_client.py`` (rate limit, download, batch)
+    """
+
+    def __init__(
+        self,
+        token: str,
+        user_id: str = "",
+        *,
+        base_url: str = _YM_BASE,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
         super().__init__()
         self._token = token
         self._user_id = user_id
-        self._http: httpx.AsyncClient | None = None
+        self._base = base_url
+        self._http: httpx.AsyncClient | None = http_client
         self._last_request_at: float = 0
         self._rate_limit_lock = asyncio.Lock()
 
@@ -118,9 +131,9 @@ class YandexMusicClient(BaseService):
 
     # --- Search ---
 
-    async def search_tracks(self, query: str) -> list[dict[str, Any]]:
+    async def search_tracks(self, query: str, *, page: int = 0) -> list[dict[str, Any]]:
         """Search YM for tracks. Returns list of raw track dicts."""
-        url = f"{_YM_BASE}/search?text={urllib.parse.quote(query)}&type=track&page=0"
+        url = f"{self._base}/search?text={urllib.parse.quote(query)}&type=track&page={page}"
         data = await self._get_json(url)
         tracks = data.get("result", {}).get("tracks", {}).get("results", [])
         return cast(list[dict[str, Any]], tracks)
@@ -129,12 +142,12 @@ class YandexMusicClient(BaseService):
 
     async def fetch_playlist_tracks(self, user_id: str, kind: str) -> list[dict[str, Any]]:
         """Fetch all tracks from a playlist."""
-        url = f"{_YM_BASE}/users/{user_id}/playlists/{kind}"
+        url = f"{self._base}/users/{user_id}/playlists/{kind}"
         data = await self._get_json(url)
         return cast(list[dict[str, Any]], data.get("result", {}).get("tracks", []))
 
     async def fetch_user_playlists(self, user_id: str) -> list[dict[str, Any]]:
-        url = f"{_YM_BASE}/users/{user_id}/playlists/list"
+        url = f"{self._base}/users/{user_id}/playlists/list"
         data = await self._get_json(url)
         return cast(list[dict[str, Any]], data.get("result", []))
 
@@ -145,7 +158,7 @@ class YandexMusicClient(BaseService):
         await self._rate_limit()
         client = await self._client()
         resp = await client.post(
-            f"{_YM_BASE}/tracks",
+            f"{self._base}/tracks",
             headers=self._headers(),
             data={"track-ids": ",".join(track_ids)},
         )
@@ -161,7 +174,7 @@ class YandexMusicClient(BaseService):
         2. GET downloadInfoUrl → XML (host, path, ts, s)
         3. Build signed URL: https://{host}/get-mp3/{sign}/{ts}{path}
         """
-        url = f"{_YM_BASE}/tracks/{track_id}/download-info"
+        url = f"{self._base}/tracks/{track_id}/download-info"
         data = await self._get_json(url)
         infos = data.get("result", [])
         if not infos:
@@ -199,3 +212,72 @@ class YandexMusicClient(BaseService):
                     f.write(chunk)
                     size += len(chunk)
         return size
+
+    # --- Methods merged from app/clients/yandex_music.py ---
+
+    async def fetch_tracks(self, track_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Batch fetch tracks and return dict keyed by track ID string."""
+        items = await self.fetch_tracks_metadata(track_ids)
+        return {str(t["id"]): t for t in items}
+
+    async def create_playlist(
+        self,
+        user_id: int,
+        title: str,
+        visibility: str = "private",
+    ) -> int:
+        """Create a new YM playlist. Returns playlist kind (numeric ID)."""
+        await self._rate_limit()
+        client = await self._client()
+        resp = await client.post(
+            f"{self._base}/users/{user_id}/playlists/create",
+            headers=self._headers(),
+            data={"title": title, "visibility": visibility},
+        )
+        resp.raise_for_status()
+        return int(resp.json()["result"]["kind"])
+
+    async def get_playlist_revision(self, user_id: int, kind: int) -> int:
+        """Get the current revision of a YM playlist."""
+        data = await self._get_json(f"{self._base}/users/{user_id}/playlists/{kind}")
+        return int(data.get("result", {}).get("revision", 1))
+
+    async def delete_playlist(self, user_id: int, kind: int) -> None:
+        """Delete a YM playlist by kind."""
+        await self._rate_limit()
+        client = await self._client()
+        resp = await client.post(
+            f"{self._base}/users/{user_id}/playlists/{kind}/delete",
+            headers=self._headers(),
+            data={},
+        )
+        resp.raise_for_status()
+
+    async def add_tracks_to_playlist(
+        self,
+        user_id: int,
+        kind: int,
+        tracks: list[dict[str, str]],
+        revision: int | None = None,
+    ) -> None:
+        """Add tracks to a YM playlist via diff insert operation."""
+        import json as _json
+
+        if revision is None:
+            revision = await self.get_playlist_revision(user_id, kind)
+
+        diff = [{"op": "insert", "at": 0, "tracks": tracks}]
+        await self._rate_limit()
+        client = await self._client()
+        resp = await client.post(
+            f"{self._base}/users/{user_id}/playlists/{kind}/change",
+            headers=self._headers(),
+            data={"diff": _json.dumps(diff, ensure_ascii=False), "revision": str(revision)},
+        )
+        resp.raise_for_status()
+
+    async def get_similar_tracks(self, track_id: str) -> list[dict[str, Any]]:
+        """Fetch similar tracks for a given track ID."""
+        data = await self._get_json(f"{self._base}/tracks/{track_id}/similar")
+        result = data.get("result", {})
+        return cast(list[dict[str, Any]], result.get("similarTracks", []))

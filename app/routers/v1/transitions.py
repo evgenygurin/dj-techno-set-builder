@@ -115,8 +115,8 @@ async def compute_transition(
         bpm_distance=result.bpm_distance,
         key_distance_weighted=result.key_distance_weighted,
         energy_step=result.energy_step,
-        low_conflict_score=result.low_conflict_score,
-        overlap_score=result.overlap_score,
+        low_conflict_score=0.0,  # v2 scorer doesn't compute this component
+        overlap_score=0.0,  # v2 scorer doesn't compute this component
         groove_similarity=result.groove_similarity,
     )
 

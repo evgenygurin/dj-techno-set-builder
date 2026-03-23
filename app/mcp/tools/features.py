@@ -16,14 +16,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import NotFoundError
 from app.mcp.converters import track_to_summary
-from app.mcp.dependencies import get_session
+from app.mcp.dependencies import get_features_service, get_session, get_track_service
 from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
 from app.mcp.types import ActionResponse, EntityDetailResponse, EntityListResponse
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.tracks import TrackRepository
 from app.services.features import AudioFeaturesService
+from app.services.tracks import TrackService
 
 
 def register_features_tools(mcp: FastMCP) -> None:
@@ -36,11 +35,10 @@ def register_features_tools(mcp: FastMCP) -> None:
         bpm_min: float | None = None,
         bpm_max: float | None = None,
         session: AsyncSession = Depends(get_session),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
+        track_svc: TrackService = Depends(get_track_service),
     ) -> EntityListResponse:
         """List tracks that have computed audio features.
-
-        Returns TrackSummary with BPM/key/energy populated from features.
-        Optional BPM range filter.
 
         Args:
             limit: Max results per page.
@@ -49,8 +47,8 @@ def register_features_tools(mcp: FastMCP) -> None:
             bpm_max: Maximum BPM filter.
         """
         offset, clamped = paginate_params(cursor=cursor, limit=limit)
-        features_repo = AudioFeaturesRepository(session)
-        track_repo = TrackRepository(session)
+        features_repo = features_svc.features_repo
+        track_repo = track_svc.repo
 
         if bpm_min is not None or bpm_max is not None:
             features_list, total = await features_repo.filter_by_criteria(
@@ -86,11 +84,9 @@ def register_features_tools(mcp: FastMCP) -> None:
     async def get_features(
         track_ref: str | int,
         session: AsyncSession = Depends(get_session),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
     ) -> EntityDetailResponse:
-        """Get full audio features for a track (Level 3: Full, ~2 KB).
-
-        Returns all computed audio parameters: BPM, key, loudness, energy,
-        spectral, rhythm, MFCC.
+        """Get full audio features for a track.
 
         Args:
             track_ref: Track reference (must resolve to exact ID).
@@ -99,12 +95,8 @@ def register_features_tools(mcp: FastMCP) -> None:
         if ref.ref_type != RefType.LOCAL or ref.local_id is None:
             raise ToolError(f"get_features requires exact ref: {track_ref}")
 
-        svc = AudioFeaturesService(
-            AudioFeaturesRepository(session),
-            TrackRepository(session),
-        )
         try:
-            features = await svc.get_latest(ref.local_id)
+            features = await features_svc.get_latest(ref.local_id)
         except (NotFoundError, ValueError):
             raise ToolError(f"No features found: {track_ref}") from None
 
@@ -115,6 +107,7 @@ def register_features_tools(mcp: FastMCP) -> None:
         track_ref: str | int,
         features_json: str,
         session: AsyncSession = Depends(get_session),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
     ) -> ActionResponse:
         """Persist computed audio features for a track.
 
@@ -136,7 +129,7 @@ def register_features_tools(mcp: FastMCP) -> None:
 
         from sqlalchemy.exc import IntegrityError as SAIntegrityError
 
-        features_repo = AudioFeaturesRepository(session)
+        features_repo = features_svc.features_repo
 
         # Create ORM instance directly from JSON dict.
         # All NOT NULL model fields must be provided with defaults.

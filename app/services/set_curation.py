@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from app.utils.audio.feature_conversion import _CLASSIFY_DEFAULTS
 from app.utils.audio.mood_classifier import TrackMood, classify_track
 from app.utils.audio.set_templates import SetSlot, SetTemplate, TemplateName, get_template
 
@@ -47,22 +48,23 @@ class SetCurationService:
         Returns:
             Mapping of track_id -> TrackMood.
         """
+        d = _CLASSIFY_DEFAULTS
         result: dict[int, TrackMood] = {}
         for feat in features:
             classification = classify_track(
                 bpm=feat.bpm,
                 lufs_i=feat.lufs_i,
-                kick_prominence=feat.kick_prominence or 0.5,
-                spectral_centroid_mean=feat.centroid_mean_hz or 2500.0,
-                onset_rate=feat.onset_rate_mean or 5.0,
-                hp_ratio=feat.hp_ratio or 2.0,
-                flux_mean=getattr(feat, "flux_mean", None) or 0.18,
-                flux_std=getattr(feat, "flux_std", None) or 0.10,
-                energy_std=getattr(feat, "energy_std", None) or 0.13,
-                energy_mean=getattr(feat, "energy_mean", None) or 0.22,
-                lra_lu=getattr(feat, "lra_lu", None) or 6.6,
-                crest_factor_db=getattr(feat, "crest_factor_db", None) or 13.3,
-                flatness_mean=getattr(feat, "flatness_mean", None) or 0.06,
+                kick_prominence=feat.kick_prominence or d["kick_prominence"],
+                spectral_centroid_mean=feat.centroid_mean_hz or d["spectral_centroid_mean"],
+                onset_rate=feat.onset_rate_mean or d["onset_rate"],
+                hp_ratio=feat.hp_ratio or d["hp_ratio"],
+                flux_mean=getattr(feat, "flux_mean", None) or d["flux_mean"],
+                flux_std=getattr(feat, "flux_std", None) or d["flux_std"],
+                energy_std=getattr(feat, "energy_std", None) or d["energy_std"],
+                energy_mean=getattr(feat, "energy_mean", None) or d["energy_mean"],
+                lra_lu=getattr(feat, "lra_lu", None) or d["lra_lu"],
+                crest_factor_db=getattr(feat, "crest_factor_db", None) or d["crest_factor_db"],
+                flatness_mean=getattr(feat, "flatness_mean", None) or d["flatness_mean"],
             )
             result[feat.track_id] = classification.mood
         return result

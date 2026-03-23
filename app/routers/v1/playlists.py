@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
 from app.routers.v1._openapi import (
     RESPONSES_CREATE,
     RESPONSES_DELETE,
@@ -23,10 +22,9 @@ router = APIRouter(prefix="/playlists", tags=["playlists"])
 
 
 def _service(db: DbSession) -> DjPlaylistService:
-    return DjPlaylistService(
-        DjPlaylistRepository(db),
-        DjPlaylistItemRepository(db),
-    )
+    from app.services._factories import build_playlist_service
+
+    return build_playlist_service(db)
 
 
 # ─── Playlist CRUD ───────────────────────────────────────
