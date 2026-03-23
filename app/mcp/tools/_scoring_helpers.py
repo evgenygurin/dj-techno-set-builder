@@ -7,7 +7,6 @@ filesystem-safe name sanitisation across multiple MCP tools.
 from __future__ import annotations
 
 import contextlib
-import re
 from typing import Any
 
 from app.errors import NotFoundError
@@ -16,16 +15,7 @@ from app.services.features import AudioFeaturesService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 from app.utils.audio.camelot import key_code_to_camelot
-
-# ── Path sanitisation ─────────────────────────────────────────────────────────
-
-_BAD_PATH_RE = re.compile(r'[<>:"/\\|?*]')
-
-
-def sanitize_filename(name: str) -> str:
-    """Replace characters forbidden on Windows/macOS with ``_``."""
-    return _BAD_PATH_RE.sub("_", name).strip()
-
+from app.utils.text_sort import sanitize_filename as sanitize_filename
 
 # ── Transition scoring ────────────────────────────────────────────────────────
 
