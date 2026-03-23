@@ -1,11 +1,4 @@
-"""Track CRUD tools for DJ workflow MCP server.
-
-list_tracks — paginated list with optional text search
-get_track — single track by ref (ID returns detail, text returns match list)
-create_track — create new track in local DB
-update_track — update track fields by ref
-delete_track — delete track by ref
-"""
+"""Track CRUD tools for DJ workflow MCP server."""
 
 from __future__ import annotations
 
@@ -16,22 +9,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import NotFoundError
 from app.mcp.converters import track_to_detail, track_to_summary
-from app.mcp.dependencies import get_session
+from app.mcp.dependencies import get_features_service, get_session, get_track_service
 from app.mcp.entity_finder import TrackFinder
 from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
 from app.mcp.types import ActionResponse, EntityDetailResponse, EntityListResponse, TrackDetail
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.tracks import TrackRepository
 from app.schemas.tracks import TrackCreate, TrackUpdate
+from app.services.features import AudioFeaturesService
 from app.services.tracks import TrackService
 
 
-async def _build_track_detail(track_id: int, session: AsyncSession) -> TrackDetail | None:
+async def _build_track_detail(
+    track_id: int,
+    track_svc: TrackService,
+    features_svc: AudioFeaturesService,
+) -> TrackDetail | None:
     """Fetch all related data and build TrackDetail."""
-    repo = TrackRepository(session)
-    features_repo = AudioFeaturesRepository(session)
+    repo = track_svc.repo
+    features_repo = features_svc.features_repo
 
     track = await repo.get_by_id(track_id)
     if track is None:
@@ -62,10 +58,9 @@ def register_track_tools(mcp: FastMCP) -> None:
         cursor: str | None = None,
         search: str | None = None,
         session: AsyncSession = Depends(get_session),
+        track_svc: TrackService = Depends(get_track_service),
     ) -> EntityListResponse:
         """List tracks with optional text search.
-
-        Returns paginated TrackSummary list + library stats.
 
         Args:
             limit: Max results per page (default 20, max 100).
@@ -73,7 +68,7 @@ def register_track_tools(mcp: FastMCP) -> None:
             search: Optional text to filter by title (fuzzy match).
         """
         offset, clamped = paginate_params(cursor=cursor, limit=limit)
-        repo = TrackRepository(session)
+        repo = track_svc.repo
 
         if search:
             tracks, total = await repo.search_by_title(search, offset=offset, limit=clamped)
@@ -90,11 +85,10 @@ def register_track_tools(mcp: FastMCP) -> None:
     async def get_track(
         track_ref: str | int,
         session: AsyncSession = Depends(get_session),
+        track_svc: TrackService = Depends(get_track_service),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
     ) -> EntityDetailResponse | EntityListResponse:
         """Get track details by ref.
-
-        Exact refs (local:42, 42) return full TrackDetail.
-        Text refs ("Boris Brejcha") return ranked list of TrackSummary matches.
 
         Args:
             track_ref: Track reference — local:42, 42, ym:12345, or text query.
@@ -102,14 +96,13 @@ def register_track_tools(mcp: FastMCP) -> None:
         ref = parse_ref(track_ref)
 
         if ref.ref_type == RefType.LOCAL and ref.local_id is not None:
-            detail = await _build_track_detail(ref.local_id, session)
+            detail = await _build_track_detail(ref.local_id, track_svc, features_svc)
             if detail is None:
                 raise ToolError(f"Track not found: {track_ref}")
             return await wrap_detail(detail, session)
 
         if ref.ref_type == RefType.TEXT:
-            repo = TrackRepository(session)
-            finder = TrackFinder(repo, repo)
+            finder = TrackFinder(track_svc.repo, track_svc.repo)
             found = await finder.find(ref, limit=20)
             return await wrap_list(found.entities, len(found.entities), 0, 20, session)
 
@@ -120,6 +113,8 @@ def register_track_tools(mcp: FastMCP) -> None:
         title: str,
         duration_ms: int,
         session: AsyncSession = Depends(get_session),
+        track_svc: TrackService = Depends(get_track_service),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
     ) -> ActionResponse:
         """Create a new track in the local database.
 
@@ -127,10 +122,9 @@ def register_track_tools(mcp: FastMCP) -> None:
             title: Track title.
             duration_ms: Duration in milliseconds (must be > 0).
         """
-        svc = TrackService(TrackRepository(session))
-        track_read = await svc.create(TrackCreate(title=title, duration_ms=duration_ms))
+        track_read = await track_svc.create(TrackCreate(title=title, duration_ms=duration_ms))
 
-        detail = await _build_track_detail(track_read.track_id, session)
+        detail = await _build_track_detail(track_read.track_id, track_svc, features_svc)
         return await wrap_action(
             success=True,
             message=f"Created track local:{track_read.track_id}",
@@ -144,6 +138,8 @@ def register_track_tools(mcp: FastMCP) -> None:
         title: str | None = None,
         duration_ms: int | None = None,
         session: AsyncSession = Depends(get_session),
+        track_svc: TrackService = Depends(get_track_service),
+        features_svc: AudioFeaturesService = Depends(get_features_service),
     ) -> ActionResponse:
         """Update track fields by ref.
 
@@ -157,14 +153,13 @@ def register_track_tools(mcp: FastMCP) -> None:
         if ref.ref_type != RefType.LOCAL or ref.local_id is None:
             raise ToolError(f"update requires exact ref (local:N or N): {track_ref}")
 
-        svc = TrackService(TrackRepository(session))
         update_data = TrackUpdate(title=title, duration_ms=duration_ms)
         try:
-            await svc.update(ref.local_id, update_data)
+            await track_svc.update(ref.local_id, update_data)
         except NotFoundError:
             raise ToolError(f"Track {ref.local_id} not found") from None
 
-        detail = await _build_track_detail(ref.local_id, session)
+        detail = await _build_track_detail(ref.local_id, track_svc, features_svc)
         return await wrap_action(
             success=True,
             message=f"Updated track local:{ref.local_id}",
@@ -176,6 +171,7 @@ def register_track_tools(mcp: FastMCP) -> None:
     async def delete_track(
         track_ref: str | int,
         session: AsyncSession = Depends(get_session),
+        track_svc: TrackService = Depends(get_track_service),
     ) -> ActionResponse:
         """Delete a track by ref.
 
@@ -187,9 +183,8 @@ def register_track_tools(mcp: FastMCP) -> None:
         if ref.ref_type != RefType.LOCAL or ref.local_id is None:
             raise ToolError(f"delete requires exact ref (local:N or N): {track_ref}")
 
-        svc = TrackService(TrackRepository(session))
         try:
-            await svc.delete(ref.local_id)
+            await track_svc.delete(ref.local_id)
         except NotFoundError:
             raise ToolError(f"Track {ref.local_id} not found") from None
 
