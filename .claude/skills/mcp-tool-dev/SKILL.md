@@ -14,7 +14,7 @@ description: Use when adding a new MCP tool, registering tools in gateway, creat
 | Read-only инструмент | `features.py`, `search.py` |
 | Долгая операция (>5 сек) | `delivery.py` (visible-stages) |
 | CRUD | `set.py`, `track.py` |
-| YM API | `sync.py` + `app/clients/yandex_music.py` |
+| YM API | `sync.py` + `app/services/yandex_music_client.py` |
 
 ## Структура нового инструмента
 

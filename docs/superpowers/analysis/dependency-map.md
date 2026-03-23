@@ -1,6 +1,12 @@
 # Карта зависимостей app/
 
-> Сгенерировано: 2026-03-23 | 211 Python-файлов | 629 dependency-рёбер | 0 циклов
+> Сгенерировано: 2026-03-23 | Обновлено: 2026-03-23 (post-refactoring)
+> 266 файлов | 1318 dependency-рёбер | 0 циклов | 3 import-linter contracts KEPT
+>
+> **СТАТУС ПОСЛЕ РЕФАКТОРИНГА**: 28 коммитов, +3116/-2380 LOC, 8 новых services, 4 удалённых файла
+> Top-level cross-layer imports в MCP tools: **0** (было 18 repo + 11 model)
+> Services→MCP imports: **0** (enforced by import-linter)
+> Remaining lazy imports в MCP tools: 10 (function-level, допустимые)
 
 ## Fan-In Top 10 (от чего зависят больше всего файлов)
 

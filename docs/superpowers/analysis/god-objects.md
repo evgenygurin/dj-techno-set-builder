@@ -1,6 +1,13 @@
 # Анализ God Objects
 
 > 3 файла, суммарно 2484 LOC. Извлекаемый домен: ~1340 LOC.
+>
+> **СТАТУС ПОСЛЕ РЕФАКТОРИНГА:**
+> - `curation_discovery.py`: 563→158 LOC (CandidateDiscoveryService extracted)
+> - `delivery.py`: 518→145 LOC (DeliveryService extracted)
+> - `curation.py`: 491→346 LOC (SetReviewService + techno_criteria extracted)
+> - `set_generator.py`: 912→791 LOC (energy_arcs extracted)
+> - **Суммарно**: 2484→1440 LOC в tools (-42%), 1194 LOC в новых services
 
 ## Сводка
 

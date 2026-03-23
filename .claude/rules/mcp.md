@@ -7,6 +7,15 @@ paths:
 
 > **Official docs**: https://docs.anthropic.com/en/docs/claude-code/mcp — ИЗУЧИ перед правкой `.mcp.json` или добавлением MCP серверов.
 
+## Architecture changes (refactoring 2026-03-23)
+
+- `_scoring_helpers.py` — **re-export shim** (10 lines). Logic in `app/services/scoring_helpers.py`
+- `app/services/transition_types.py` — source of truth for `TransitionScoreResult`, `TransitionSummary`, `WeakTransition`, `SetReviewResult`. MCP types re-export.
+- `app/services/techno_criteria.py` — `audit_track_features()` pure function
+- `app/services/library_stats.py` — COUNT queries (was in `app/mcp/library_stats.py`)
+- **Rule**: Services MUST NOT import from `app.mcp` — enforced by import-linter
+- `app/clients/` **УДАЛЁН** — единый YM client в `app/services/yandex_music_client.py`
+
 ## Structure
 
 ```text

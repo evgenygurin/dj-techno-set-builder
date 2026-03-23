@@ -160,3 +160,4 @@ External MCP servers (.mcp.json):
 - **ruff**: Python 3.12, line-length 99, rules: E/F/W/I/N/UP/B/SIM/RUF. `A003` ignored. B008 per-file ignore for MCP.
 - **mypy**: strict + `pydantic.mypy` plugin. `ignore_missing_imports`: fastmcp, alembic, aiosqlite, essentia, soundfile, scipy, numpy, librosa, demucs, torch, torchaudio, yaml, sentry_sdk, opentelemetry, key_value. **0 errors** — all pre-existing errors in `app/mcp/` have been resolved.
 - **pytest-asyncio**: `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` needed.
+- **import-linter**: 3 contracts — audio purity (zero framework deps), services isolation (no mcp/routers/cli imports), adapter independence. Run: `uv run lint-imports`
