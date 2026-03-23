@@ -10,7 +10,7 @@ from fastmcp import FastMCP
 from app.core.config import settings
 from app.mcp.lifespan import mcp_lifespan
 from app.mcp.observability import apply_observability, init_observability
-from app.mcp.tools import create_workflow_mcp
+from app.mcp.providers import create_workflow_mcp
 from app.mcp.yandex_music import create_yandex_music_mcp
 
 logger = logging.getLogger(__name__)

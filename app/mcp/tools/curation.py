@@ -15,7 +15,7 @@ from app.mcp.dependencies import (
     get_unified_scoring,
 )
 from app.mcp.resolve import resolve_local_id
-from app.mcp.tools._scoring_helpers import score_consecutive_transitions
+from app.mcp.providers._scoring_helpers import score_consecutive_transitions
 from app.mcp.types import (
     ClassifyResult,
     DistributeResult,

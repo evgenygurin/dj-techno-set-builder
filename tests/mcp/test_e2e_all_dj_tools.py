@@ -616,7 +616,7 @@ async def test_sync_set_to_ym_with_mock_platform(_connection):
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from app.mcp.tools import create_workflow_mcp
+    from app.mcp.providers import create_workflow_mcp
 
     @asynccontextmanager
     async def _factory():
@@ -659,7 +659,7 @@ async def test_sync_set_from_ym_no_ym_playlist(_connection):
 
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from app.mcp.tools import create_workflow_mcp
+    from app.mcp.providers import create_workflow_mcp
 
     @asynccontextmanager
     async def _factory():

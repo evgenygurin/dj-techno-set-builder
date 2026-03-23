@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 @pytest.fixture(scope="session")
 def workflow_mcp() -> FastMCP:
     """DJ Workflows MCP server (12 hand-written tools + prompts + resources)."""
-    from app.mcp.tools import create_workflow_mcp
+    from app.mcp.providers import create_workflow_mcp
 
     return create_workflow_mcp()
 
@@ -50,7 +50,7 @@ async def workflow_mcp_with_db(_connection) -> AsyncIterator[FastMCP]:
     every ``session.commit()`` inside MCP tool calls only releases
     a SAVEPOINT, so the outer transaction can roll everything back.
     """
-    from app.mcp.tools import create_workflow_mcp
+    from app.mcp.providers import create_workflow_mcp
 
     @asynccontextmanager
     async def _savepoint_session_factory() -> AsyncIterator[AsyncSession]:

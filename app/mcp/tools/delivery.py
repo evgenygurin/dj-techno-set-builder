@@ -38,7 +38,7 @@ from app.mcp.dependencies import (
 )
 from app.mcp.elicitation import resolve_conflict
 from app.mcp.resolve import resolve_local_id
-from app.mcp.tools._scoring_helpers import sanitize_filename, score_consecutive_transitions
+from app.mcp.providers._scoring_helpers import sanitize_filename, score_consecutive_transitions
 from app.mcp.types.workflows import DeliveryResult, TransitionScoreResult, TransitionSummary
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService

@@ -19,7 +19,7 @@ from app.mcp.dependencies import (
 )
 from app.mcp.resolve import resolve_local_id
 from app.mcp.session_state import save_build_result
-from app.mcp.tools._scoring_helpers import score_consecutive_transitions
+from app.mcp.providers._scoring_helpers import score_consecutive_transitions
 from app.mcp.types import SetBuildResult, TransitionScoreResult
 from app.schemas.set_generation import SetGenerationRequest
 from app.schemas.sets import DjSetCreate, DjSetItemCreate, DjSetVersionCreate

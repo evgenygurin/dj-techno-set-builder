@@ -91,7 +91,7 @@ async def _export_m3u(
     import contextlib
 
     from app.core.errors import NotFoundError
-    from app.mcp.tools._scoring_helpers import sanitize_filename
+    from app.mcp.providers._scoring_helpers import sanitize_filename
     from app.services.set_export import export_m3u
     from app.audio.camelot import key_code_to_camelot
 
@@ -212,7 +212,7 @@ async def _export_rekordbox(
     from urllib.parse import quote
 
     from app.core.errors import NotFoundError
-    from app.mcp.tools._scoring_helpers import sanitize_filename
+    from app.mcp.providers._scoring_helpers import sanitize_filename
     from app.services.rekordbox_types import RekordboxTrackData
     from app.services.set_export import export_rekordbox_xml
     from app.audio.camelot import key_code_to_camelot
