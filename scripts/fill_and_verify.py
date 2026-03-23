@@ -62,7 +62,7 @@ from app.core.models.ingestion import ProviderTrackId
 from app.core.models.metadata_yandex import YandexMetadata
 from app.core.models.runs import FeatureExtractionRun
 from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
-from app.audio.mood_classifier import TrackMood, classify_track
+from app.domain.audio.classifier.classifier import TrackMood, classify_track
 
 # ── Config ───────────────────────────────────────────────────────────────────
 
@@ -1227,7 +1227,7 @@ def _extract_sync(audio_path: str) -> Any:
     Essentia/scipy/soundfile are C-extensions that can segfault on corrupt audio.
     Running in a subprocess means a segfault kills only the worker, not the main script.
     """
-    from app.audio.pipeline import extract_all_features
+    from app.domain.audio.dsp.pipeline import extract_all_features
 
     return extract_all_features(audio_path)
 

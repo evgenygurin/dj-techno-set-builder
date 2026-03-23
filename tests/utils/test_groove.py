@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from app.audio.groove import groove_similarity
+from app.domain.audio.dsp.groove import groove_similarity
 
 
 class TestGrooveSimilarity:

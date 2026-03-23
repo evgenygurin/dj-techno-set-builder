@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 
-from app.audio._types import AudioSignal, KeyResult
+from app.domain.audio.types import AudioSignal, KeyResult
 
 # Essentia key names → pitch_class mapping
 _PITCH_CLASS: dict[str, int] = {

@@ -7,7 +7,7 @@ import pytest
 essentia = pytest.importorskip("essentia")
 
 from app.audio import AudioAnalysisError, AudioValidationError, TrackFeatures  # noqa: E402
-from app.audio.pipeline import _run_stage, extract_all_features  # noqa: E402
+from app.domain.audio.dsp.pipeline import _run_stage, extract_all_features  # noqa: E402
 
 
 @pytest.fixture(scope="module")

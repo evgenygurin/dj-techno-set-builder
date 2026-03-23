@@ -1,6 +1,6 @@
 """Tests for TransitionType enum and TransitionRecommendation dataclass."""
 
-from app.audio._types import TransitionRecommendation, TransitionType
+from app.domain.audio.types import TransitionRecommendation, TransitionType
 
 
 def test_transition_type_is_str_enum():

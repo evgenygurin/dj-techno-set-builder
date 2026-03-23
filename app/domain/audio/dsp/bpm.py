@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from app.audio._types import AudioSignal, BpmResult
+from app.domain.audio.types import AudioSignal, BpmResult
 
 _DEFAULT_MIN_BPM = 80.0
 _DEFAULT_MAX_BPM = 200.0

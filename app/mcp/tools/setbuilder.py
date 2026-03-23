@@ -8,9 +8,9 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
-from app.audio.greedy_chain import build_greedy_chain
-from app.audio.set_generator import TrackData, lufs_to_energy
 from app.core.errors import NotFoundError, ValidationError
+from app.domain.setbuilder.genetic.engine import TrackData, lufs_to_energy
+from app.domain.setbuilder.greedy import build_greedy_chain
 from app.mcp.dependencies import (
     get_features_service,
     get_playlist_service,

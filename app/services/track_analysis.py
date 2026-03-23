@@ -5,11 +5,11 @@ import math
 from pathlib import Path
 
 from app.audio import TrackFeatures
-from app.audio._errors import AudioAnalysisError, AudioValidationError
-from app.audio._types import BeatsResult, MfccResult
-from app.audio.loader import load_audio, validate_audio
-from app.audio.pipeline import extract_all_features
 from app.core.errors import NotFoundError
+from app.domain.audio.dsp.loader import load_audio, validate_audio
+from app.domain.audio.dsp.pipeline import extract_all_features
+from app.domain.audio.errors import AudioAnalysisError, AudioValidationError
+from app.domain.audio.types import BeatsResult, MfccResult
 from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
 from app.infrastructure.repositories.sections import SectionsRepository
 from app.infrastructure.repositories.tracks import TrackRepository
@@ -83,7 +83,7 @@ class TrackAnalysisService(BaseService):
         # Phase 2: persist structure sections
         if features.beats and self.sections_repo:
             try:
-                from app.audio.structure import segment_structure
+                from app.domain.audio.dsp.structure import segment_structure
 
                 signal = load_audio(audio_path)
                 sections = segment_structure(
@@ -120,11 +120,11 @@ class TrackAnalysisService(BaseService):
 
     def _extract_full_sync(self, audio_path: str | Path, track_id: int) -> TrackFeatures:
         """Synchronous CPU-bound extraction of all features (Phase 1 + 2)."""
-        from app.audio.bpm import estimate_bpm
-        from app.audio.energy import compute_band_energies
-        from app.audio.key_detect import detect_key
-        from app.audio.loudness import measure_loudness
-        from app.audio.spectral import extract_spectral_features
+        from app.domain.audio.dsp.bpm import estimate_bpm
+        from app.domain.audio.dsp.energy import compute_band_energies
+        from app.domain.audio.dsp.key_detect import detect_key
+        from app.domain.audio.dsp.loudness import measure_loudness
+        from app.domain.audio.dsp.spectral import extract_spectral_features
 
         signal = load_audio(audio_path)
         validate_audio(signal)
@@ -138,7 +138,7 @@ class TrackAnalysisService(BaseService):
         # Phase 2: beat detection (optional, graceful failure)
         beats_result: BeatsResult | None = None
         try:
-            from app.audio.beats import detect_beats
+            from app.domain.audio.dsp.beats import detect_beats
 
             beats_result = detect_beats(signal)
         except (AudioAnalysisError, AudioValidationError, ValueError, OSError):
@@ -147,7 +147,7 @@ class TrackAnalysisService(BaseService):
         # Phase 2: MFCC extraction (optional, graceful failure)
         mfcc_result: MfccResult | None = None
         try:
-            from app.audio.mfcc import extract_mfcc
+            from app.domain.audio.dsp.mfcc import extract_mfcc
 
             mfcc_result = extract_mfcc(signal)
         except (AudioAnalysisError, AudioValidationError, ValueError, OSError):

@@ -6,7 +6,7 @@ import pytest
 librosa = pytest.importorskip("librosa")
 
 from app.audio import AudioSignal  # noqa: E402
-from app.audio.mfcc import MfccResult, extract_mfcc  # noqa: E402
+from app.domain.audio.dsp.mfcc import MfccResult, extract_mfcc  # noqa: E402
 
 SR = 44100
 

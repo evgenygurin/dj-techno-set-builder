@@ -7,7 +7,7 @@ These 13 coefficients capture the spectral envelope — the #1 predictor of
 
 from __future__ import annotations
 
-from app.audio._types import AudioSignal, MfccResult
+from app.domain.audio.types import AudioSignal, MfccResult
 
 
 def extract_mfcc(

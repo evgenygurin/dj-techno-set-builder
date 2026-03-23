@@ -30,13 +30,13 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.infrastructure.database import close_db, init_db, session_factory
-from app.audio._types import TrackFeatures
-from app.audio.bpm import estimate_bpm
-from app.audio.energy import compute_band_energies
-from app.audio.key_detect import detect_key
-from app.audio.loader import load_audio, validate_audio
-from app.audio.loudness import measure_loudness
-from app.audio.spectral import extract_spectral_features
+from app.domain.audio.types import TrackFeatures
+from app.domain.audio.dsp.bpm import estimate_bpm
+from app.domain.audio.dsp.energy import compute_band_energies
+from app.domain.audio.dsp.key_detect import detect_key
+from app.domain.audio.dsp.loader import load_audio, validate_audio
+from app.domain.audio.dsp.loudness import measure_loudness
+from app.domain.audio.dsp.spectral import extract_spectral_features
 
 # Worker script that runs each track in an isolated subprocess
 WORKER_SCRIPT = Path(__file__).parent / "_analyze_worker.py"
@@ -141,7 +141,7 @@ def analyze_single_pass(audio_path: str, track_id: int) -> dict:
 
     mfcc_result = None
     try:
-        from app.audio.mfcc import extract_mfcc
+        from app.domain.audio.dsp.mfcc import extract_mfcc
 
         mfcc_result = extract_mfcc(signal)
     except Exception:
@@ -151,8 +151,8 @@ def analyze_single_pass(audio_path: str, track_id: int) -> dict:
     beats_result = None
     sections_list = []
     try:
-        from app.audio.beats import detect_beats
-        from app.audio.structure import segment_structure
+        from app.domain.audio.dsp.beats import detect_beats
+        from app.domain.audio.dsp.structure import segment_structure
 
         beats_result = detect_beats(signal)
         sections_list = segment_structure(

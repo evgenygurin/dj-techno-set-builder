@@ -6,7 +6,7 @@ import pytest
 essentia = pytest.importorskip("essentia")
 
 from app.audio import AudioSignal, KeyResult  # noqa: E402
-from app.audio.key_detect import detect_key  # noqa: E402
+from app.domain.audio.dsp.key_detect import detect_key  # noqa: E402
 
 SR = 44100
 

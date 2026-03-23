@@ -333,7 +333,7 @@ class TransitionScoringService:
 
         # 2. Camelot distance constraint
         if hc.max_camelot_distance is not None:
-            from app.audio.camelot import camelot_distance
+            from app.domain.audio.camelot import camelot_distance
 
             dist = camelot_distance(track_a.key_code, track_b.key_code)
             if dist >= hc.max_camelot_distance:
@@ -443,7 +443,7 @@ class TransitionScoringService:
 
         Used in tests or when ``CamelotLookupService`` is unavailable.
         """
-        from app.audio.camelot import build_pitch_class_lookup
+        from app.domain.audio.camelot import build_pitch_class_lookup
 
         return build_pitch_class_lookup()
 

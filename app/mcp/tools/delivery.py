@@ -25,9 +25,9 @@ from fastmcp.server.context import Context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.audio.camelot import key_code_to_camelot
 from app.core.config import settings
 from app.core.errors import NotFoundError
+from app.domain.audio.camelot import key_code_to_camelot
 from app.infrastructure.clients.yandex_music import YandexMusicClient
 from app.mcp.dependencies import (
     get_features_service,

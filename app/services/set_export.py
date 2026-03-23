@@ -27,7 +27,7 @@ import xml.etree.ElementTree as ET
 from io import BytesIO
 from typing import Any
 
-from app.audio._types import TransitionRecommendation
+from app.domain.audio.types import TransitionRecommendation
 from app.services.rekordbox_types import RekordboxTrackData
 
 # ---------------------------------------------------------------------------

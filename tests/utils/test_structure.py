@@ -6,8 +6,8 @@ import pytest
 essentia = pytest.importorskip("essentia")
 
 from app.audio import AudioSignal  # noqa: E402
-from app.audio._types import SectionResult  # noqa: E402
-from app.audio.structure import (  # noqa: E402
+from app.domain.audio.types import SectionResult  # noqa: E402
+from app.domain.audio.dsp.structure import (  # noqa: E402
     _compute_section_pulse_clarity,
     segment_structure,
 )

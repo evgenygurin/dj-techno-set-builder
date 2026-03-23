@@ -6,7 +6,7 @@ import pytest
 scipy = pytest.importorskip("scipy")
 
 from app.audio import AudioSignal, BandEnergyResult  # noqa: E402
-from app.audio.energy import compute_band_energies  # noqa: E402
+from app.domain.audio.dsp.energy import compute_band_energies  # noqa: E402
 
 SR = 44100
 

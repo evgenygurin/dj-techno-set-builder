@@ -10,8 +10,8 @@ import contextlib
 import re
 from typing import Any
 
-from app.audio.camelot import key_code_to_camelot
 from app.core.errors import NotFoundError
+from app.domain.audio.camelot import key_code_to_camelot
 from app.mcp.types.workflows import TransitionScoreResult
 from app.services.features import AudioFeaturesService
 from app.services.tracks import TrackService
@@ -108,8 +108,8 @@ async def score_consecutive_transitions(
         bpm_delta_val: float | None = None
 
         try:
-            from app.audio.camelot import camelot_distance
-            from app.audio.feature_conversion import orm_features_to_track_features
+            from app.domain.audio.camelot import camelot_distance
+            from app.domain.audio.feature_conversion import orm_features_to_track_features
             from app.services.transition_type import recommend_transition
 
             feat_a = await features_svc.get_latest(from_item.track_id)

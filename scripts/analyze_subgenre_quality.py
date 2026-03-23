@@ -41,7 +41,7 @@ from app.infrastructure.database import close_db, init_db, session_factory
 from app.core.models.catalog import Track
 from app.core.models.dj import DjPlaylistItem
 from app.core.models.features import TrackAudioFeaturesComputed
-from app.audio.mood_classifier import (
+from app.domain.audio.classifier.classifier import (
     MoodClassification,
     TrackMood,
     classify_track,
@@ -135,7 +135,7 @@ def classify_from_features(
 
     # Re-compute all 15 scores for the confusion matrix
     # We need to call individual scorers — import them
-    from app.audio.mood_classifier import (
+    from app.domain.audio.classifier.classifier import (
         _score_acid,
         _score_ambient_dub,
         _score_breakbeat,

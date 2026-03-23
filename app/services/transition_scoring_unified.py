@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.audio.feature_conversion import orm_features_to_track_features
+from app.domain.audio.feature_conversion import orm_features_to_track_features
 from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
 from app.infrastructure.repositories.sections import SectionsRepository
 from app.services.camelot_lookup import CamelotLookupService

@@ -28,7 +28,7 @@ from app.services.transition_scoring_unified import (
     UnifiedTransitionScoringService,
     _score_components,
 )
-from app.audio.feature_conversion import orm_features_to_track_features
+from app.domain.audio.feature_conversion import orm_features_to_track_features
 
 # ═══════════════════════════════════════════════════════════
 # Test helpers
@@ -101,7 +101,7 @@ async def _seed_keys_and_edges(session: AsyncSession) -> None:
         )
     await session.flush()
 
-    from app.audio.camelot import camelot_distance, camelot_score
+    from app.domain.audio.camelot import camelot_distance, camelot_score
 
     for i in range(24):
         for j in range(24):
@@ -417,7 +417,7 @@ class TestHardConstraints:
         # Cm(5A) → Bm(10A): distance=5 ≥ 5 → reject
         tf_a = _make_tf(key_code=0)
         tf_b = _make_tf(key_code=22)  # 10A
-        from app.audio.camelot import camelot_distance
+        from app.domain.audio.camelot import camelot_distance
 
         assert camelot_distance(0, 22) == 5  # confirm distance
         assert scorer.check_hard_constraints(tf_a, tf_b)
@@ -577,7 +577,7 @@ async def test_ga_matrix_uses_same_scoring(session: AsyncSession) -> None:
     from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
     from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
     from app.services.set_generation import SetGenerationService
-    from app.audio.set_generator import TrackData
+    from app.domain.setbuilder.genetic.engine import TrackData
 
     svc = SetGenerationService(
         set_repo=DjSetRepository(session),

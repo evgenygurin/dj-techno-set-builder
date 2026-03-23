@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.signal import butter, sosfiltfilt
 
-from app.audio._types import AudioSignal, BandEnergyResult
+from app.domain.audio.types import AudioSignal, BandEnergyResult
 
 # Frequency bands (Hz)
 _BANDS: list[tuple[str, float, float]] = [

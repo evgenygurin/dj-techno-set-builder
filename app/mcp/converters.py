@@ -9,7 +9,7 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING
 
-from app.audio.camelot import key_code_to_camelot
+from app.domain.audio.camelot import key_code_to_camelot
 from app.mcp.types import (
     ArtistSummary,
     PlaylistSummary,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from app.audio._types import AudioSignal, SpectralResult
+from app.domain.audio.types import AudioSignal, SpectralResult
 
 _FRAME_SIZE = 2048
 _HOP_SIZE = 512

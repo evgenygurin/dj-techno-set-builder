@@ -13,7 +13,7 @@ import math
 from dataclasses import dataclass
 from enum import StrEnum
 
-from app.audio.mood_classifier import TrackMood
+from app.domain.audio.classifier.classifier import TrackMood
 
 
 class TemplateName(StrEnum):

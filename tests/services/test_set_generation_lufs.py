@@ -1,6 +1,6 @@
 """Test LUFS-based energy in set generation."""
 
-from app.audio.set_generator import TrackData, lufs_to_energy
+from app.domain.setbuilder.genetic.engine import TrackData, lufs_to_energy
 
 
 def test_track_data_uses_lufs_energy():

@@ -7,8 +7,8 @@ import numpy as np
 import soundfile as sf
 from scipy.signal import resample_poly
 
-from app.audio._errors import AudioValidationError
-from app.audio._types import AudioSignal
+from app.domain.audio.errors import AudioValidationError
+from app.domain.audio.types import AudioSignal
 
 _MIN_DURATION_S = 1.0
 _SILENCE_THRESHOLD = 1e-6

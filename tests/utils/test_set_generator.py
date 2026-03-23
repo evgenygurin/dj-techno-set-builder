@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from app.audio.set_generator import (
+from app.domain.setbuilder.genetic.engine import (
     GAConfig,
     GAConstraints,
     GeneticSetGenerator,
@@ -128,7 +128,7 @@ def test_track_replacement_mutation():
 
 def test_variety_penalty_same_mood_triple():
     """3 consecutive tracks with same mood should be penalized."""
-    from app.audio.set_generator import variety_score
+    from app.domain.setbuilder.genetic.engine import variety_score
 
     # All mood=3 (DRIVING)
     tracks = [
@@ -141,7 +141,7 @@ def test_variety_penalty_same_mood_triple():
 
 def test_variety_penalty_diverse_mood():
     """Diverse moods should not be penalized."""
-    from app.audio.set_generator import variety_score
+    from app.domain.setbuilder.genetic.engine import variety_score
 
     tracks = [
         TrackData(
@@ -172,7 +172,7 @@ def test_track_data_has_mood_and_artist():
 
 def test_lufs_energy_used_in_arc():
     """When lufs is provided, energy should be derived from LUFS, not energy_mean."""
-    from app.audio.set_generator import lufs_to_energy
+    from app.domain.setbuilder.genetic.engine import lufs_to_energy
 
     assert 0.0 <= lufs_to_energy(-14.0) <= 0.05  # ambient -> low energy
     assert 0.9 <= lufs_to_energy(-6.0) <= 1.0  # hard -> high energy

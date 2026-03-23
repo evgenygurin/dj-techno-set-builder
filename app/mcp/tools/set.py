@@ -18,8 +18,8 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.audio.camelot import key_code_to_camelot
 from app.core.errors import NotFoundError
+from app.domain.audio.camelot import key_code_to_camelot
 from app.infrastructure.repositories.sets import (
     DjSetItemRepository,
     DjSetRepository,

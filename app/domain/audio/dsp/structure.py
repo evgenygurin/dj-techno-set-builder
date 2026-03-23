@@ -19,7 +19,7 @@ import numpy as np
 from scipy.ndimage import uniform_filter1d
 from scipy.signal import find_peaks
 
-from app.audio._types import AudioSignal, SectionResult
+from app.domain.audio.types import AudioSignal, SectionResult
 
 # Section type constants (match SectionType enum)
 INTRO = 0

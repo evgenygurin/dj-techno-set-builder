@@ -4,14 +4,14 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 
-from app.audio._errors import AudioAnalysisError, AudioValidationError
-from app.audio._types import AudioSignal, TrackFeatures
-from app.audio.bpm import estimate_bpm
-from app.audio.energy import compute_band_energies
-from app.audio.key_detect import detect_key
-from app.audio.loader import load_audio, validate_audio
-from app.audio.loudness import measure_loudness
-from app.audio.spectral import extract_spectral_features
+from app.domain.audio.dsp.bpm import estimate_bpm
+from app.domain.audio.dsp.energy import compute_band_energies
+from app.domain.audio.dsp.key_detect import detect_key
+from app.domain.audio.dsp.loader import load_audio, validate_audio
+from app.domain.audio.dsp.loudness import measure_loudness
+from app.domain.audio.dsp.spectral import extract_spectral_features
+from app.domain.audio.errors import AudioAnalysisError, AudioValidationError
+from app.domain.audio.types import AudioSignal, TrackFeatures
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def extract_all_features(
     # Phase 2: Beats extraction (optional, graceful failure)
     beats_result = None
     try:
-        from app.audio.beats import detect_beats
+        from app.domain.audio.dsp.beats import detect_beats
 
         beats_result = _run_stage("beats", path_str, detect_beats, signal)
     except ImportError:
@@ -70,7 +70,7 @@ def extract_all_features(
     # Phase 2: MFCC extraction (optional, graceful failure)
     mfcc_result = None
     try:
-        from app.audio.mfcc import extract_mfcc
+        from app.domain.audio.dsp.mfcc import extract_mfcc
 
         mfcc_result = _run_stage("mfcc", path_str, extract_mfcc, signal)
     except ImportError:

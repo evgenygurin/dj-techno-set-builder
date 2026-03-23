@@ -8,7 +8,7 @@ from app.audio import (
     KeyResult,
     SpectralResult,
 )
-from app.audio.transition_score import (
+from app.domain.audio.scoring.transition_score import (
     TransitionScore,
     score_transition,
 )

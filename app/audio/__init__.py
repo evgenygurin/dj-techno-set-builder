@@ -1,5 +1,14 @@
-from app.audio._errors import AudioAnalysisError, AudioError, AudioValidationError
-from app.audio._types import (
+"""Compatibility shim — re-exports from app.domain.audio."""
+
+from app.domain.audio.camelot import camelot_distance, is_compatible, key_code_to_camelot
+from app.domain.audio.dsp.beats import detect_beats
+from app.domain.audio.dsp.groove import groove_similarity
+from app.domain.audio.dsp.loader import load_audio, validate_audio
+from app.domain.audio.dsp.pipeline import extract_all_features
+from app.domain.audio.dsp.structure import segment_structure
+from app.domain.audio.errors import AudioAnalysisError, AudioError, AudioValidationError
+from app.domain.audio.scoring.transition_score import score_transition
+from app.domain.audio.types import (
     AudioSignal,
     BandEnergyResult,
     BeatsResult,
@@ -13,13 +22,7 @@ from app.audio._types import (
     TrackFeatures,
     TransitionScore,
 )
-from app.audio.beats import detect_beats
-from app.audio.camelot import camelot_distance, is_compatible, key_code_to_camelot
-from app.audio.greedy_chain import GreedyChainResult, build_greedy_chain
-from app.audio.groove import groove_similarity
-from app.audio.loader import load_audio, validate_audio
-from app.audio.pipeline import extract_all_features
-from app.audio.set_generator import (
+from app.domain.setbuilder.genetic.engine import (
     EnergyArcType,
     GAConfig,
     GAResult,
@@ -27,8 +30,7 @@ from app.audio.set_generator import (
     TrackData,
     target_energy_curve,
 )
-from app.audio.structure import segment_structure
-from app.audio.transition_score import score_transition
+from app.domain.setbuilder.greedy import GreedyChainResult, build_greedy_chain
 
 __all__ = [
     "AudioAnalysisError",

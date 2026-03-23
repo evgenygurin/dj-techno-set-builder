@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from app.audio._types import AudioSignal, StemsResult
+from app.domain.audio.types import AudioSignal, StemsResult
 
 logger = logging.getLogger(__name__)
 

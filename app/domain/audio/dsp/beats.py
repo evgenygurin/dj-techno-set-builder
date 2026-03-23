@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.signal import butter, sosfiltfilt
 
-from app.audio._types import AudioSignal, BeatsResult
+from app.domain.audio.types import AudioSignal, BeatsResult
 
 _HOP_SIZE = 512
 _ONSET_WINDOW_S = 2.0  # window for windowed onset rate

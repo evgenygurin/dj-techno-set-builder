@@ -174,7 +174,7 @@ class TestTrackAnalysisService:
             patch.object(svc, "_extract_full_sync", return_value=features),
             patch("app.services.track_analysis.load_audio", return_value=dummy_signal),
             patch(
-                "app.audio.structure.segment_structure",
+                "app.domain.audio.dsp.structure.segment_structure",
                 return_value=sections,
             ) as mock_segment,
         ):

@@ -8,8 +8,8 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 from fastmcp.server.context import Context
 
-from app.audio.camelot import key_code_to_camelot
 from app.core.errors import NotFoundError
+from app.domain.audio.camelot import key_code_to_camelot
 from app.mcp.dependencies import get_features_service, get_playlist_service
 from app.mcp.resolve import resolve_local_id
 from app.mcp.types import SimilarTracksResult

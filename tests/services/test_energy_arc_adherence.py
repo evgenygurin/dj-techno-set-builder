@@ -3,7 +3,7 @@
 import pytest
 
 from app.services.set_curation import SetCurationService
-from app.audio.set_templates import TemplateName, get_template
+from app.domain.setbuilder.templates import TemplateName, get_template
 
 
 @pytest.fixture

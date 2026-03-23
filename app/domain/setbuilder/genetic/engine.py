@@ -15,7 +15,7 @@ from enum import StrEnum
 import numpy as np
 from numpy.typing import NDArray
 
-from app.audio.set_templates import SetSlot
+from app.domain.setbuilder.templates import SetSlot
 
 
 class EnergyArcType(StrEnum):

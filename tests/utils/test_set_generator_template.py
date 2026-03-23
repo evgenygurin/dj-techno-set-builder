@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from app.audio.mood_classifier import TrackMood
-from app.audio.set_generator import (
+from app.domain.audio.classifier.classifier import TrackMood
+from app.domain.setbuilder.genetic.engine import (
     GAConfig,
     GeneticSetGenerator,
     TrackData,
     template_slot_fit,
 )
-from app.audio.set_templates import SetSlot, TemplateName, get_template
+from app.domain.setbuilder.templates import SetSlot, TemplateName, get_template
 
 
 def _make_track(

@@ -6,8 +6,10 @@ from typing import Any
 
 import numpy as np
 
-from app.audio.mood_classifier import classify_track
-from app.audio.set_generator import (
+from app.core.errors import NotFoundError, ValidationError
+from app.core.models.features import TrackAudioFeaturesComputed
+from app.domain.audio.classifier.classifier import classify_track
+from app.domain.setbuilder.genetic.engine import (
     EnergyArcType,
     GAConfig,
     GAConstraints,
@@ -15,9 +17,7 @@ from app.audio.set_generator import (
     TrackData,
     lufs_to_energy,
 )
-from app.audio.set_templates import SetSlot, TemplateName, get_template
-from app.core.errors import NotFoundError, ValidationError
-from app.core.models.features import TrackAudioFeaturesComputed
+from app.domain.setbuilder.templates import SetSlot, TemplateName, get_template
 from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
 from app.infrastructure.repositories.playlists import DjPlaylistItemRepository
 from app.infrastructure.repositories.sections import SectionsRepository
@@ -360,7 +360,7 @@ class SetGenerationService(BaseService):
         import logging
         import time
 
-        from app.audio.feature_conversion import orm_features_to_track_features
+        from app.domain.audio.feature_conversion import orm_features_to_track_features
         from app.services.camelot_lookup import CamelotLookupService
 
         logger = logging.getLogger(__name__)

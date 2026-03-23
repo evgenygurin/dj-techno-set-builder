@@ -9,7 +9,7 @@ Pure function, no DB dependencies.
 
 from __future__ import annotations
 
-from app.audio._types import TransitionRecommendation, TransitionType
+from app.domain.audio.types import TransitionRecommendation, TransitionType
 from app.services.transition_scoring import TrackFeatures
 
 

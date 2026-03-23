@@ -15,14 +15,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from app.audio._types import (
+from app.domain.audio.camelot import camelot_distance
+from app.domain.audio.types import (
     BandEnergyResult,
     BpmResult,
     KeyResult,
     SpectralResult,
     TransitionScore,
 )
-from app.audio.camelot import camelot_distance
 
 # Default weights
 _W_BPM = 0.40

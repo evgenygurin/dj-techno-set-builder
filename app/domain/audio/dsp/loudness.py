@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.signal import resample_poly
 
-from app.audio._types import AudioSignal, LoudnessResult
+from app.domain.audio.types import AudioSignal, LoudnessResult
 
 _TRUE_PEAK_OVERSAMPLE = 4
 

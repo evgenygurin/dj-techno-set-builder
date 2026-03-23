@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.audio.camelot import (
+from app.domain.audio.camelot import (
     build_pitch_class_lookup,
     camelot_distance,
     camelot_score,

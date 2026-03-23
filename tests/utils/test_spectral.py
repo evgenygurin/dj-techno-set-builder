@@ -7,7 +7,7 @@ import pytest
 essentia = pytest.importorskip("essentia")
 
 from app.audio import AudioSignal, SpectralResult  # noqa: E402
-from app.audio.spectral import extract_spectral_features  # noqa: E402
+from app.domain.audio.dsp.spectral import extract_spectral_features  # noqa: E402
 
 
 @pytest.fixture(scope="module")

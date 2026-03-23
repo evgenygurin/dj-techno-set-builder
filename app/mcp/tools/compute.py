@@ -10,8 +10,8 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.audio._errors import AudioAnalysisError, AudioValidationError
 from app.core.errors import NotFoundError, ValidationError
+from app.domain.audio.errors import AudioAnalysisError, AudioValidationError
 from app.mcp.dependencies import get_session
 from app.mcp.refs import RefType, parse_ref
 
@@ -63,7 +63,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
 
         # Run analysis pipeline (imports are heavy — lazy load)
         try:
-            from app.audio.pipeline import extract_all_features
+            from app.domain.audio.dsp.pipeline import extract_all_features
 
             features = extract_all_features(file_path)
 
