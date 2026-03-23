@@ -183,6 +183,7 @@ type = "forbidden"
 source_modules = ["app.services"]
 forbidden_modules = [
     "app.routers",
+    "app.mcp",
     "app.cli",
 ]
 
