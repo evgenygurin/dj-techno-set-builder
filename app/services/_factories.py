@@ -10,28 +10,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.infrastructure.clients.yandex_music import YandexMusicClient as YMApiClient
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.playlists import (
+from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+from app.infrastructure.repositories.audio.sections import SectionsRepository
+from app.infrastructure.repositories.audio.transitions import TransitionRepository
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
+from app.infrastructure.repositories.dj.playlists import (
     DjPlaylistItemRepository,
     DjPlaylistRepository,
 )
-from app.infrastructure.repositories.sections import SectionsRepository
-from app.infrastructure.repositories.sets import (
+from app.infrastructure.repositories.dj.sets import (
     DjSetItemRepository,
     DjSetRepository,
     DjSetVersionRepository,
 )
-from app.infrastructure.repositories.tracks import TrackRepository
-from app.infrastructure.repositories.transitions import TransitionRepository
-from app.services.features import AudioFeaturesService
-from app.services.playlists import DjPlaylistService
-from app.services.set_generation import SetGenerationService
-from app.services.sets import DjSetService
-from app.services.track_analysis import TrackAnalysisService
-from app.services.tracks import TrackService
-from app.services.transition_scoring_unified import UnifiedTransitionScoringService
-from app.services.transitions import TransitionService
-from app.services.yandex_music_client import YandexMusicClient as YMDownloadClient
+from app.services.audio.analysis import TrackAnalysisService
+from app.services.audio.features import AudioFeaturesService
+from app.services.audio.scoring_unified import UnifiedTransitionScoringService
+from app.services.audio.transitions import TransitionService
+from app.services.catalog.tracks import TrackService
+from app.services.dj.generation import SetGenerationService
+from app.services.dj.playlists import DjPlaylistService
+from app.services.dj.sets import DjSetService
+from app.services.platform.yandex.client import YandexMusicClient as YMDownloadClient
 
 
 def create_track_service(session: AsyncSession) -> TrackService:

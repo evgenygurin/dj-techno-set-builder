@@ -1,5 +1,5 @@
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.genres import GenreRepository
+from app.infrastructure.repositories.catalog.genres import GenreRepository
 from app.schemas.genres import GenreCreate, GenreList, GenreRead, GenreUpdate
 from app.services.base import BaseService
 

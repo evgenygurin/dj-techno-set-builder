@@ -19,12 +19,12 @@ from app.core.models.dj import DjBeatgrid, DjCuePoint, DjSavedLoop
 from app.core.models.harmony import Key
 from app.core.models.runs import FeatureExtractionRun
 from app.core.models.sections import TrackSection
-from app.infrastructure.repositories.dj_beatgrid import DjBeatgridRepository
-from app.infrastructure.repositories.dj_cue_points import DjCuePointRepository
-from app.infrastructure.repositories.dj_saved_loops import DjSavedLoopRepository
-from app.infrastructure.repositories.keys import KeyRepository
-from app.infrastructure.repositories.sections import SectionsRepository
-from app.infrastructure.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.dj.beatgrid import DjBeatgridRepository
+from app.infrastructure.repositories.dj.cue_points import DjCuePointRepository
+from app.infrastructure.repositories.dj.loops import DjSavedLoopRepository
+from app.infrastructure.repositories.audio.keys import KeyRepository
+from app.infrastructure.repositories.audio.sections import SectionsRepository
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
 
 
 @pytest.fixture

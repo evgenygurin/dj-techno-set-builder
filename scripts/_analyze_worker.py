@@ -57,9 +57,9 @@ async def _run(audio_path: str, track_id: int) -> dict:
     # Late imports: after path/cwd are set up, and after logging is configured
     # so that any logging from app.* goes to stderr, not stdout.
     from app.infrastructure.database import session_factory
-    from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-    from app.infrastructure.repositories.runs import FeatureRunRepository
-    from app.infrastructure.repositories.sections import SectionsRepository
+    from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+    from app.infrastructure.repositories.audio.runs import FeatureRunRepository
+    from app.infrastructure.repositories.audio.sections import SectionsRepository
     from scripts.analyze_techno_develop_recs import analyze_single_pass
 
     # ── CPU-heavy analysis (may SIGBUS on corrupt audio) ─────────────────

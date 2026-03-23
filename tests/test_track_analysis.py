@@ -8,7 +8,7 @@ import pytest
 essentia = pytest.importorskip("essentia")
 
 from app.core.errors import NotFoundError  # noqa: E402
-from app.services.track_analysis import TrackAnalysisService  # noqa: E402
+from app.services.audio.analysis import TrackAnalysisService  # noqa: E402
 from app.audio import (  # noqa: E402
     AudioSignal,
     BandEnergyResult,
@@ -90,7 +90,7 @@ class TestTrackAnalysisService:
         features_repo.save_features = AsyncMock()
         return TrackAnalysisService(track_repo, features_repo)
 
-    @patch("app.services.track_analysis.extract_all_features")
+    @patch("app.services.audio.analysis.extract_all_features")
     async def test_analyze_track_returns_features(
         self, mock_extract: MagicMock, service: TrackAnalysisService
     ) -> None:
@@ -99,7 +99,7 @@ class TestTrackAnalysisService:
         assert isinstance(result, TrackFeatures)
         assert result.bpm.bpm == 140.0
 
-    @patch("app.services.track_analysis.extract_all_features")
+    @patch("app.services.audio.analysis.extract_all_features")
     async def test_persists_to_repo(
         self, mock_extract: MagicMock, service: TrackAnalysisService
     ) -> None:
@@ -115,7 +115,7 @@ class TestTrackAnalysisService:
         with pytest.raises(NotFoundError):
             await svc.analyze_track(999, "/fake.wav", run_id=1)
 
-    @patch("app.services.track_analysis.extract_all_features")
+    @patch("app.services.audio.analysis.extract_all_features")
     async def test_persists_beats_when_present(
         self, mock_extract: MagicMock, service: TrackAnalysisService
     ) -> None:
@@ -128,7 +128,7 @@ class TestTrackAnalysisService:
         call_args = service.features_repo.save_features.call_args
         assert call_args.args == (1, 1, result)
 
-    @patch("app.services.track_analysis.extract_all_features")
+    @patch("app.services.audio.analysis.extract_all_features")
     async def test_beats_none_when_absent(
         self, mock_extract: MagicMock, service: TrackAnalysisService
     ) -> None:
@@ -172,7 +172,7 @@ class TestTrackAnalysisService:
 
         with (
             patch.object(svc, "_extract_full_sync", return_value=features),
-            patch("app.services.track_analysis.load_audio", return_value=dummy_signal),
+            patch("app.services.audio.analysis.load_audio", return_value=dummy_signal),
             patch(
                 "app.domain.audio.dsp.structure.segment_structure",
                 return_value=sections,

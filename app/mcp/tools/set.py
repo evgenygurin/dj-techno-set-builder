@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
 from app.domain.audio.camelot import key_code_to_camelot
-from app.infrastructure.repositories.sets import (
+from app.infrastructure.repositories.dj.sets import (
     DjSetItemRepository,
     DjSetRepository,
     DjSetVersionRepository,
@@ -47,10 +47,10 @@ from app.mcp.types import (
     TransitionSummary,
 )
 from app.schemas.sets import DjSetCreate, DjSetItemCreate, DjSetUpdate, DjSetVersionCreate
-from app.services.features import AudioFeaturesService
-from app.services.sets import DjSetService
-from app.services.tracks import TrackService
-from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.services.audio.features import AudioFeaturesService
+from app.services.audio.scoring_unified import UnifiedTransitionScoringService
+from app.services.catalog.tracks import TrackService
+from app.services.dj.sets import DjSetService
 
 
 def _make_svc(session: AsyncSession) -> DjSetService:

@@ -6,8 +6,8 @@ from pathlib import Path
 
 from app.core.config import settings
 from app.infrastructure.database import close_db, init_db, session_factory
-from app.infrastructure.repositories.dj_library_items import DjLibraryItemRepository
-from app.infrastructure.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.dj.library_items import DjLibraryItemRepository
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
 
 # All track IDs from import (in playlist order)
 TRACK_IDS = [

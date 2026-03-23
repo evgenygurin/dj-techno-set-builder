@@ -1,5 +1,5 @@
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.releases import ReleaseRepository
+from app.infrastructure.repositories.catalog.releases import ReleaseRepository
 from app.schemas.releases import ReleaseCreate, ReleaseList, ReleaseRead, ReleaseUpdate
 from app.services.base import BaseService
 

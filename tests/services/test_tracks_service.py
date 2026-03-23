@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field
 
 from app.core.errors import NotFoundError
 from app.core.models.catalog import Track
-from app.infrastructure.repositories.tracks import TrackRepository
-from app.services.tracks import TrackService
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
+from app.services.catalog.tracks import TrackService
 
 
 class TrackCreate(BaseModel):

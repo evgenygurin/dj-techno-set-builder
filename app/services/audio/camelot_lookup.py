@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.infrastructure.repositories.harmony import KeyEdgeRepository
+from app.infrastructure.repositories.audio.harmony import KeyEdgeRepository
 from app.services.base import BaseService
 
 if TYPE_CHECKING:

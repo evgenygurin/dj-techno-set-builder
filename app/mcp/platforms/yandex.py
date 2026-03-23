@@ -12,7 +12,7 @@ from app.mcp.platforms.protocol import (
     PlatformPlaylist,
     PlatformTrack,
 )
-from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+from app.services.platform.yandex.client import YandexMusicClient, parse_ym_track
 
 logger = logging.getLogger(__name__)
 

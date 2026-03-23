@@ -27,7 +27,7 @@ from app.infrastructure.database import (
 from app.core.models.catalog import Track
 from app.core.models.dj import DjLibraryItem
 from app.core.models.ingestion import ProviderTrackId
-from app.services.yandex_music_client import YandexMusicClient
+from app.services.platform.yandex.client import YandexMusicClient
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)

@@ -12,9 +12,9 @@ from fastmcp import FastMCP
 from fastmcp.dependencies import Depends
 
 from app.mcp.dependencies import get_playlist_service, get_set_service, get_track_service
-from app.services.playlists import DjPlaylistService
-from app.services.sets import DjSetService
-from app.services.tracks import TrackService
+from app.services.catalog.tracks import TrackService
+from app.services.dj.playlists import DjPlaylistService
+from app.services.dj.sets import DjSetService
 
 
 def register_resources(mcp: FastMCP) -> None:

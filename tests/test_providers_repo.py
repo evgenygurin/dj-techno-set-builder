@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.repositories.providers import ProviderRepository
+from app.infrastructure.repositories.platform.providers import ProviderRepository
 
 
 async def test_get_or_create_provider(session: AsyncSession) -> None:

@@ -10,9 +10,9 @@ from app.domain.audio.dsp.loader import load_audio, validate_audio
 from app.domain.audio.dsp.pipeline import extract_all_features
 from app.domain.audio.errors import AudioAnalysisError, AudioValidationError
 from app.domain.audio.types import BeatsResult, MfccResult
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.sections import SectionsRepository
-from app.infrastructure.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+from app.infrastructure.repositories.audio.sections import SectionsRepository
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
 from app.services.base import BaseService
 
 

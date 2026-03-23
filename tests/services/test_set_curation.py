@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from app.services.set_curation import SetCurationService
+from app.services.dj.curation import SetCurationService
 from app.domain.audio.classifier.classifier import TrackMood
 
 

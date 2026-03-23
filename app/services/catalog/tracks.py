@@ -3,7 +3,7 @@ from __future__ import annotations
 import builtins
 
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
 from app.schemas.tracks import TrackCreate, TrackList, TrackRead, TrackUpdate
 from app.services.base import BaseService
 

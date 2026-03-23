@@ -5,7 +5,7 @@ import pytest
 essentia = pytest.importorskip("essentia")
 
 from app.core.models.features import TrackAudioFeaturesComputed  # noqa: E402
-from app.services.transition_persistence import TransitionPersistenceService  # noqa: E402
+from app.services.audio.persistence import TransitionPersistenceService  # noqa: E402
 
 
 def _mock_features(track_id: int, bpm: float = 140.0, key_code: int = 18) -> MagicMock:

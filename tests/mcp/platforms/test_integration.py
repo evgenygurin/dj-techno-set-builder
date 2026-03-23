@@ -20,8 +20,8 @@ from app.core.models.catalog import Track
 from app.core.models.dj import DjPlaylist, DjPlaylistItem
 from app.core.models.ingestion import ProviderTrackId
 from app.core.models.providers import Provider
-from app.infrastructure.repositories.playlists import DjPlaylistItemRepository, DjPlaylistRepository
-from app.services.playlists import DjPlaylistService
+from app.infrastructure.repositories.dj.playlists import DjPlaylistItemRepository, DjPlaylistRepository
+from app.services.dj.playlists import DjPlaylistService
 
 
 @dataclass

@@ -18,17 +18,17 @@ from app.domain.setbuilder.genetic.engine import (
     lufs_to_energy,
 )
 from app.domain.setbuilder.templates import SetSlot, TemplateName, get_template
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.playlists import DjPlaylistItemRepository
-from app.infrastructure.repositories.sections import SectionsRepository
-from app.infrastructure.repositories.sets import (
+from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+from app.infrastructure.repositories.audio.sections import SectionsRepository
+from app.infrastructure.repositories.dj.playlists import DjPlaylistItemRepository
+from app.infrastructure.repositories.dj.sets import (
     DjSetItemRepository,
     DjSetRepository,
     DjSetVersionRepository,
 )
 from app.schemas.set_generation import SetGenerationRequest, SetGenerationResponse
+from app.services.audio.scoring import TrackFeatures, TransitionScoringService
 from app.services.base import BaseService
-from app.services.transition_scoring import TrackFeatures, TransitionScoringService
 
 # Default track count when neither template nor explicit count is provided.
 # Prevents runaway GA on large playlists (O(n^3) complexity).
@@ -361,7 +361,7 @@ class SetGenerationService(BaseService):
         import time
 
         from app.domain.audio.feature_conversion import orm_features_to_track_features
-        from app.services.camelot_lookup import CamelotLookupService
+        from app.services.audio.camelot_lookup import CamelotLookupService
 
         logger = logging.getLogger(__name__)
 

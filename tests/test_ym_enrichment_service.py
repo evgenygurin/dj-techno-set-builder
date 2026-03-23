@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models.catalog import Track
 from app.core.models.providers import Provider
-from app.services.yandex_music_enrichment import YandexMusicEnrichmentService
+from app.services.platform.yandex.enrichment import YandexMusicEnrichmentService
 
 
 async def test_enrich_track_creates_genre_and_artist(

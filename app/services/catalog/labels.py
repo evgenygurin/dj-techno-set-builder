@@ -1,5 +1,5 @@
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.labels import LabelRepository
+from app.infrastructure.repositories.catalog.labels import LabelRepository
 from app.schemas.labels import LabelCreate, LabelList, LabelRead, LabelUpdate
 from app.services.base import BaseService
 

@@ -10,7 +10,7 @@ Pure function, no DB dependencies.
 from __future__ import annotations
 
 from app.domain.audio.types import TransitionRecommendation, TransitionType
-from app.services.transition_scoring import TrackFeatures
+from app.services.audio.scoring import TrackFeatures
 
 
 def recommend_transition(

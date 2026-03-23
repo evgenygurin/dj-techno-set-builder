@@ -13,6 +13,8 @@ from contextlib import asynccontextmanager
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# Re-export for backward compatibility
+from app.infrastructure.clients.yandex_music import YandexMusicClient as YMApiClient
 from app.infrastructure.database import session_factory
 from app.mcp.platforms.factory import create_platform_registry
 from app.mcp.platforms.registry import PlatformRegistry
@@ -30,18 +32,15 @@ from app.services._factories import (
     create_ym_api_client,
     create_ym_download_client,
 )
-from app.services.features import AudioFeaturesService
-from app.services.playlists import DjPlaylistService
-from app.services.set_generation import SetGenerationService
-from app.services.sets import DjSetService
-from app.services.track_analysis import TrackAnalysisService
-from app.services.tracks import TrackService
-from app.services.transition_scoring_unified import UnifiedTransitionScoringService
-from app.services.transitions import TransitionService
-from app.services.yandex_music_client import YandexMusicClient as YMDownloadClient
-
-# Re-export for backward compatibility
-from app.infrastructure.clients.yandex_music import YandexMusicClient as YMApiClient  # noqa: F401
+from app.services.audio.analysis import TrackAnalysisService
+from app.services.audio.features import AudioFeaturesService
+from app.services.audio.scoring_unified import UnifiedTransitionScoringService
+from app.services.audio.transitions import TransitionService
+from app.services.catalog.tracks import TrackService
+from app.services.dj.generation import SetGenerationService
+from app.services.dj.playlists import DjPlaylistService
+from app.services.dj.sets import DjSetService
+from app.services.platform.yandex.client import YandexMusicClient as YMDownloadClient
 
 
 @asynccontextmanager
@@ -122,7 +121,7 @@ _platform_registry: PlatformRegistry | None = None
 
 def get_platform_registry() -> PlatformRegistry:
     """Provide the global PlatformRegistry singleton."""
-    global _platform_registry  # noqa: PLW0603
+    global _platform_registry
     if _platform_registry is None:
         _platform_registry = create_platform_registry()
     return _platform_registry

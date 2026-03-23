@@ -15,15 +15,15 @@ from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
 from app.mcp.converters import track_to_summary
 from app.mcp.dependencies import get_session
 from app.mcp.pagination import paginate_params
 from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
 from app.mcp.types import ActionResponse, EntityDetailResponse, EntityListResponse
-from app.services.features import AudioFeaturesService
+from app.services.audio.features import AudioFeaturesService
 
 
 def register_features_tools(mcp: FastMCP) -> None:

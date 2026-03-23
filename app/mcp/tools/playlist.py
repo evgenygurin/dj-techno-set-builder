@@ -24,7 +24,7 @@ from app.core.errors import NotFoundError
 from app.core.models.dj import DjPlaylistItem
 from app.core.models.ingestion import ProviderTrackId
 from app.infrastructure.clients.yandex_music import YandexMusicClient
-from app.infrastructure.repositories.playlists import (
+from app.infrastructure.repositories.dj.playlists import (
     DjPlaylistItemRepository,
     DjPlaylistRepository,
 )
@@ -36,7 +36,7 @@ from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
 from app.mcp.types import ActionResponse, EntityDetailResponse, EntityListResponse, PlaylistDetail
 from app.schemas.playlists import DjPlaylistCreate, DjPlaylistUpdate
-from app.services.playlists import DjPlaylistService
+from app.services.dj.playlists import DjPlaylistService
 
 logger = logging.getLogger(__name__)
 

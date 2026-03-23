@@ -93,7 +93,7 @@ async def _export_m3u(
     from app.core.errors import NotFoundError
     from app.domain.audio.camelot import key_code_to_camelot
     from app.mcp.providers._scoring_helpers import sanitize_filename
-    from app.services.set_export import export_m3u
+    from app.services.dj.export import export_m3u
 
     track_ids = [item.track_id for item in items]
     artists_map = await track_svc.get_track_artists(track_ids)
@@ -154,7 +154,7 @@ async def _export_json(
 
     from app.core.errors import NotFoundError
     from app.domain.audio.camelot import key_code_to_camelot
-    from app.services.set_export import export_json_guide
+    from app.services.dj.export import export_json_guide
 
     track_ids = [item.track_id for item in items]
     artists_map = await track_svc.get_track_artists(track_ids)
@@ -214,8 +214,8 @@ async def _export_rekordbox(
     from app.core.errors import NotFoundError
     from app.domain.audio.camelot import key_code_to_camelot
     from app.mcp.providers._scoring_helpers import sanitize_filename
-    from app.services.rekordbox_types import RekordboxTrackData
-    from app.services.set_export import export_rekordbox_xml
+    from app.services.dj.export import export_rekordbox_xml
+    from app.services.dj.rekordbox_types import RekordboxTrackData
 
     track_ids = [item.track_id for item in items]
     artists_map = await track_svc.get_track_artists(track_ids)

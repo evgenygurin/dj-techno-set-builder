@@ -126,7 +126,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
             energy_arc: Energy arc shape — classic, progressive, roller, wave.
             exclude_track_ids: Track IDs to exclude from selection.
         """
-        from app.infrastructure.repositories.sets import (
+        from app.infrastructure.repositories.dj.sets import (
             DjSetItemRepository,
             DjSetRepository,
             DjSetVersionRepository,
@@ -134,7 +134,7 @@ def register_compute_tools(mcp: FastMCP) -> None:
         from app.mcp.dependencies import get_set_generation_service
         from app.schemas.set_generation import SetGenerationRequest
         from app.schemas.sets import DjSetCreate
-        from app.services.sets import DjSetService
+        from app.services.dj.sets import DjSetService
 
         try:
             # We need to create a temp set (GA needs a set_id) — will delete after

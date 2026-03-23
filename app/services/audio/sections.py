@@ -1,6 +1,6 @@
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.sections import SectionsRepository
-from app.infrastructure.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.audio.sections import SectionsRepository
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
 from app.schemas.sections import SectionList, SectionRead
 from app.services.base import BaseService
 

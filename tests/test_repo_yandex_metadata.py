@@ -1,5 +1,5 @@
 from app.core.models import Track
-from app.infrastructure.repositories.yandex_metadata import YandexMetadataRepository
+from app.infrastructure.repositories.platform.yandex import YandexMetadataRepository
 
 
 async def test_get_by_yandex_track_id_returns_none(session):

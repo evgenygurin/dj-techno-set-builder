@@ -15,8 +15,8 @@ from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
 from app.mcp.converters import track_to_detail, track_to_summary
 from app.mcp.dependencies import get_session
 from app.mcp.entity_finder import TrackFinder
@@ -25,7 +25,7 @@ from app.mcp.refs import RefType, parse_ref
 from app.mcp.response import wrap_action, wrap_detail, wrap_list
 from app.mcp.types import ActionResponse, EntityDetailResponse, EntityListResponse, TrackDetail
 from app.schemas.tracks import TrackCreate, TrackUpdate
-from app.services.tracks import TrackService
+from app.services.catalog.tracks import TrackService
 
 
 async def _build_track_detail(track_id: int, session: AsyncSession) -> TrackDetail | None:

@@ -25,12 +25,12 @@ from app.mcp.session_state import save_build_result
 from app.mcp.types import SetBuildResult, TransitionScoreResult
 from app.schemas.set_generation import SetGenerationRequest
 from app.schemas.sets import DjSetCreate, DjSetItemCreate, DjSetVersionCreate
-from app.services.features import AudioFeaturesService
-from app.services.playlists import DjPlaylistService
-from app.services.set_generation import SetGenerationService
-from app.services.sets import DjSetService
-from app.services.tracks import TrackService
-from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.services.audio.features import AudioFeaturesService
+from app.services.audio.scoring_unified import UnifiedTransitionScoringService
+from app.services.catalog.tracks import TrackService
+from app.services.dj.generation import SetGenerationService
+from app.services.dj.playlists import DjPlaylistService
+from app.services.dj.sets import DjSetService
 
 
 async def _run_greedy_build(

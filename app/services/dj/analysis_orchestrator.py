@@ -1,11 +1,11 @@
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.runs import FeatureRunRepository
-from app.infrastructure.repositories.sections import SectionsRepository
-from app.infrastructure.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+from app.infrastructure.repositories.audio.runs import FeatureRunRepository
+from app.infrastructure.repositories.audio.sections import SectionsRepository
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
+from app.services.audio.analysis import TrackAnalysisService
 from app.services.base import BaseService
-from app.services.track_analysis import TrackAnalysisService
 
 
 class AnalysisOrchestrator(BaseService):

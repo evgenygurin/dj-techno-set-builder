@@ -1,5 +1,5 @@
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.sets import (
+from app.infrastructure.repositories.dj.sets import (
     DjSetItemRepository,
     DjSetRepository,
     DjSetVersionRepository,

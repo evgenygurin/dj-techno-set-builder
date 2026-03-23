@@ -46,10 +46,10 @@ async def test_score_components_by_ids_calls_sections_repo() -> None:
 
     with (
         patch(
-            "app.services.transition_scoring_unified.AudioFeaturesRepository"
+            "app.services.audio.scoring_unified.AudioFeaturesRepository"
         ) as mock_feat_repo_cls,
-        patch("app.services.transition_scoring_unified.SectionsRepository") as mock_sec_repo_cls,
-        patch("app.services.transition_scoring_unified.CamelotLookupService") as mock_lookup_cls,
+        patch("app.services.audio.scoring_unified.SectionsRepository") as mock_sec_repo_cls,
+        patch("app.services.audio.scoring_unified.CamelotLookupService") as mock_lookup_cls,
     ):
         mock_feat_repo = AsyncMock()
         mock_feat_repo.get_by_track.side_effect = [feat_a, feat_b]
@@ -63,7 +63,7 @@ async def test_score_components_by_ids_calls_sections_repo() -> None:
         mock_lookup.build_lookup_table.return_value = {}
         mock_lookup_cls.return_value = mock_lookup
 
-        from app.services.transition_scoring_unified import (
+        from app.services.audio.scoring_unified import (
             UnifiedTransitionScoringService,
         )
 
@@ -90,10 +90,10 @@ async def test_structure_score_nonzero_with_outro_intro_sections() -> None:
 
     with (
         patch(
-            "app.services.transition_scoring_unified.AudioFeaturesRepository"
+            "app.services.audio.scoring_unified.AudioFeaturesRepository"
         ) as mock_feat_repo_cls,
-        patch("app.services.transition_scoring_unified.SectionsRepository") as mock_sec_repo_cls,
-        patch("app.services.transition_scoring_unified.CamelotLookupService") as mock_lookup_cls,
+        patch("app.services.audio.scoring_unified.SectionsRepository") as mock_sec_repo_cls,
+        patch("app.services.audio.scoring_unified.CamelotLookupService") as mock_lookup_cls,
     ):
         mock_feat_repo = AsyncMock()
         mock_feat_repo.get_by_track.side_effect = [feat_a, feat_b]
@@ -107,7 +107,7 @@ async def test_structure_score_nonzero_with_outro_intro_sections() -> None:
         mock_lookup.build_lookup_table.return_value = {}
         mock_lookup_cls.return_value = mock_lookup
 
-        from app.services.transition_scoring_unified import (
+        from app.services.audio.scoring_unified import (
             UnifiedTransitionScoringService,
         )
 

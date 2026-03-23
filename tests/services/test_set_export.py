@@ -13,12 +13,12 @@ Covers:
 import json
 import xml.etree.ElementTree as ET
 
-from app.services.rekordbox_types import (
+from app.services.dj.rekordbox_types import (
     RekordboxCuePoint,
     RekordboxTempo,
     RekordboxTrackData,
 )
-from app.services.set_export import export_json_guide, export_m3u, export_rekordbox_xml
+from app.services.dj.export import export_json_guide, export_m3u, export_rekordbox_xml
 from app.domain.audio.types import TransitionRecommendation, TransitionType
 
 # ---------------------------------------------------------------------------

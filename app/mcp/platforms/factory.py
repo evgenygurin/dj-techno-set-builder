@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.infrastructure.clients.yandex_music import YandexMusicClient as YMApiClient
 from app.mcp.platforms.registry import PlatformRegistry
 from app.mcp.platforms.yandex import YandexMusicAdapter
-from app.services.yandex_music_client import YandexMusicClient
+from app.services.platform.yandex.client import YandexMusicClient
 
 logger = logging.getLogger(__name__)
 

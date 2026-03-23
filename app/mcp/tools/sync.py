@@ -33,8 +33,8 @@ from app.mcp.platforms.registry import PlatformRegistry
 from app.mcp.resolve import resolve_local_id
 from app.mcp.sync.diff import SyncDirection
 from app.mcp.sync.engine import SyncEngine, TrackMapper
-from app.services.playlists import DjPlaylistService
-from app.services.sets import DjSetService
+from app.services.dj.playlists import DjPlaylistService
+from app.services.dj.sets import DjSetService
 
 logger = logging.getLogger(__name__)
 

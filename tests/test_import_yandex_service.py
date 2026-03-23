@@ -7,7 +7,7 @@ from app.core.models import Track
 
 async def test_enrich_track_creates_metadata(session, seed_providers):
     """Enriching a track creates YandexMetadata + links Artist/Genre/Label/Release."""
-    from app.services.import_yandex import ImportYandexService
+    from app.services.platform.yandex.importer import ImportYandexService
 
     track = Track(title="Jouska — Octopus Neuroplasticity", duration_ms=347150)
     session.add(track)
@@ -40,7 +40,7 @@ async def test_enrich_track_creates_metadata(session, seed_providers):
     assert result is True
 
     # Verify YandexMetadata
-    from app.infrastructure.repositories.yandex_metadata import YandexMetadataRepository
+    from app.infrastructure.repositories.platform.yandex import YandexMetadataRepository
 
     meta = await YandexMetadataRepository(session).get_by_track_id(track.track_id)
     assert meta is not None
@@ -63,7 +63,7 @@ async def test_enrich_track_creates_metadata(session, seed_providers):
 
 async def test_enrich_track_not_found_on_ym(session):
     """Returns False if track not found on Yandex Music."""
-    from app.services.import_yandex import ImportYandexService
+    from app.services.platform.yandex.importer import ImportYandexService
 
     track = Track(title="Nonexistent — Track", duration_ms=300000)
     session.add(track)
@@ -79,7 +79,7 @@ async def test_enrich_track_not_found_on_ym(session):
 
 async def test_enrich_track_handles_empty_labels(session, seed_providers):
     """Empty labels list doesn't crash."""
-    from app.services.import_yandex import ImportYandexService
+    from app.services.platform.yandex.importer import ImportYandexService
 
     track = Track(title="Test — Track", duration_ms=300000)
     session.add(track)
@@ -103,7 +103,7 @@ async def test_enrich_track_handles_empty_labels(session, seed_providers):
 
 async def test_enrich_track_skips_already_enriched(session):
     """Returns True immediately if track already has YandexMetadata."""
-    from app.services.import_yandex import ImportYandexService
+    from app.services.platform.yandex.importer import ImportYandexService
 
     track = Track(title="Already Enriched", duration_ms=300000)
     session.add(track)
@@ -129,7 +129,7 @@ async def test_enrich_track_skips_already_enriched(session):
 
 async def test_enrich_track_nonexistent_track_id(session):
     """Returns False for a track_id that doesn't exist in DB."""
-    from app.services.import_yandex import ImportYandexService
+    from app.services.platform.yandex.importer import ImportYandexService
 
     mock_client = AsyncMock()
     svc = ImportYandexService(session=session, ym_client=mock_client)
@@ -140,7 +140,7 @@ async def test_enrich_track_nonexistent_track_id(session):
 
 async def test_enrich_batch(session, seed_providers):
     """Batch enrichment returns correct summary."""
-    from app.services.import_yandex import ImportYandexService
+    from app.services.platform.yandex.importer import ImportYandexService
 
     t1 = Track(title="Found Track", duration_ms=300000)
     t2 = Track(title="Missing Tune XYZ", duration_ms=300000)

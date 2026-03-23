@@ -21,8 +21,8 @@ from app.core.models.catalog import Track
 from app.core.models.dj import DjPlaylistItem
 from app.core.models.ingestion import ProviderTrackId
 from app.core.models.providers import Provider
-from app.infrastructure.repositories.dj_library_items import DjLibraryItemRepository
-from app.services.yandex_music_client import YandexMusicClient
+from app.infrastructure.repositories.dj.library_items import DjLibraryItemRepository
+from app.services.platform.yandex.client import YandexMusicClient
 
 logging.basicConfig(
     level=logging.INFO,

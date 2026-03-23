@@ -10,16 +10,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.domain.audio.feature_conversion import orm_features_to_track_features
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.sections import SectionsRepository
-from app.services.camelot_lookup import CamelotLookupService
-from app.services.transition_scoring import TransitionScoringService
+from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+from app.infrastructure.repositories.audio.sections import SectionsRepository
+from app.services.audio.camelot_lookup import CamelotLookupService
+from app.services.audio.scoring import TransitionScoringService
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.core.models.features import TrackAudioFeaturesComputed
-    from app.services.transition_scoring import TrackFeatures
+    from app.services.audio.scoring import TrackFeatures
 
 
 class UnifiedTransitionScoringService:

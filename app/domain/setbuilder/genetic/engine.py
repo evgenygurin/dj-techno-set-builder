@@ -85,7 +85,7 @@ class GAResult:
 
 # Re-export fitness functions at module level for backward compatibility.
 # These were originally defined here; now they live in fitness.py.
-from app.domain.setbuilder.genetic.fitness import (  # noqa: E402
+from app.domain.setbuilder.genetic.fitness import (  # noqa: E402, F401
     lufs_to_energy,
     target_energy_curve,
     template_slot_fit,

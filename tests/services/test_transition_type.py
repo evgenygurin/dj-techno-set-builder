@@ -1,7 +1,7 @@
 """Tests for TransitionTypeRecommender — djay Pro Neural Mix transition selection."""
 
-from app.services.transition_scoring import TrackFeatures
-from app.services.transition_type import recommend_transition
+from app.services.audio.scoring import TrackFeatures
+from app.services.audio.transition_type import recommend_transition
 from app.domain.audio.types import TransitionType
 
 

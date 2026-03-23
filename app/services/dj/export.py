@@ -28,7 +28,7 @@ from io import BytesIO
 from typing import Any
 
 from app.domain.audio.types import TransitionRecommendation
-from app.services.rekordbox_types import RekordboxTrackData
+from app.services.dj.rekordbox_types import RekordboxTrackData
 
 # ---------------------------------------------------------------------------
 # M3U export

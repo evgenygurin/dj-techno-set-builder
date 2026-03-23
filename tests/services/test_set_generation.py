@@ -10,7 +10,7 @@ import pytest
 from pydantic import BaseModel, Field
 
 from app.core.errors import ValidationError
-from app.services.set_generation import SetGenerationService
+from app.services.dj.generation import SetGenerationService
 
 
 class SetGenerationRequest(BaseModel):
@@ -139,7 +139,7 @@ async def test_playlist_filter_limits_tracks() -> None:
     mock_gen_cls, mock_matrix, _ = _patch_ga_and_matrix()
 
     with (
-        patch("app.services.set_generation.GeneticSetGenerator", mock_gen_cls),
+        patch("app.services.dj.generation.GeneticSetGenerator", mock_gen_cls),
         patch.object(svc, "_build_transition_matrix_scored", mock_matrix),
     ):
         await svc.generate(1, req)
@@ -176,7 +176,7 @@ async def test_no_playlist_id_uses_all_tracks() -> None:
     mock_matrix.return_value = np.ones((3, 3)) - np.eye(3)
 
     with (
-        patch("app.services.set_generation.GeneticSetGenerator", mock_gen_cls),
+        patch("app.services.dj.generation.GeneticSetGenerator", mock_gen_cls),
         patch.object(svc, "_build_transition_matrix_scored", mock_matrix),
     ):
         await svc.generate(1, req)
@@ -197,7 +197,7 @@ async def test_sections_repo_called_with_track_ids() -> None:
     mock_gen_cls, mock_matrix, _ = _patch_ga_and_matrix()
 
     with (
-        patch("app.services.set_generation.GeneticSetGenerator", mock_gen_cls),
+        patch("app.services.dj.generation.GeneticSetGenerator", mock_gen_cls),
         patch.object(svc, "_build_transition_matrix_scored", mock_matrix),
     ):
         await svc.generate(1, req)
@@ -223,7 +223,7 @@ async def test_no_template_no_track_count_defaults_to_20() -> None:
     mock_matrix.return_value = np.ones((50, 50)) - np.eye(50)
 
     with (
-        patch("app.services.set_generation.GeneticSetGenerator", mock_gen_cls),
+        patch("app.services.dj.generation.GeneticSetGenerator", mock_gen_cls),
         patch.object(svc, "_build_transition_matrix_scored", mock_matrix),
     ):
         await svc.generate(1, req)

@@ -28,12 +28,12 @@ from app.mcp.types import (
     WeakTransition,
 )
 from app.schemas.playlists import DjPlaylistCreate, DjPlaylistItemCreate
-from app.services.features import AudioFeaturesService
-from app.services.playlists import DjPlaylistService
-from app.services.set_curation import SetCurationService
-from app.services.sets import DjSetService
-from app.services.tracks import TrackService
-from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.services.audio.features import AudioFeaturesService
+from app.services.audio.scoring_unified import UnifiedTransitionScoringService
+from app.services.catalog.tracks import TrackService
+from app.services.dj.curation import SetCurationService
+from app.services.dj.playlists import DjPlaylistService
+from app.services.dj.sets import DjSetService
 
 
 def register_curation_tools(mcp: FastMCP) -> None:

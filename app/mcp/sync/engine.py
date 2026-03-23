@@ -10,7 +10,7 @@ from app.mcp.platforms.protocol import MusicPlatform
 from app.mcp.sync.diff import SyncDirection, compute_sync_diff
 
 if TYPE_CHECKING:
-    from app.services.playlists import DjPlaylistService
+    from app.services.dj.playlists import DjPlaylistService
 
 logger = logging.getLogger(__name__)
 

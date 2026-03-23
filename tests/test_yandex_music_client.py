@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+from app.services.platform.yandex.client import YandexMusicClient, parse_ym_track
 
 
 async def test_search_tracks():

@@ -63,7 +63,7 @@ class WorkflowOrchestrator:
 
         # Import here to avoid circular dependency
         from app.core.config import settings
-        from app.services.yandex_music_client import YandexMusicClient
+        from app.services.platform.yandex.client import YandexMusicClient
 
         ym_client = YandexMusicClient(token=settings.yandex_music_token)
 
@@ -126,8 +126,8 @@ class WorkflowOrchestrator:
         from app.core.config import settings
         from app.infrastructure.database import session_factory
         from app.core.models.ingestion import ProviderTrackId
-        from app.infrastructure.repositories.tracks import TrackRepository
-        from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+        from app.infrastructure.repositories.catalog.tracks import TrackRepository
+        from app.services.platform.yandex.client import YandexMusicClient, parse_ym_track
 
         imported = 0
         skipped = 0
@@ -211,8 +211,8 @@ class WorkflowOrchestrator:
         # Import services
         from app.core.config import settings
         from app.infrastructure.database import session_factory
-        from app.services.download import DownloadService
-        from app.services.yandex_music_client import YandexMusicClient
+        from app.services.library.download import DownloadService
+        from app.services.platform.yandex.client import YandexMusicClient
 
         # Create download service
         async with session_factory() as session:
@@ -267,10 +267,10 @@ class WorkflowOrchestrator:
 
         # Import services and repos
         from app.infrastructure.database import session_factory
-        from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-        from app.infrastructure.repositories.runs import FeatureRunRepository
-        from app.infrastructure.repositories.tracks import TrackRepository
-        from app.services.track_analysis import TrackAnalysisService
+        from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+        from app.infrastructure.repositories.audio.runs import FeatureRunRepository
+        from app.infrastructure.repositories.catalog.tracks import TrackRepository
+        from app.services.audio.analysis import TrackAnalysisService
 
         analyzed = 0
         skipped = 0
@@ -373,7 +373,7 @@ class WorkflowOrchestrator:
         logger.info(f"Stage 5: Filtering {len(track_ids)} tracks...")
 
         from app.infrastructure.database import session_factory
-        from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+        from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
 
         finalists: list[int] = []
 
@@ -424,10 +424,10 @@ class WorkflowOrchestrator:
         logger.info(f"Stage 6: Deep ML analysis for {len(finalist_ids)} finalists...")
 
         from app.infrastructure.database import session_factory
-        from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-        from app.infrastructure.repositories.runs import FeatureRunRepository
-        from app.infrastructure.repositories.tracks import TrackRepository
-        from app.services.track_analysis import TrackAnalysisService
+        from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+        from app.infrastructure.repositories.audio.runs import FeatureRunRepository
+        from app.infrastructure.repositories.catalog.tracks import TrackRepository
+        from app.services.audio.analysis import TrackAnalysisService
 
         analyzed = 0
         skipped = 0
@@ -526,7 +526,7 @@ class WorkflowOrchestrator:
         logger.info(f"Stage 7: Generating set from {len(finalist_ids)} finalists...")
 
         from app.infrastructure.database import session_factory
-        from app.infrastructure.repositories.sets import (
+        from app.infrastructure.repositories.dj.sets import (
             DjSetItemRepository,
             DjSetRepository,
             DjSetVersionRepository,
@@ -597,8 +597,8 @@ class WorkflowOrchestrator:
         import json
 
         from app.infrastructure.database import session_factory
-        from app.infrastructure.repositories.sets import DjSetItemRepository
-        from app.infrastructure.repositories.tracks import TrackRepository
+        from app.infrastructure.repositories.dj.sets import DjSetItemRepository
+        from app.infrastructure.repositories.catalog.tracks import TrackRepository
 
         export_paths: dict[str, str] = {}
 

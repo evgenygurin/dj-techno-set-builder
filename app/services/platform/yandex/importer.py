@@ -24,10 +24,10 @@ from app.core.models.catalog import (
 from app.core.models.enums import ArtistRole
 from app.core.models.ingestion import ProviderTrackId, RawProviderResponse
 from app.core.text_sort import sort_key
-from app.infrastructure.repositories.providers import ProviderRepository
-from app.infrastructure.repositories.yandex_metadata import YandexMetadataRepository
+from app.infrastructure.repositories.platform.providers import ProviderRepository
+from app.infrastructure.repositories.platform.yandex import YandexMetadataRepository
 from app.services.base import BaseService
-from app.services.yandex_music_client import ParsedYmTrack, YandexMusicClient, parse_ym_track
+from app.services.platform.yandex.client import ParsedYmTrack, YandexMusicClient, parse_ym_track
 
 _PROVIDER_CODE = "ym"
 

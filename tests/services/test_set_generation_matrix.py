@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from app.services.transition_scoring import (
+from app.services.audio.scoring import (
     HardConstraints,
     TrackFeatures,
     TransitionScoringService,
@@ -30,7 +30,7 @@ def _make_features(**overrides: object) -> TrackFeatures:
 
 def test_matrix_shape_n_by_n():
     """Matrix should be NxN for N tracks."""
-    from app.services.set_generation import _build_matrix_two_tier
+    from app.services.dj.generation import _build_matrix_two_tier
 
     features = [_make_features(bpm=125 + i * 2) for i in range(5)]
     scorer = TransitionScoringService()
@@ -42,7 +42,7 @@ def test_matrix_shape_n_by_n():
 
 def test_matrix_diagonal_is_zero():
     """Diagonal should be all zeros (no self-transitions)."""
-    from app.services.set_generation import _build_matrix_two_tier
+    from app.services.dj.generation import _build_matrix_two_tier
 
     features = [_make_features(bpm=125 + i * 2) for i in range(4)]
     scorer = TransitionScoringService()
@@ -58,7 +58,7 @@ def test_matrix_diagonal_is_zero():
 
 def test_no_zeros_off_diagonal():
     """Every off-diagonal entry must be > 0 (no hard cutoffs)."""
-    from app.services.set_generation import _build_matrix_two_tier
+    from app.services.dj.generation import _build_matrix_two_tier
 
     # Mix of very different features to trigger both tiers
     features = [
@@ -87,7 +87,7 @@ def test_tier1_threshold_skips_some_full_scores():
     Disable hard constraints so score_transition never returns 0.0 —
     this isolates the two-tier mechanism from hard-reject fallback.
     """
-    from app.services.set_generation import _build_matrix_two_tier
+    from app.services.dj.generation import _build_matrix_two_tier
 
     features = [
         _make_features(bpm=128.0, key_code=0, energy_lufs=-14.0),
@@ -112,7 +112,7 @@ def test_tier1_threshold_skips_some_full_scores():
 
 def test_tier1_threshold_zero_matches_full_score():
     """tier1_threshold=0.0 → every pair gets full score_transition."""
-    from app.services.set_generation import _build_matrix_two_tier
+    from app.services.dj.generation import _build_matrix_two_tier
 
     features = [
         _make_features(bpm=128.0, key_code=0, energy_lufs=-14.0),
@@ -145,7 +145,7 @@ def test_tier1_skips_fraction_for_diverse_set():
 
     Disable hard constraints to isolate two-tier mechanism.
     """
-    from app.services.set_generation import _build_matrix_two_tier
+    from app.services.dj.generation import _build_matrix_two_tier
 
     features = [
         _make_features(bpm=70.0, key_code=0, energy_lufs=-6.0),

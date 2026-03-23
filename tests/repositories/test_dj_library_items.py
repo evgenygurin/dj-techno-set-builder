@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models.catalog import Track
 from app.core.models.dj import DjLibraryItem
-from app.infrastructure.repositories.dj_library_items import DjLibraryItemRepository
+from app.infrastructure.repositories.dj.library_items import DjLibraryItemRepository
 
 
 class TestDjLibraryItemRepository:

@@ -9,10 +9,10 @@ from fastmcp.dependencies import Depends
 from fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.repositories.artists import ArtistRepository
-from app.infrastructure.repositories.playlists import DjPlaylistRepository
-from app.infrastructure.repositories.sets import DjSetRepository
-from app.infrastructure.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.catalog.artists import ArtistRepository
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
+from app.infrastructure.repositories.dj.playlists import DjPlaylistRepository
+from app.infrastructure.repositories.dj.sets import DjSetRepository
 from app.mcp.dependencies import get_session
 from app.mcp.entity_finder import ArtistFinder, PlaylistFinder, SetFinder, TrackFinder
 from app.mcp.library_stats import get_library_stats
@@ -140,7 +140,7 @@ def register_search_tools(mcp: FastMCP) -> None:
             limit: Max results (default 50, max 100).
             cursor: Pagination cursor.
         """
-        from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+        from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
         from app.mcp.converters import track_to_summary
         from app.mcp.response import wrap_list
 

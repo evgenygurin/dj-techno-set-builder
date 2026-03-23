@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.camelot_lookup import CamelotLookupService
+from app.services.audio.camelot_lookup import CamelotLookupService
 
 
 @pytest.mark.asyncio
@@ -54,7 +54,7 @@ async def test_get_score_cached():
 @pytest.mark.asyncio
 async def test_build_lookup_table_from_db(session):
     """Build lookup from actual key_edges table"""
-    from app.infrastructure.repositories.harmony import KeyEdgeRepository
+    from app.infrastructure.repositories.audio.harmony import KeyEdgeRepository
 
     # Verify key_edges has data
     repo = KeyEdgeRepository(session)

@@ -1,6 +1,6 @@
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.tracks import TrackRepository
+from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+from app.infrastructure.repositories.catalog.tracks import TrackRepository
 from app.schemas.features import AudioFeaturesList, AudioFeaturesRead
 from app.services.base import BaseService
 

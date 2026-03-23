@@ -21,7 +21,7 @@ from app.core.models.ingestion import ProviderTrackId
 from app.core.models.metadata_yandex import YandexMetadata
 from app.infrastructure.clients.yandex_music import YandexMusicClient
 from app.mcp.dependencies import get_session, get_ym_client
-from app.services.yandex_music_client import parse_ym_track
+from app.services.platform.yandex.client import parse_ym_track
 
 logger = logging.getLogger(__name__)
 

@@ -13,8 +13,8 @@ from app.domain.audio.camelot import key_code_to_camelot
 from app.mcp.dependencies import get_features_service, get_playlist_service
 from app.mcp.resolve import resolve_local_id
 from app.mcp.types import SimilarTracksResult
-from app.services.features import AudioFeaturesService
-from app.services.playlists import DjPlaylistService
+from app.services.audio.features import AudioFeaturesService
+from app.services.dj.playlists import DjPlaylistService
 
 
 def register_discovery_tools(mcp: FastMCP) -> None:

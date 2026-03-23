@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.transition_scoring import TrackFeatures, TransitionScoringService
+from app.services.audio.scoring import TrackFeatures, TransitionScoringService
 
 
 def test_track_features_new_fields_have_defaults():

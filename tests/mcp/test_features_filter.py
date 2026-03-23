@@ -13,7 +13,7 @@ from app.core.models import Base
 from app.core.models.catalog import Track
 from app.core.models.features import TrackAudioFeaturesComputed
 from app.core.models.runs import FeatureExtractionRun
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
 
 
 @pytest.fixture

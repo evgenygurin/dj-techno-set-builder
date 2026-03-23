@@ -41,10 +41,10 @@ from app.mcp.elicitation import resolve_conflict
 from app.mcp.providers._scoring_helpers import sanitize_filename, score_consecutive_transitions
 from app.mcp.resolve import resolve_local_id
 from app.mcp.types.workflows import DeliveryResult, TransitionScoreResult, TransitionSummary
-from app.services.features import AudioFeaturesService
-from app.services.sets import DjSetService
-from app.services.tracks import TrackService
-from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.services.audio.features import AudioFeaturesService
+from app.services.audio.scoring_unified import UnifiedTransitionScoringService
+from app.services.catalog.tracks import TrackService
+from app.services.dj.sets import DjSetService
 
 logger = logging.getLogger(__name__)
 

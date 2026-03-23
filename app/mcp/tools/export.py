@@ -24,9 +24,9 @@ from app.mcp.providers._scoring_helpers import sanitize_filename
 from app.mcp.resolve import resolve_local_id
 from app.mcp.session_state import save_export_config
 from app.mcp.types import ExportResult
-from app.services.features import AudioFeaturesService
-from app.services.sets import DjSetService
-from app.services.tracks import TrackService
+from app.services.audio.features import AudioFeaturesService
+from app.services.catalog.tracks import TrackService
+from app.services.dj.sets import DjSetService
 
 
 def _safe_filename(name: str) -> str:
@@ -90,18 +90,18 @@ def register_export_tools(mcp: FastMCP) -> None:
         """
         from urllib.parse import quote
 
-        from app.infrastructure.repositories.dj_beatgrid import DjBeatgridRepository
-        from app.infrastructure.repositories.dj_cue_points import DjCuePointRepository
-        from app.infrastructure.repositories.dj_saved_loops import DjSavedLoopRepository
-        from app.infrastructure.repositories.keys import KeyRepository
-        from app.infrastructure.repositories.sections import SectionsRepository
-        from app.infrastructure.repositories.tracks import TrackRepository
-        from app.services.rekordbox_types import (
+        from app.infrastructure.repositories.audio.keys import KeyRepository
+        from app.infrastructure.repositories.audio.sections import SectionsRepository
+        from app.infrastructure.repositories.catalog.tracks import TrackRepository
+        from app.infrastructure.repositories.dj.beatgrid import DjBeatgridRepository
+        from app.infrastructure.repositories.dj.cue_points import DjCuePointRepository
+        from app.infrastructure.repositories.dj.loops import DjSavedLoopRepository
+        from app.services.dj.export import export_rekordbox_xml
+        from app.services.dj.rekordbox_types import (
             RekordboxCuePoint,
             RekordboxTempo,
             RekordboxTrackData,
         )
-        from app.services.set_export import export_rekordbox_xml
 
         set_id = resolve_local_id(set_ref, "set")
 

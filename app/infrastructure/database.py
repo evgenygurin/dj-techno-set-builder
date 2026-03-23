@@ -42,7 +42,7 @@ async def init_db() -> None:
 
 async def _seed_providers() -> None:
     """Ensure standard providers exist."""
-    from app.infrastructure.repositories.providers import ProviderRepository
+    from app.infrastructure.repositories.platform.providers import ProviderRepository
 
     async with session_factory() as session:
         repo = ProviderRepository(session)

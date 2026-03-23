@@ -17,14 +17,14 @@ from app.core.models.catalog import Track
 from app.core.models.features import TrackAudioFeaturesComputed
 from app.core.models.harmony import Key, KeyEdge
 from app.core.models.runs import FeatureExtractionRun
-from app.services.camelot_lookup import CamelotLookupService
-from app.services.transition_scoring import (
+from app.services.audio.camelot_lookup import CamelotLookupService
+from app.services.audio.scoring import (
     HardConstraints,
     TrackFeatures,
     TransitionScoringService,
     effective_bpm_diff,
 )
-from app.services.transition_scoring_unified import (
+from app.services.audio.scoring_unified import (
     UnifiedTransitionScoringService,
     _score_components,
 )
@@ -574,9 +574,9 @@ async def test_ga_matrix_uses_same_scoring(session: AsyncSession) -> None:
     as UnifiedTransitionScoringService for the same track pair."""
     feat_a, feat_b = await _seed_two_tracks(session)
 
-    from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-    from app.infrastructure.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
-    from app.services.set_generation import SetGenerationService
+    from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+    from app.infrastructure.repositories.dj.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
+    from app.services.dj.generation import SetGenerationService
     from app.domain.setbuilder.genetic.engine import TrackData
 
     svc = SetGenerationService(

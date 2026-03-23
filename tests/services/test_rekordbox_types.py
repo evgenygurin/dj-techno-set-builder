@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.services.rekordbox_types import (
+from app.services.dj.rekordbox_types import (
     RekordboxCuePoint,
     RekordboxTempo,
     RekordboxTrackData,

@@ -61,7 +61,7 @@ from app.core.models.features import TrackAudioFeaturesComputed
 from app.core.models.ingestion import ProviderTrackId
 from app.core.models.metadata_yandex import YandexMetadata
 from app.core.models.runs import FeatureExtractionRun
-from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+from app.services.platform.yandex.client import YandexMusicClient, parse_ym_track
 from app.domain.audio.classifier.classifier import TrackMood, classify_track
 
 # ── Config ───────────────────────────────────────────────────────────────────
@@ -990,7 +990,7 @@ async def audit_playlist_tracks(
                     )
                     # Save to DB
                     async with session_factory() as session:
-                        from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+                        from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
 
                         run = FeatureExtractionRun(
                             pipeline_name="audit",
@@ -1284,7 +1284,7 @@ async def analyze_candidate(candidate: Candidate, sem: asyncio.Semaphore) -> boo
 
     # Save to DB
     async with session_factory() as session:
-        from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
+        from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
 
         run = FeatureExtractionRun(
             pipeline_name="fill_and_verify",

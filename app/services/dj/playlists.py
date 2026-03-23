@@ -1,5 +1,5 @@
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.playlists import (
+from app.infrastructure.repositories.dj.playlists import (
     DjPlaylistItemRepository,
     DjPlaylistRepository,
 )

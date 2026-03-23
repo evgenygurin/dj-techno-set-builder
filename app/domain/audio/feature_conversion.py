@@ -14,7 +14,7 @@ import json as _json
 from typing import TYPE_CHECKING
 
 from app.core.models.enums import SectionType
-from app.services.transition_scoring import TrackFeatures
+from app.services.audio.scoring import TrackFeatures
 
 if TYPE_CHECKING:
     from app.core.models.features import TrackAudioFeaturesComputed

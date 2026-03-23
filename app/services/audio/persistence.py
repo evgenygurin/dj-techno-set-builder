@@ -15,9 +15,9 @@ from app.domain.audio.types import (
     SpectralResult,
     TransitionScore,
 )
-from app.infrastructure.repositories.audio_features import AudioFeaturesRepository
-from app.infrastructure.repositories.candidates import CandidateRepository
-from app.infrastructure.repositories.transitions import TransitionRepository
+from app.infrastructure.repositories.audio.candidates import CandidateRepository
+from app.infrastructure.repositories.audio.features import AudioFeaturesRepository
+from app.infrastructure.repositories.audio.transitions import TransitionRepository
 from app.services.base import BaseService
 
 

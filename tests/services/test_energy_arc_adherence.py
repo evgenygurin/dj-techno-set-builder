@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.services.set_curation import SetCurationService
+from app.services.dj.curation import SetCurationService
 from app.domain.setbuilder.templates import TemplateName, get_template
 
 

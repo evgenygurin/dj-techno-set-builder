@@ -1,5 +1,8 @@
 from app.core.errors import NotFoundError
-from app.infrastructure.repositories.runs import FeatureRunRepository, TransitionRunRepository
+from app.infrastructure.repositories.audio.runs import (
+    FeatureRunRepository,
+    TransitionRunRepository,
+)
 from app.schemas.runs import (
     FeatureRunCreate,
     FeatureRunList,

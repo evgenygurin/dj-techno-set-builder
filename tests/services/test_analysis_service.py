@@ -8,7 +8,7 @@ import pytest
 
 from app.core.errors import NotFoundError
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
-from app.services.analysis import AnalysisOrchestrator
+from app.services.dj.analysis_orchestrator import AnalysisOrchestrator
 
 
 def _make_fake_features() -> MagicMock:
