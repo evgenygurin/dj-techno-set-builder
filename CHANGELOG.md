@@ -23,10 +23,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **DjPlaylistService expanded**: Added `match_ym_ids_to_track_ids`, `populate_from_track_ids`, `link_platform`, `get_track_count` methods.
 - **Energy arcs extracted**: `energy_arcs.py` (129 LOC) split from `set_generator.py` (912→791 LOC).
 - **Zero top-level cross-layer imports in MCP tools**: All direct repository, model, and sqlalchemy imports removed from `app/mcp/tools/` top-level.
+- **Services→MCP boundary enforced**: `sanitize_filename` moved to `app/utils/text_sort.py`, `score_consecutive_transitions` to `app/services/scoring_helpers.py`, domain types (`TransitionScoreResult`, `TransitionSummary`, `WeakTransition`, `SetReviewResult`) to `app/services/transition_types.py`. Services have zero imports from `app.mcp`.
 
 ### Added
 
-- **import-linter contracts**: 3 contracts enforce layer boundaries in CI — audio domain purity, services→adapters isolation, adapter independence. Added to `make check`.
+- **import-linter contracts**: 3 contracts enforce layer boundaries in CI — audio domain purity, services→adapters isolation (including `app.mcp`), adapter independence. Added to `make check`.
 
 ## [0.3.0] - 2026-03-22
 
