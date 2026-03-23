@@ -9,7 +9,7 @@ from fastmcp import FastMCP
 
 from app.core.config import settings
 from app.mcp.lifespan import mcp_lifespan
-from app.mcp.observability import apply_observability
+from app.mcp.observability import apply_observability, init_observability
 from app.mcp.tools import create_workflow_mcp
 from app.mcp.yandex_music import create_yandex_music_mcp
 
@@ -26,6 +26,9 @@ def create_dj_mcp() -> FastMCP:
     Adds PromptsAsTools and ResourcesAsTools transforms so that tool-only
     clients can still access prompts and resources.
     """
+    # Initialize Sentry/OTEL before any FastMCP tracer creation
+    init_observability()
+
     # Build sampling handler (fallback for clients without sampling support)
     sampling_handler = None
     if settings.anthropic_api_key:
