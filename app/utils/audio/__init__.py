@@ -28,7 +28,6 @@ from app.utils.audio.set_generator import (
     target_energy_curve,
 )
 from app.utils.audio.structure import segment_structure
-from app.utils.audio.transition_score import score_transition
 
 __all__ = [
     "AudioAnalysisError",
@@ -60,7 +59,6 @@ __all__ = [
     "is_compatible",
     "key_code_to_camelot",
     "load_audio",
-    "score_transition",
     "segment_structure",
     "target_energy_curve",
     "validate_audio",
