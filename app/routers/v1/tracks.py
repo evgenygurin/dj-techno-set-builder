@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.repositories.tracks import TrackRepository
 from app.routers.v1._openapi import (
     RESPONSES_CREATE,
     RESPONSES_DELETE,
@@ -15,7 +14,9 @@ router = APIRouter(prefix="/tracks", tags=["tracks"])
 
 
 def _service(db: DbSession) -> TrackService:
-    return TrackService(TrackRepository(db))
+    from app.services._factories import build_track_service
+
+    return build_track_service(db)
 
 
 @router.get(

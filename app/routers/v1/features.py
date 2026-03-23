@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.tracks import TrackRepository
 from app.routers.v1._openapi import RESPONSES_GET
 from app.schemas.features import AudioFeaturesList, AudioFeaturesRead
 from app.services.features import AudioFeaturesService
@@ -11,7 +9,9 @@ router = APIRouter(prefix="/tracks", tags=["features"])
 
 
 def _service(db: DbSession) -> AudioFeaturesService:
-    return AudioFeaturesService(AudioFeaturesRepository(db), TrackRepository(db))
+    from app.services._factories import build_features_service
+
+    return build_features_service(db)
 
 
 @router.get(

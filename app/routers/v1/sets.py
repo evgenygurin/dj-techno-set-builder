@@ -1,10 +1,6 @@
 from fastapi import APIRouter, Query
 
 from app.dependencies import DbSession
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.playlists import DjPlaylistItemRepository
-from app.repositories.sections import SectionsRepository
-from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
 from app.routers.v1._openapi import (
     RESPONSES_CREATE,
     RESPONSES_DELETE,
@@ -31,11 +27,9 @@ router = APIRouter(prefix="/sets", tags=["sets"])
 
 
 def _service(db: DbSession) -> DjSetService:
-    return DjSetService(
-        DjSetRepository(db),
-        DjSetVersionRepository(db),
-        DjSetItemRepository(db),
-    )
+    from app.services._factories import build_set_service
+
+    return build_set_service(db)
 
 
 # ─── Set CRUD ────────────────────────────────────────────
@@ -122,14 +116,9 @@ async def delete_set(set_id: int, db: DbSession) -> None:
 
 
 def _generation_service(db: DbSession) -> SetGenerationService:
-    return SetGenerationService(
-        DjSetRepository(db),
-        DjSetVersionRepository(db),
-        DjSetItemRepository(db),
-        AudioFeaturesRepository(db),
-        SectionsRepository(db),
-        DjPlaylistItemRepository(db),
-    )
+    from app.services._factories import build_generation_service
+
+    return build_generation_service(db)
 
 
 @router.post(

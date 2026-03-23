@@ -1,10 +1,6 @@
 from fastapi import APIRouter
 
 from app.dependencies import DbSession
-from app.repositories.audio_features import AudioFeaturesRepository
-from app.repositories.runs import FeatureRunRepository
-from app.repositories.sections import SectionsRepository
-from app.repositories.tracks import TrackRepository
 from app.routers.v1._openapi import RESPONSES_GET
 from app.schemas.analysis import (
     AnalysisRequest,
@@ -19,12 +15,9 @@ router = APIRouter(prefix="/tracks", tags=["analysis"])
 
 
 def _service(db: DbSession) -> AnalysisOrchestrator:
-    return AnalysisOrchestrator(
-        track_repo=TrackRepository(db),
-        features_repo=AudioFeaturesRepository(db),
-        sections_repo=SectionsRepository(db),
-        run_repo=FeatureRunRepository(db),
-    )
+    from app.services._factories import build_analysis_orchestrator
+
+    return build_analysis_orchestrator(db)
 
 
 @router.post(
