@@ -164,8 +164,7 @@ class SetGenerationService(BaseService):
 
         # Build TrackData list via unified converter (fixes hp_ratio default bug)
         tracks = [
-            orm_to_track_data(f, artist_id=artist_map.get(f.track_id, 0))
-            for f in features_list
+            orm_to_track_data(f, artist_id=artist_map.get(f.track_id, 0)) for f in features_list
         ]
 
         # Build features map once — reused by transition matrix builder

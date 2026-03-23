@@ -6,13 +6,13 @@ import contextlib
 import logging
 from typing import Any
 
-from app.services.yandex_music_client import YandexMusicClient as YMApiClient
 from app.mcp.platforms.protocol import (
     PlatformCapability,
     PlatformPlaylist,
     PlatformTrack,
 )
 from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+from app.services.yandex_music_client import YandexMusicClient as YMApiClient
 
 logger = logging.getLogger(__name__)
 

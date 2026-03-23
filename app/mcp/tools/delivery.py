@@ -62,9 +62,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         dj_set = await set_svc.get(set_id)
         set_name = dj_set.name
 
-        svc = DeliveryService(
-            set_svc, unified_svc, features_svc, track_svc, session, ym_client
-        )
+        svc = DeliveryService(set_svc, unified_svc, features_svc, track_svc, session, ym_client)
 
         # Stage 1: Score
         await ctx.info(f"Stage 1/3 — Scoring transitions for '{set_name}'...")
@@ -85,8 +83,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
 
         if conflicts and not skip_conflicts:
             conflict_lines = "\n".join(
-                f"  • {c.from_title} → {c.to_title} (score=0.0)"
-                for c in conflicts[:10]
+                f"  • {c.from_title} → {c.to_title} (score=0.0)" for c in conflicts[:10]
             )
             decision = await resolve_conflict(
                 ctx,
@@ -96,8 +93,12 @@ def register_delivery_tools(mcp: FastMCP) -> None:
             )
             if decision == "abort" or decision is None:
                 return DeliveryResult(
-                    set_id=set_id, version_id=version_id, set_name=set_name,
-                    output_dir="", files_written=[], transitions=summary,
+                    set_id=set_id,
+                    version_id=version_id,
+                    set_name=set_name,
+                    output_dir="",
+                    files_written=[],
+                    transitions=summary,
                     status="aborted",
                 )
 
@@ -121,9 +122,7 @@ def register_delivery_tools(mcp: FastMCP) -> None:
             title = ym_playlist_title or f"{set_name} [set]"
             await ctx.info(f"Stage 3/3 — Creating YM playlist '{title}'...")
             try:
-                ym_kind = await svc.sync_to_ym(
-                    result["tracks"], ym_user_id, title
-                )
+                ym_kind = await svc.sync_to_ym(result["tracks"], ym_user_id, title)
                 await ctx.info(f"YM playlist created: kind={ym_kind}")
             except (httpx.HTTPStatusError, httpx.ConnectError, ValueError) as exc:
                 await ctx.info(f"YM sync failed: {exc}. Files already written.")
@@ -133,7 +132,9 @@ def register_delivery_tools(mcp: FastMCP) -> None:
         await ctx.report_progress(progress=3, total=3)
 
         return DeliveryResult(
-            set_id=set_id, version_id=version_id, set_name=set_name,
+            set_id=set_id,
+            version_id=version_id,
+            set_name=set_name,
             output_dir=result["output_dir"],
             files_written=result["files_written"],
             transitions=summary,

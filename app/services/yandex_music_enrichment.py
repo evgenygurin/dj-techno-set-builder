@@ -15,7 +15,6 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.yandex_music_client import YandexMusicClient
 from app.models.catalog import (
     Artist,
     Genre,
@@ -29,6 +28,7 @@ from app.models.catalog import (
 from app.models.enums import ArtistRole
 from app.models.ingestion import ProviderTrackId
 from app.schemas.yandex_music import YmEnrichResponse
+from app.services.yandex_music_client import YandexMusicClient
 from app.utils.text_sort import sort_key
 
 _PROVIDER_ID = 4  # ym — see providers seed data

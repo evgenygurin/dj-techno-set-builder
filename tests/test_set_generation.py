@@ -16,8 +16,8 @@ from app.models.harmony import Key
 from app.models.runs import FeatureExtractionRun
 from app.models.sets import DjSet
 from app.utils.audio.energy_arcs import (
-    EnergyArcType,
     _ARC_BREAKPOINTS,
+    EnergyArcType,
     _interpolate_breakpoints,
     target_energy_curve,
 )

@@ -89,7 +89,8 @@ class DeliveryService(BaseService):
         self.ym_client = ym_client
 
     async def score_version(
-        self, version_id: int,
+        self,
+        version_id: int,
     ) -> list[TransitionScoreResult]:
         """Score all transitions in a set version."""
         items_list = await self.set_svc.list_items(version_id, offset=0, limit=500)
@@ -107,14 +108,13 @@ class DeliveryService(BaseService):
             total=len(scores),
             hard_conflicts=sum(1 for s in scores if s.total == 0.0),
             weak=sum(1 for s in scored if s.total < _WEAK_THRESHOLD),
-            avg_score=(
-                sum(s.total for s in scored) / len(scored) if scored else 0.0
-            ),
+            avg_score=(sum(s.total for s in scored) / len(scored) if scored else 0.0),
             min_score=min((s.total for s in scored), default=0.0),
         )
 
     async def collect_track_data(
-        self, items: list[Any],
+        self,
+        items: list[Any],
     ) -> list[dict[str, Any]]:
         """Collect per-track metadata + audio features for export."""
         track_ids = [item.track_id for item in items]
@@ -158,7 +158,8 @@ class DeliveryService(BaseService):
 
     @staticmethod
     def copy_mp3_files(
-        tracks: list[dict[str, Any]], out: Path,
+        tracks: list[dict[str, Any]],
+        out: Path,
     ) -> tuple[int, int]:
         """Copy MP3 files from library to output dir. Returns (copied, skipped)."""
         copied = skipped = 0
@@ -199,9 +200,7 @@ class DeliveryService(BaseService):
         scores: list[TransitionScoreResult],
     ) -> str:
         """Generate a compact infographic cheat sheet for the DJ booth."""
-        tx_by_from: dict[int, TransitionScoreResult] = {
-            s.from_track_id: s for s in scores
-        }
+        tx_by_from: dict[int, TransitionScoreResult] = {s.from_track_id: s for s in scores}
 
         bpms = [tr["bpm"] for tr in tracks if tr.get("bpm")]
         bpm_min = min(bpms) if bpms else 0
@@ -230,10 +229,7 @@ class DeliveryService(BaseService):
             key = tr.get("key") or "?"
             lufs = tr.get("lufs") or 0
             ebar = _energy_bar(lufs, lufs_lo, lufs_hi)
-            lines.append(
-                f" {pos:2d}  {title:<27s} {bpm:5.0f}  {key:>3s}"
-                f"  [{ebar}] {lufs:.0f}"
-            )
+            lines.append(f" {pos:2d}  {title:<27s} {bpm:5.0f}  {key:>3s}  [{ebar}] {lufs:.0f}")
 
             tx = tx_by_from.get(tr["track_id"])
             if tx is not None and tx.total > 0:
@@ -246,9 +242,7 @@ class DeliveryService(BaseService):
                     meta += f" bpm{tx.bpm_delta:+.0f}"
                 if tx.from_key and tx.to_key and tx.from_key != tx.to_key:
                     meta += f" {tx.from_key}>{tx.to_key}"
-                lines.append(
-                    f"     [{bar}] {tx.total:.2f}{warn}  {typ}{alt}{meta}"
-                )
+                lines.append(f"     [{bar}] {tx.total:.2f}{warn}  {typ}{alt}{meta}")
             elif tx is not None:
                 lines.append("     [XXXXX] 0.00 !  CONFLICT")
 
@@ -259,8 +253,7 @@ class DeliveryService(BaseService):
         if bpms:
             safe_lo = max(bpm_min - 2, 120)
             lines.append(
-                f"BPM   {bpm_min:.0f}-{bpm_max:.0f}"
-                f"  safe {safe_lo:.0f}-{bpm_max + 2:.0f}"
+                f"BPM   {bpm_min:.0f}-{bpm_max:.0f}  safe {safe_lo:.0f}-{bpm_max + 2:.0f}"
             )
 
         return "\n".join(lines) + "\n"
@@ -303,9 +296,7 @@ class DeliveryService(BaseService):
         ym_tracks: list[dict[str, str]] = []
 
         if track_ids:
-            stmt = select(YandexMetadata).where(
-                YandexMetadata.track_id.in_(track_ids)
-            )
+            stmt = select(YandexMetadata).where(YandexMetadata.track_id.in_(track_ids))
             result = await self.session.execute(stmt)
             ym_map = {row.track_id: row for row in result.scalars()}
         else:
@@ -322,17 +313,11 @@ class DeliveryService(BaseService):
                     }
                 )
             elif tid > 1_000_000:
-                logger.warning(
-                    "No YM metadata for track_id=%d (YM native, no album)", tid
-                )
+                logger.warning("No YM metadata for track_id=%d (YM native, no album)", tid)
 
-        kind = await self.ym_client.create_playlist(
-            ym_user_id, ym_playlist_title
-        )
+        kind = await self.ym_client.create_playlist(ym_user_id, ym_playlist_title)
         if ym_tracks:
-            await self.ym_client.add_tracks_to_playlist(
-                ym_user_id, kind, ym_tracks, revision=1
-            )
+            await self.ym_client.add_tracks_to_playlist(ym_user_id, kind, ym_tracks, revision=1)
 
         return kind
 
@@ -358,15 +343,11 @@ class DeliveryService(BaseService):
         files_written: list[str] = []
 
         m3u_path = out / f"{set_name}.m3u8"
-        m3u_path.write_text(
-            export_m3u(tracks, set_name=set_name), encoding="utf-8"
-        )
+        m3u_path.write_text(export_m3u(tracks, set_name=set_name), encoding="utf-8")
         files_written.append(m3u_path.name)
 
         json_path = out / f"{set_name}.json"
-        json_path.write_text(
-            self.write_json_guide(set_name, tracks, scores), encoding="utf-8"
-        )
+        json_path.write_text(self.write_json_guide(set_name, tracks, scores), encoding="utf-8")
         files_written.append(json_path.name)
 
         cheat_path = out / "cheat_sheet.txt"

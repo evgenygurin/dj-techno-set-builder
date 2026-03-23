@@ -16,7 +16,7 @@ from numpy.typing import NDArray
 
 from app.utils.audio.energy_arcs import (
     EnergyArcType,
-    lufs_to_energy,
+    lufs_to_energy,  # noqa: F401 — re-exported for backward compat
     target_energy_curve,
 )
 from app.utils.audio.set_templates import SetSlot

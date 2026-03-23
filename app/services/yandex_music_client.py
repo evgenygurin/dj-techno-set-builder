@@ -131,9 +131,9 @@ class YandexMusicClient(BaseService):
 
     # --- Search ---
 
-    async def search_tracks(self, query: str) -> list[dict[str, Any]]:
+    async def search_tracks(self, query: str, *, page: int = 0) -> list[dict[str, Any]]:
         """Search YM for tracks. Returns list of raw track dicts."""
-        url = f"{self._base}/search?text={urllib.parse.quote(query)}&type=track&page=0"
+        url = f"{self._base}/search?text={urllib.parse.quote(query)}&type=track&page={page}"
         data = await self._get_json(url)
         tracks = data.get("result", {}).get("tracks", {}).get("results", [])
         return cast(list[dict[str, Any]], tracks)

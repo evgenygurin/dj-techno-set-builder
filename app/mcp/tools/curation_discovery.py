@@ -38,7 +38,9 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
 
         excluded = set(exclude_track_ids or [])
         candidates = await svc.discover_from_seeds(
-            [seed_track_id], excluded, batch_size=batch_size,
+            [seed_track_id],
+            excluded,
+            batch_size=batch_size,
         )
 
         await ctx.report_progress(progress=1, total=1)
@@ -118,8 +120,11 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
         all_seeds = await svc.get_playlist_seed_ids(playlist_id)
         if not all_seeds:
             return {
-                "discovered": 0, "imported": 0,
-                "already_exists": 0, "added_to_playlist": 0, "errors": [],
+                "discovered": 0,
+                "imported": 0,
+                "already_exists": 0,
+                "added_to_playlist": 0,
+                "errors": [],
             }
 
         seeds = random.sample(all_seeds, min(seed_count, len(all_seeds)))
@@ -129,8 +134,11 @@ def register_curation_discovery_tools(mcp: FastMCP) -> None:
 
         if not candidates:
             return {
-                "discovered": 0, "imported": 0,
-                "already_exists": 0, "added_to_playlist": 0, "errors": [],
+                "discovered": 0,
+                "imported": 0,
+                "already_exists": 0,
+                "added_to_playlist": 0,
+                "errors": [],
             }
 
         # Stage 2: Import

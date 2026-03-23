@@ -14,7 +14,6 @@ from fastmcp.server.context import Context
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.yandex_music_client import YandexMusicClient
 from app.config import settings
 from app.errors import NotFoundError
 from app.mcp.dependencies import (
@@ -35,6 +34,7 @@ from app.models.metadata_yandex import YandexMetadata
 from app.models.sets import DjSet
 from app.services.playlists import DjPlaylistService
 from app.services.sets import DjSetService
+from app.services.yandex_music_client import YandexMusicClient
 
 logger = logging.getLogger(__name__)
 

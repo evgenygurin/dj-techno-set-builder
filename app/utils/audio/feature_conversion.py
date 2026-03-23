@@ -137,6 +137,7 @@ def orm_to_track_data(
     Uses the FULL 13-parameter ``classify_track()`` call with correct defaults
     (fixes hp_ratio bug: was 0.5 in some call-sites, should be 2.0).
     """
+
     def _g(attr: str, default: float) -> float:
         """Get float attr from feat, falling back to default if missing/non-numeric."""
         val = getattr(feat, attr, None)

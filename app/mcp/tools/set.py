@@ -453,7 +453,11 @@ def register_set_tools(mcp: FastMCP) -> None:
 
         # 2. Score transitions
         delivery_svc = DeliveryService(
-            svc, unified_svc, features_svc, track_svc, session,
+            svc,
+            unified_svc,
+            features_svc,
+            track_svc,
+            session,
         )
         scores = await delivery_svc.score_version(version_id)
         summary = DeliveryService.build_transition_summary(scores)

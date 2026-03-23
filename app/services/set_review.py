@@ -65,10 +65,7 @@ async def review_set_version(
                     from_track_id=sr.from_track_id,
                     to_track_id=sr.to_track_id,
                     score=round(sr.total, 3),
-                    reason=(
-                        "Low transition quality" if sr.total > 0
-                        else "Missing features"
-                    ),
+                    reason=("Low transition quality" if sr.total > 0 else "Missing features"),
                 )
             )
 
@@ -79,9 +76,7 @@ async def review_set_version(
     feat_map: dict[int, Any] = {f.track_id: f for f in all_features}
 
     track_data_list = [
-        orm_to_track_data(feat_map[item.track_id])
-        for item in items
-        if item.track_id in feat_map
+        orm_to_track_data(feat_map[item.track_id]) for item in items if item.track_id in feat_map
     ]
     var_score = variety_score(track_data_list) if track_data_list else 0.0
 
@@ -95,17 +90,13 @@ async def review_set_version(
 
     arc_score = 0.0
     if sum(1 for x in track_lufs if x is not None) >= 2:
-        arc_score = svc.compute_energy_arc_adherence_with_gaps(
-            track_lufs, actual_template
-        )
+        arc_score = svc.compute_energy_arc_adherence_with_gaps(track_lufs, actual_template)
 
     suggestions: list[str] = []
     if weak:
         suggestions.append(f"{len(weak)} weak transitions (score < 0.4)")
     if var_score < 0.7:
-        suggestions.append(
-            "Low variety — consider diversifying mood/key sequences"
-        )
+        suggestions.append("Low variety — consider diversifying mood/key sequences")
     if arc_score < 0.5:
         suggestions.append(
             f"Energy arc adherence is low ({arc_score:.1%}) — "
