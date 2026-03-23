@@ -44,11 +44,13 @@ Slash commands в `.claude/commands/`:
 ## Commands
 
 ```bash
-fd
-rg
-ast-grep
-jq
-yq
+fd                                        # Fast file finder (fd-find)
+rg                                        # Fast content search (ripgrep)
+ast-grep                                  # AST-aware code search/transform
+fzf                                       # Fuzzy finder for interactive filtering
+jq                                        # JSON processor
+yq                                        # YAML processor
+gh                                        # GitHub CLI (PRs, issues, actions)
 ```
 
 ```bash
