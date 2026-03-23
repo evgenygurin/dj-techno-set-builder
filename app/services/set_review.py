@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.mcp.tools._scoring_helpers import score_consecutive_transitions
 from app.services.features import AudioFeaturesService
+from app.services.scoring_helpers import score_consecutive_transitions
 from app.services.set_curation import SetCurationService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService

@@ -18,9 +18,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.errors import NotFoundError
-from app.mcp.tools._scoring_helpers import score_consecutive_transitions
 from app.services.base import BaseService
 from app.services.features import AudioFeaturesService
+from app.services.scoring_helpers import score_consecutive_transitions
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
