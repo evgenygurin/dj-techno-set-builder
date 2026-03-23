@@ -129,8 +129,11 @@ clean:
 # Проверка кода
 # ═════════════════════════════════════════════════════════════════════════════
 
-lint: ruff mypy
+lint: ruff mypy lint-imports
 	@$(UV) run ruff format --check $(APP) $(TESTS)
+
+lint-imports:
+	$(UV) run lint-imports
 
 ruff:
 	$(UV_RUN) ruff check $(APP) $(TESTS)
