@@ -10,10 +10,10 @@ import contextlib
 from typing import Any
 
 from app.errors import NotFoundError
-from app.mcp.types.workflows import TransitionScoreResult
 from app.services.features import AudioFeaturesService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.services.transition_types import TransitionScoreResult
 from app.utils.audio.camelot import key_code_to_camelot
 from app.utils.text_sort import sanitize_filename as sanitize_filename
 

@@ -8,12 +8,12 @@ from __future__ import annotations
 from typing import Any
 
 from app.mcp.tools._scoring_helpers import score_consecutive_transitions
-from app.mcp.types import SetReviewResult, WeakTransition
 from app.services.features import AudioFeaturesService
 from app.services.set_curation import SetCurationService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.services.transition_types import SetReviewResult, WeakTransition
 from app.utils.audio.feature_conversion import orm_to_track_data
 from app.utils.audio.set_generator import variety_score
 

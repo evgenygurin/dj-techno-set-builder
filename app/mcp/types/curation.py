@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+# Re-exported from domain layer (source of truth: app.services.transition_types)
+from app.services.transition_types import SetReviewResult as SetReviewResult
+from app.services.transition_types import WeakTransition as WeakTransition
+
 __all__ = [
     "ClassifyResult",
     "CurateCandidate",
@@ -51,26 +55,6 @@ class CurateSetResult(BaseModel):
     candidates: list[CurateCandidate]
     mood_distribution: list[MoodDistribution]
     warnings: list[str]
-
-
-class WeakTransition(BaseModel):
-    """A weak transition identified during review."""
-
-    position: int
-    from_track_id: int
-    to_track_id: int
-    score: float
-    reason: str
-
-
-class SetReviewResult(BaseModel):
-    """Result of reviewing a set version."""
-
-    overall_score: float
-    energy_arc_adherence: float
-    variety_score: float
-    weak_transitions: list[WeakTransition]
-    suggestions: list[str]
 
 
 class GapDescription(BaseModel):

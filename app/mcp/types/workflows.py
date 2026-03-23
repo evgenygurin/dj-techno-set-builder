@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+# Re-exported from domain layer (source of truth: app.services.transition_types)
+from app.services.transition_types import TransitionScoreResult as TransitionScoreResult
+from app.services.transition_types import TransitionSummary as TransitionSummary
+
 __all__ = [
     "AdjustmentPlan",
     "DeliveryResult",
@@ -75,33 +79,6 @@ class SetBuildResult(BaseModel):
     auto_rebuild_iterations: int = 0
 
 
-class TransitionScoreResult(BaseModel):
-    """Transition score between two tracks."""
-
-    from_track_id: int
-    to_track_id: int
-    from_title: str
-    to_title: str
-    total: float
-    bpm: float
-    harmonic: float
-    energy: float
-    spectral: float
-    groove: float
-    structure: float = 0.5  # Phase 3: section-aware score
-    recommended_type: str | None = None  # Phase 3: TransitionType value
-    type_confidence: float | None = None
-    reason: str | None = None
-    alt_type: str | None = None
-    # Audio context (None when features unavailable)
-    from_bpm: float | None = None
-    to_bpm: float | None = None
-    from_key: str | None = None  # Camelot e.g. "8A"
-    to_key: str | None = None
-    camelot_distance: int | None = None  # 0-6 (0=same, 6=worst)
-    bpm_delta: float | None = None  # abs(from_bpm - to_bpm)
-
-
 class ExportResult(BaseModel):
     """Result of exporting a set."""
 
@@ -109,16 +86,6 @@ class ExportResult(BaseModel):
     format: str
     track_count: int
     content: str
-
-
-class TransitionSummary(BaseModel):
-    """High-level summary of transition quality for a set version."""
-
-    total: int
-    hard_conflicts: int  # score == 0.0 (Camelot dist >= 5 or no features)
-    weak: int  # 0.0 < score < 0.85 — needs care
-    avg_score: float
-    min_score: float
 
 
 class SetVersionSummary(BaseModel):

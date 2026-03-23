@@ -19,12 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.errors import NotFoundError
 from app.mcp.tools._scoring_helpers import score_consecutive_transitions
-from app.mcp.types.workflows import TransitionScoreResult, TransitionSummary
 from app.services.base import BaseService
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
+from app.services.transition_types import TransitionScoreResult, TransitionSummary
 from app.services.yandex_music_client import YandexMusicClient
 from app.utils.audio.camelot import key_code_to_camelot
 from app.utils.text_sort import sanitize_filename
