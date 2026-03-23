@@ -40,7 +40,6 @@ from app.mcp.types import (
     SetVersionSummary,
     TransitionSummary,
 )
-from app.repositories.sets import DjSetItemRepository, DjSetRepository, DjSetVersionRepository
 from app.schemas.sets import DjSetCreate, DjSetItemCreate, DjSetUpdate, DjSetVersionCreate
 from app.services.features import AudioFeaturesService
 from app.services.sets import DjSetService
@@ -50,11 +49,9 @@ from app.utils.audio.camelot import key_code_to_camelot
 
 
 def _make_svc(session: AsyncSession) -> DjSetService:
-    return DjSetService(
-        DjSetRepository(session),
-        DjSetVersionRepository(session),
-        DjSetItemRepository(session),
-    )
+    from app.services._factories import build_set_service
+
+    return build_set_service(session)
 
 
 async def _build_set_detail(set_id: int, session: AsyncSession) -> SetDetail | None:
@@ -160,7 +157,7 @@ def register_set_tools(mcp: FastMCP) -> None:
             search: Optional text to filter by set name.
         """
         offset, clamped = paginate_params(cursor=cursor, limit=limit)
-        repo = DjSetRepository(session)
+        repo = _make_svc(session).repo
 
         if search:
             sets, total = await repo.search_by_name(search, offset=offset, limit=clamped)
@@ -197,8 +194,7 @@ def register_set_tools(mcp: FastMCP) -> None:
             return await wrap_detail(detail, session)
 
         if ref.ref_type == RefType.TEXT:
-            repo = DjSetRepository(session)
-            finder = SetFinder(repo)
+            finder = SetFinder(_make_svc(session).repo)
             found = await finder.find(ref, limit=20)
             return await wrap_list(found.entities, len(found.entities), 0, 20, session)
 
@@ -398,11 +394,7 @@ def register_set_tools(mcp: FastMCP) -> None:
             set_ref: DJ set ref (int, "42", or "local:42").
             version_id: Specific version ID, or None for latest.
         """
-        from app.mcp.tools.delivery import (
-            _build_transition_summary,
-            _generate_cheat_sheet,
-            _score_version,
-        )
+        from app.services.delivery import DeliveryService
 
         ref = parse_ref(str(set_ref))
         if ref.ref_type != RefType.LOCAL or ref.local_id is None:
@@ -460,10 +452,11 @@ def register_set_tools(mcp: FastMCP) -> None:
         tracks = await _get_set_tracks_impl(set_id, version_id, session, features_svc, track_svc)
 
         # 2. Score transitions
-        scores = await _score_version(
-            set_id, version_id, svc, unified_svc, features_svc, track_svc
+        delivery_svc = DeliveryService(
+            svc, unified_svc, features_svc, track_svc, session,
         )
-        summary = _build_transition_summary(scores)
+        scores = await delivery_svc.score_version(version_id)
+        summary = DeliveryService.build_transition_summary(scores)
 
         # 3. Build text cheat sheet
         track_dicts = [
@@ -478,7 +471,7 @@ def register_set_tools(mcp: FastMCP) -> None:
             }
             for t in tracks
         ]
-        text = _generate_cheat_sheet(dj_set.name, track_dicts, scores)
+        text = DeliveryService.generate_cheat_sheet(dj_set.name, track_dicts, scores)
 
         # 4. Derived stats
         bpms = [t.bpm for t in tracks if t.bpm is not None]
