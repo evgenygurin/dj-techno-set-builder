@@ -28,9 +28,19 @@ class YandexMusicClient:
 
     # ── Search ────────────────────────────────────────────
 
-    async def search_tracks(self, query: str, *, page: int = 0) -> list[dict[str, Any]]:
-        """Search tracks by text query."""
-        data = await self._http.get("/search", text=query, type="track", page=page)
+    async def search_tracks(
+        self, query: str, *, page: int = 0, nocorrect: bool = False
+    ) -> list[dict[str, Any]]:
+        """Search tracks by text query.
+
+        Args:
+            query: Search text.
+            page: Page number (0-based, 20 results per page).
+            nocorrect: If True, disable YM's auto-correction of typos.
+        """
+        data = await self._http.get(
+            "/search", text=query, type="track", page=page, nocorrect=nocorrect
+        )
         return cast(list[dict[str, Any]], data.get("result", {}).get("tracks", {}).get("results", []))
 
     # ── Tracks ────────────────────────────────────────────
