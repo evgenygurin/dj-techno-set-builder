@@ -13,7 +13,7 @@ from app.models.dj import DjLibraryItem
 from app.models.ingestion import ProviderTrackId
 from app.models.providers import Provider
 from app.repositories.dj_library_items import DjLibraryItemRepository
-from app.services.download import DownloadService
+from app.clients.yandex_music.downloader import DownloadService
 
 
 class TestDownloadService:
@@ -187,7 +187,7 @@ class TestDownloadService:
 
         # Test (mock sleep to avoid real 3s delay from exponential backoff)
         svc = DownloadService(session, mock_ym, tmp_path)
-        with patch("app.services.download.asyncio.sleep", new_callable=AsyncMock):
+        with patch("app.clients.yandex_music.downloader.asyncio.sleep", new_callable=AsyncMock):
             success, _ = await svc._download_single_track(track, prefer_bitrate=320)
 
         assert success is True
@@ -222,7 +222,7 @@ class TestDownloadService:
 
         # Test (mock sleep to avoid real 3s delay from exponential backoff)
         svc = DownloadService(session, mock_ym, tmp_path)
-        with patch("app.services.download.asyncio.sleep", new_callable=AsyncMock):
+        with patch("app.clients.yandex_music.downloader.asyncio.sleep", new_callable=AsyncMock):
             success, size = await svc._download_single_track(track, prefer_bitrate=320)
 
         assert success is False
@@ -299,7 +299,7 @@ class TestDownloadService:
 
         # Test (mock sleep to avoid real 3s delay from exponential backoff)
         svc = DownloadService(session, mock_ym, tmp_path)
-        with patch("app.services.download.asyncio.sleep", new_callable=AsyncMock):
+        with patch("app.clients.yandex_music.downloader.asyncio.sleep", new_callable=AsyncMock):
             result = await svc.download_tracks_batch([track1.track_id, track2.track_id])
 
         assert result.downloaded == 1

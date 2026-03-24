@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from app.clients.yandex_music import YandexMusicClient
+from app.clients.yandex_music import create_ym_client
 from app.config import settings
 from app.mcp.platforms.registry import PlatformRegistry
 from app.mcp.platforms.yandex import YandexMusicAdapter
@@ -22,7 +22,7 @@ def create_platform_registry() -> PlatformRegistry:
 
     # Yandex Music
     if settings.yandex_music_token and settings.yandex_music_user_id:
-        client = YandexMusicClient(
+        client = create_ym_client(
             token=settings.yandex_music_token,
             user_id=settings.yandex_music_user_id,
         )

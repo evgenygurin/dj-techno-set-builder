@@ -63,9 +63,9 @@ class WorkflowOrchestrator:
 
         # Import here to avoid circular dependency
         from app.config import settings
-        from app.clients.yandex_music import YandexMusicClient
+        from app.clients.yandex_music import create_ym_client
 
-        ym_client = YandexMusicClient(token=settings.yandex_music_token)
+        ym_client = create_ym_client(token=settings.yandex_music_token)
 
         # Get user's playlists
         playlists = await ym_client.fetch_user_playlists(user_id="250905515")
@@ -127,14 +127,14 @@ class WorkflowOrchestrator:
         from app.database import session_factory
         from app.models.ingestion import ProviderTrackId
         from app.repositories.tracks import TrackRepository
-        from app.clients.yandex_music import YandexMusicClient, parse_ym_track
+        from app.clients.yandex_music import create_ym_client, parse_ym_track
 
         imported = 0
         skipped = 0
         failed_ids = []
 
         async with session_factory() as session:
-            ym_client = YandexMusicClient(token=settings.yandex_music_token)
+            ym_client = create_ym_client(token=settings.yandex_music_token)
             track_repo = TrackRepository(session)
 
             # Fetch metadata batch from YM
@@ -211,12 +211,12 @@ class WorkflowOrchestrator:
         # Import services
         from app.config import settings
         from app.database import session_factory
-        from app.services.download import DownloadService
-        from app.clients.yandex_music import YandexMusicClient
+        from app.clients.yandex_music.downloader import DownloadService
+        from app.clients.yandex_music import create_ym_client
 
         # Create download service
         async with session_factory() as session:
-            ym_client = YandexMusicClient(token=settings.yandex_music_token)
+            ym_client = create_ym_client(token=settings.yandex_music_token)
             download_service = DownloadService(
                 session=session,
                 ym_client=ym_client,

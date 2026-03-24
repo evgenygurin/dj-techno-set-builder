@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from fastmcp.dependencies import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.yandex_music import YandexMusicClient
+from app.clients.yandex_music import YandexMusicClient, create_ym_client
 from app.config import settings
 from app.database import session_factory
 from app.repositories.audio_features import AudioFeaturesRepository
@@ -126,8 +126,8 @@ def get_unified_scoring(
 
 
 def get_ym_client() -> YandexMusicClient:
-    """Build a unified YandexMusicClient from application settings."""
-    return YandexMusicClient(
+    """Build a YandexMusicClient from application settings."""
+    return create_ym_client(
         token=settings.yandex_music_token,
         user_id=settings.yandex_music_user_id,
         base_url=settings.yandex_music_base_url,

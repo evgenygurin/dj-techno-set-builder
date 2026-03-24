@@ -7,8 +7,8 @@ from pathlib import Path
 
 from app.config import settings
 from app.database import close_db, init_db, session_factory
-from app.services.download import DownloadService
-from app.clients.yandex_music import YandexMusicClient
+from app.clients.yandex_music.downloader import DownloadService
+from app.clients.yandex_music import create_ym_client
 
 
 async def main() -> None:

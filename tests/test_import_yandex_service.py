@@ -9,7 +9,7 @@ from app.models import Track
 
 async def test_import_creates_metadata(session, seed_providers):
     """Importing a track creates YandexMetadata + links Artist/Genre/Label/Release."""
-    from app.services.import_yandex import ImportYandexService
+    from app.clients.yandex_music.importer import ImportYandexService
 
     track = Track(title="Jouska — Octopus Neuroplasticity", duration_ms=347150)
     session.add(track)
@@ -62,7 +62,7 @@ async def test_import_creates_metadata(session, seed_providers):
 
 async def test_import_not_found_on_ym(session, seed_providers):
     """Returns False if track not found on Yandex Music."""
-    from app.services.import_yandex import ImportYandexService
+    from app.clients.yandex_music.importer import ImportYandexService
 
     track = Track(title="Nonexistent — Track", duration_ms=300000)
     session.add(track)
@@ -78,7 +78,7 @@ async def test_import_not_found_on_ym(session, seed_providers):
 
 async def test_import_handles_empty_labels(session, seed_providers):
     """Empty labels list doesn't crash."""
-    from app.services.import_yandex import ImportYandexService
+    from app.clients.yandex_music.importer import ImportYandexService
 
     track = Track(title="Test — Track", duration_ms=300000)
     session.add(track)
@@ -103,7 +103,7 @@ async def test_import_handles_empty_labels(session, seed_providers):
 async def test_import_skips_already_linked(session, seed_providers):
     """Returns True immediately if track already linked to YM."""
     from app.models.ingestion import ProviderTrackId
-    from app.services.import_yandex import ImportYandexService
+    from app.clients.yandex_music.importer import ImportYandexService
 
     track = Track(title="Already Linked", duration_ms=300000)
     session.add(track)
@@ -127,7 +127,7 @@ async def test_import_skips_already_linked(session, seed_providers):
 
 async def test_import_nonexistent_track_raises(session, seed_providers):
     """Raises NotFoundError for a track_id that doesn't exist."""
-    from app.services.import_yandex import ImportYandexService
+    from app.clients.yandex_music.importer import ImportYandexService
 
     mock_client = AsyncMock()
     svc = ImportYandexService(session=session, ym_client=mock_client)
@@ -137,7 +137,7 @@ async def test_import_nonexistent_track_raises(session, seed_providers):
 
 async def test_import_batch(session, seed_providers):
     """Batch import returns correct summary."""
-    from app.services.import_yandex import ImportYandexService
+    from app.clients.yandex_music.importer import ImportYandexService
 
     t1 = Track(title="Found Track", duration_ms=300000)
     t2 = Track(title="Missing Tune XYZ", duration_ms=300000)
