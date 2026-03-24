@@ -94,7 +94,13 @@ class HTTPClient:
         await self._rate_limit()
         client = await self._client()
 
-        url = f"{self._base_url}{path}" if self._base_url else path
+        # Full URLs (https://...) bypass base_url — used for CDN, signed URLs, etc.
+        if path.startswith(("http://", "https://")):
+            url = path
+        elif self._base_url:
+            url = f"{self._base_url}{path}"
+        else:
+            url = path
         merged_headers = {**self._default_headers, **(headers or {})}
 
         last_exc: httpx.HTTPStatusError | None = None
