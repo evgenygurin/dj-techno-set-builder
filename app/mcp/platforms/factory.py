@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import logging
 
-from app.clients.yandex_music import YandexMusicClient as YMApiClient
+from app.clients.yandex_music import create_ym_client
 from app.config import settings
 from app.mcp.platforms.registry import PlatformRegistry
 from app.mcp.platforms.yandex import YandexMusicAdapter
-from app.services.yandex_music_client import YandexMusicClient
 
 logger = logging.getLogger(__name__)
 
@@ -23,25 +22,17 @@ def create_platform_registry() -> PlatformRegistry:
 
     # Yandex Music
     if settings.yandex_music_token and settings.yandex_music_user_id:
-        ym_client = YandexMusicClient(
+        client = create_ym_client(
             token=settings.yandex_music_token,
             user_id=settings.yandex_music_user_id,
-        )
-        api_client = YMApiClient(
-            token=settings.yandex_music_token,
         )
         adapter = YandexMusicAdapter(
-            client=ym_client,
+            client=client,
             user_id=settings.yandex_music_user_id,
-            api_client=api_client,
         )
         registry.register(adapter)
         logger.info("Registered YandexMusic adapter (user=%s)", settings.yandex_music_user_id)
     else:
         logger.info("YandexMusic adapter not configured — skipping")
-
-    # Future: Spotify, Beatport, SoundCloud adapters
-    # if settings.spotify_client_id and settings.spotify_client_secret:
-    #     ...
 
     return registry

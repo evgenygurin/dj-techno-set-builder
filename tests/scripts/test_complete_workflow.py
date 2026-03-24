@@ -32,12 +32,12 @@ async def test_stage_1_fetch_playlist(tmp_path):
 
     with (
         patch(
-            "app.services.yandex_music_client.YandexMusicClient.fetch_user_playlists",
+            "app.clients.yandex_music.YandexMusicClient.fetch_user_playlists",
             new_callable=AsyncMock,
             return_value=_FAKE_PLAYLISTS,
         ),
         patch(
-            "app.services.yandex_music_client.YandexMusicClient.fetch_playlist_tracks",
+            "app.clients.yandex_music.YandexMusicClient.fetch_playlist_tracks",
             new_callable=AsyncMock,
             return_value=_FAKE_TRACKS,
         ),
@@ -68,12 +68,12 @@ async def test_checkpoint_recovery(tmp_path):
 
     with (
         patch(
-            "app.services.yandex_music_client.YandexMusicClient.fetch_user_playlists",
+            "app.clients.yandex_music.YandexMusicClient.fetch_user_playlists",
             new_callable=AsyncMock,
             return_value=_FAKE_PLAYLISTS,
         ),
         patch(
-            "app.services.yandex_music_client.YandexMusicClient.fetch_playlist_tracks",
+            "app.clients.yandex_music.YandexMusicClient.fetch_playlist_tracks",
             new_callable=AsyncMock,
             return_value=_FAKE_TRACKS,
         ),

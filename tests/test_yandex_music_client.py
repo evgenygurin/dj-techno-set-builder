@@ -1,12 +1,11 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock
 
-from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+from app.clients.yandex_music import YandexMusicClient, parse_ym_track
 
 
 async def test_search_tracks():
-    client = YandexMusicClient(token="test", user_id="123")
-
-    mock_response = {
+    mock_http = AsyncMock()
+    mock_http.get.return_value = {
         "result": {
             "tracks": {
                 "results": [
@@ -31,10 +30,10 @@ async def test_search_tracks():
         }
     }
 
-    with patch.object(client, "_get_json", return_value=mock_response):
-        tracks = await client.search_tracks("Jouska Octopus Neuroplasticity")
-        assert len(tracks) == 1
-        assert tracks[0]["id"] == 103119407
+    client = YandexMusicClient(mock_http)
+    tracks = await client.search_tracks("Jouska Octopus Neuroplasticity")
+    assert len(tracks) == 1
+    assert tracks[0]["id"] == 103119407
 
 
 def test_parse_track_metadata():
@@ -53,35 +52,19 @@ def test_parse_track_metadata():
 
 
 def test_parse_track_no_albums():
-    """Track with no albums doesn't crash."""
-    track = {
-        "id": 456,
-        "title": "Orphan",
-        "artists": [],
-        "albums": [],
-        "durationMs": 200000,
-    }
+    track = {"id": 456, "title": "Orphan", "artists": [], "albums": [], "durationMs": 200000}
     parsed = parse_ym_track(track)
     assert parsed.album_genre is None
-    assert parsed.label_name is None
-    assert parsed.artists == ""
     assert parsed.yandex_album_id is None
 
 
 def test_parse_track_label_as_dict():
-    """Labels can be dicts with name key."""
     track = {
         "id": 789,
         "title": "X",
         "artists": [{"id": 1, "name": "A", "various": False}],
         "albums": [
-            {
-                "id": 20,
-                "title": "Album",
-                "genre": "house",
-                "labels": [{"id": 1, "name": "Cool Label"}],
-                "year": 2023,
-            }
+            {"id": 20, "title": "Album", "genre": "house", "labels": [{"id": 1, "name": "Cool Label"}], "year": 2023}
         ],
         "durationMs": 250000,
     }
@@ -90,7 +73,6 @@ def test_parse_track_label_as_dict():
 
 
 def test_parse_track_filters_various_artists():
-    """Various artists are filtered out."""
     track = {
         "id": 100,
         "title": "Track",

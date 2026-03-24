@@ -12,6 +12,7 @@ import httpx
 import yaml
 from fastmcp import FastMCP
 
+from app.clients.yandex_music import create_ym_httpx_client
 from app.config import settings
 from app.mcp.yandex_music.config import EXCLUDE_ROUTE_MAPS, build_mcp_names
 from app.mcp.yandex_music.response_filters import clean_ym_response
@@ -164,13 +165,9 @@ def create_yandex_music_mcp() -> FastMCP:
     """
     spec = _load_spec()
 
-    client = httpx.AsyncClient(
+    client = create_ym_httpx_client(
+        settings.yandex_music_token,
         base_url=settings.yandex_music_base_url,
-        headers={
-            "Authorization": f"OAuth {settings.yandex_music_token}",
-            "Accept": "application/json",
-        },
-        timeout=30.0,
         event_hooks={
             "request": [_json_to_form_urlencoded],
             "response": [clean_ym_response],

@@ -6,8 +6,8 @@ from pathlib import Path
 
 from app.config import settings
 from app.database import close_db, init_db, session_factory
-from app.services.download import DownloadService
-from app.services.yandex_music_client import YandexMusicClient
+from app.services.yandex_downloader import DownloadService
+from app.clients.yandex_music import create_ym_client
 
 # All track IDs from import
 TRACK_IDS = [

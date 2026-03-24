@@ -1,13 +1,15 @@
 from unittest.mock import AsyncMock
 
+import pytest
 from sqlalchemy import text
 
+from app.errors import NotFoundError
 from app.models import Track
 
 
-async def test_enrich_track_creates_metadata(session, seed_providers):
-    """Enriching a track creates YandexMetadata + links Artist/Genre/Label/Release."""
-    from app.services.import_yandex import ImportYandexService
+async def test_import_creates_metadata(session, seed_providers):
+    """Importing a track creates YandexMetadata + links Artist/Genre/Label/Release."""
+    from app.services.yandex_importer import ImportYandexService
 
     track = Track(title="Jouska — Octopus Neuroplasticity", duration_ms=347150)
     session.add(track)
@@ -36,24 +38,21 @@ async def test_enrich_track_creates_metadata(session, seed_providers):
     mock_client.search_tracks.return_value = [mock_ym_track]
 
     svc = ImportYandexService(session=session, ym_client=mock_client)
-    result = await svc.enrich_track(track.track_id)
+    result = await svc.import_by_search(track.track_id)
     assert result is True
 
-    # Verify YandexMetadata
     from app.repositories.yandex_metadata import YandexMetadataRepository
 
     meta = await YandexMetadataRepository(session).get_by_track_id(track.track_id)
     assert meta is not None
     assert meta.album_genre == "techno"
 
-    # Verify Artist linked
     r = await session.execute(
         text("SELECT count(*) FROM track_artists WHERE track_id = :tid"),
         {"tid": track.track_id},
     )
     assert r.scalar() >= 1
 
-    # Verify Genre linked
     r = await session.execute(
         text("SELECT count(*) FROM track_genres WHERE track_id = :tid"),
         {"tid": track.track_id},
@@ -61,9 +60,9 @@ async def test_enrich_track_creates_metadata(session, seed_providers):
     assert r.scalar() >= 1
 
 
-async def test_enrich_track_not_found_on_ym(session):
+async def test_import_not_found_on_ym(session, seed_providers):
     """Returns False if track not found on Yandex Music."""
-    from app.services.import_yandex import ImportYandexService
+    from app.services.yandex_importer import ImportYandexService
 
     track = Track(title="Nonexistent — Track", duration_ms=300000)
     session.add(track)
@@ -73,13 +72,13 @@ async def test_enrich_track_not_found_on_ym(session):
     mock_client.search_tracks.return_value = []
 
     svc = ImportYandexService(session=session, ym_client=mock_client)
-    result = await svc.enrich_track(track.track_id)
+    result = await svc.import_by_search(track.track_id)
     assert result is False
 
 
-async def test_enrich_track_handles_empty_labels(session, seed_providers):
+async def test_import_handles_empty_labels(session, seed_providers):
     """Empty labels list doesn't crash."""
-    from app.services.import_yandex import ImportYandexService
+    from app.services.yandex_importer import ImportYandexService
 
     track = Track(title="Test — Track", duration_ms=300000)
     session.add(track)
@@ -97,50 +96,48 @@ async def test_enrich_track_handles_empty_labels(session, seed_providers):
     mock_client.search_tracks.return_value = [mock_ym_track]
 
     svc = ImportYandexService(session=session, ym_client=mock_client)
-    result = await svc.enrich_track(track.track_id)
+    result = await svc.import_by_search(track.track_id)
     assert result is True
 
 
-async def test_enrich_track_skips_already_enriched(session):
-    """Returns True immediately if track already has YandexMetadata."""
-    from app.services.import_yandex import ImportYandexService
+async def test_import_skips_already_linked(session, seed_providers):
+    """Returns True immediately if track already linked to YM."""
+    from app.models.ingestion import ProviderTrackId
+    from app.services.yandex_importer import ImportYandexService
 
-    track = Track(title="Already Enriched", duration_ms=300000)
+    track = Track(title="Already Linked", duration_ms=300000)
     session.add(track)
     await session.flush()
 
-    # Pre-create metadata
-    from app.models.metadata_yandex import YandexMetadata
-
-    meta = YandexMetadata(
-        track_id=track.track_id,
-        yandex_track_id="existing_123",
+    session.add(
+        ProviderTrackId(
+            track_id=track.track_id,
+            provider_id=4,
+            provider_track_id="existing_123",
+        )
     )
-    session.add(meta)
     await session.flush()
 
     mock_client = AsyncMock()
     svc = ImportYandexService(session=session, ym_client=mock_client)
-    result = await svc.enrich_track(track.track_id)
+    result = await svc.import_by_search(track.track_id)
     assert result is True
-    # search_tracks should NOT have been called
     mock_client.search_tracks.assert_not_called()
 
 
-async def test_enrich_track_nonexistent_track_id(session):
-    """Returns False for a track_id that doesn't exist in DB."""
-    from app.services.import_yandex import ImportYandexService
+async def test_import_nonexistent_track_raises(session, seed_providers):
+    """Raises NotFoundError for a track_id that doesn't exist."""
+    from app.services.yandex_importer import ImportYandexService
 
     mock_client = AsyncMock()
     svc = ImportYandexService(session=session, ym_client=mock_client)
-    result = await svc.enrich_track(999999)
-    assert result is False
-    mock_client.search_tracks.assert_not_called()
+    with pytest.raises(NotFoundError):
+        await svc.import_by_search(999999)
 
 
-async def test_enrich_batch(session, seed_providers):
-    """Batch enrichment returns correct summary."""
-    from app.services.import_yandex import ImportYandexService
+async def test_import_batch(session, seed_providers):
+    """Batch import returns correct summary."""
+    from app.services.yandex_importer import ImportYandexService
 
     t1 = Track(title="Found Track", duration_ms=300000)
     t2 = Track(title="Missing Tune XYZ", duration_ms=300000)
@@ -157,7 +154,7 @@ async def test_enrich_batch(session, seed_providers):
 
     mock_client = AsyncMock()
 
-    async def _search(query):
+    async def _search(query, **kwargs):
         if "Found Track" in query:
             return [mock_ym_track]
         return []
@@ -165,9 +162,9 @@ async def test_enrich_batch(session, seed_providers):
     mock_client.search_tracks.side_effect = _search
 
     svc = ImportYandexService(session=session, ym_client=mock_client)
-    summary = await svc.enrich_batch([t1.track_id, t2.track_id])
+    summary = await svc.import_batch([t1.track_id, t2.track_id])
 
     assert summary["total"] == 2
-    assert summary["enriched"] == 1
+    assert summary["imported"] == 1
     assert summary["not_found"] == 1
     assert summary["errors"] == []

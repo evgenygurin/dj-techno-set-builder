@@ -21,7 +21,7 @@ from app.models.catalog import Track
 from app.models.dj import DjPlaylistItem
 from app.models.ingestion import ProviderTrackId
 from app.models.metadata_yandex import YandexMetadata
-from app.services.yandex_music_client import parse_ym_track
+from app.clients.yandex_music import parse_ym_track
 
 logger = logging.getLogger(__name__)
 

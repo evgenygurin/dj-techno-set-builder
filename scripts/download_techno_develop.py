@@ -27,7 +27,7 @@ from app.database import (
 from app.models.catalog import Track
 from app.models.dj import DjLibraryItem
 from app.models.ingestion import ProviderTrackId
-from app.services.yandex_music_client import YandexMusicClient
+from app.clients.yandex_music import create_ym_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ async def main() -> None:
     ym_tracks = data["result"]["tracks"]
     log.info("YM playlist: %d tracks", len(ym_tracks))
 
-    ym_client = YandexMusicClient(token=settings.yandex_music_token)
+    ym_client = create_ym_client(token=settings.yandex_music_token)
 
     ok = 0
     skip = 0

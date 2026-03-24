@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **MCP-only architecture**: removed REST API (15 routers), CLI (10 commands), FastAPI middleware. App is now a standalone FastMCP server via `mcp.run(transport="http")`
+- **YM client refactored**: merged 3 duplicate HTTP clients into single `app/clients/yandex_music/` package with full API coverage (28 endpoints, search/tracks/albums/artists/playlists/likes/download)
+- **Reusable HTTPClient**: `app/clients/http/` — base async HTTP client with rate limiting, retries, logging, error handling. Used by all external API integrations
+- **Import + enrichment merged**: `ImportYandexService` + `YandexMusicEnrichmentService` → single `yandex_importer.py` (removed ~400 LOC of copy-paste)
+- **Layer boundaries enforced**: `app/clients/` = pure HTTP (zero DB deps), `app/services/` = business logic with DB
+
+### Removed
+
+- `app/routers/` — 15 REST API routers (19 files)
+- `app/cli/` — 10 CLI commands
+- `app/middleware/` — request_id middleware
+- `app/dependencies.py` — FastAPI DI
+- `app/services/yandex_music_client.py` — merged into `app/clients/yandex_music/`
+- `app/services/yandex_music_enrichment.py` — merged into `yandex_importer.py`
+- `tests/cli/`, `tests/integration/`, REST API tests — ~100 tests removed (MCP tests remain)
+
 ## [0.3.0] - 2026-03-22
 
 ### Added

@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 // Всегда думай по-русски и отвечай по-русски, если только явно не просят другое.
 
 Detailed rules for each layer are in `.claude/rules/` (загружаются через `@`-импорты в `.claude/CLAUDE.md`):
-- `api.md` — routers, schemas, services, error handling
+- `api.md` — services, schemas (legacy, used by MCP tools), error handling
 - `database.md` — models, repositories, migrations, SQLite compat
 - `audio.md` — audio utils, transition scoring, set generation
 - `testing.md` — fixtures, test organization, conventions
@@ -58,7 +58,7 @@ uv run pytest -v                        # Run all tests
 uv run pytest tests/test_tracks.py -v   # Single test file
 uv run ruff check && uv run ruff format --check  # Lint
 uv run mypy app/                        # Type-check
-uv run uvicorn app.main:app --reload    # Dev server (REST + MCP at /mcp/mcp)
+# No uvicorn — MCP is the sole interface. Use: make mcp-dev
 uv run alembic upgrade head             # Apply migrations
 ```
 
@@ -72,7 +72,7 @@ make test-v          # pytest -v
 make test-k MATCH=x  # pytest -k x
 make coverage        # pytest-cov (html + terminal)
 make ruff-fix        # auto-fix + format
-make run             # uvicorn --reload (PORT=8000)
+make run             # MCP server (PORT=8000)
 make mcp-dev         # HTTP dev-сервер с hot-reload (PORT=9100)
 make mcp-inspect     # MCP Inspector UI (порт 6274)
 make mcp-list        # Список всех MCP-инструментов
@@ -85,13 +85,17 @@ make mcp-install-code     # Установить в Claude Code (stdio)
 ## Architecture
 
 ```text
-Router → Service → Repository → AsyncSession → DB
-  ↕         ↕          ↕
-Schemas   Errors     Models
-
-MCP Gateway (FastMCP 3.0)
+MCP Gateway (FastMCP 3.0, standalone — no FastAPI)
   ├── Yandex Music (namespace "ym") — 28 OpenAPI-generated tools
   └── DJ Workflows (namespace "dj") — 52 hand-written tools
+
+Service → Repository → AsyncSession → DB
+  ↕          ↕
+Errors     Models
+
+Clients (pure HTTP, zero DB deps):
+  ├── app/clients/http/         — base HTTPClient (rate limit, retry, logging)
+  └── app/clients/yandex_music/ — YM API client (search, tracks, playlists, download)
 
 External MCP servers (.mcp.json):
   ├── dj-techno (HTTP :9100) — project FastMCP gateway
@@ -99,9 +103,9 @@ External MCP servers (.mcp.json):
   └── in-memoria (stdio, sh) — codebase intelligence (13 tools)
 ```
 
-- **DI**: `DbSession = Annotated[AsyncSession, Depends(get_session)]` in `app/dependencies.py`
-- **App factory**: `create_app()` in `app/main.py` — lifespan manages DB + MCP
-- **Routes**: `/health` (unversioned), `/api/v1/...` (15 domain routers), `/mcp/mcp` (MCP)
+- **DI**: FastMCP `Depends()` in `app/mcp/dependencies.py` (NOT FastAPI). Factories in `app/services/_factories.py`
+- **Entry point**: `app/main.py` — `mcp = create_dj_mcp(); mcp.run(transport="http")`
+- **DB lifecycle**: `init_db()`/`close_db()` in `app/mcp/lifespan.py`
 
 ## Plugins & Settings
 

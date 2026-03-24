@@ -61,7 +61,7 @@ from app.models.features import TrackAudioFeaturesComputed
 from app.models.ingestion import ProviderTrackId
 from app.models.metadata_yandex import YandexMetadata
 from app.models.runs import FeatureExtractionRun
-from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+from app.clients.yandex_music import create_ym_client, parse_ym_track
 from app.utils.audio.mood_classifier import TrackMood, classify_track
 
 # ── Config ───────────────────────────────────────────────────────────────────
@@ -1799,7 +1799,7 @@ async def main() -> None:
     if args.distribute:
         # Init process pool + YM client for auto-import of missing tracks
         _process_pool = concurrent.futures.ProcessPoolExecutor(max_workers=args.workers)
-        ym_client = YandexMusicClient(token=settings.yandex_music_token)
+        ym_client = create_ym_client(token=settings.yandex_music_token)
         sem = asyncio.Semaphore(args.workers)
         try:
             await _distribute_tracks(
@@ -1816,7 +1816,7 @@ async def main() -> None:
             _process_pool.shutdown(wait=False, cancel_futures=True)
         return
 
-    ym_client = YandexMusicClient(token=settings.yandex_music_token)
+    ym_client = create_ym_client(token=settings.yandex_music_token)
     sem = asyncio.Semaphore(args.workers)
 
     # ProcessPoolExecutor isolates C-extension crashes (essentia segfaults)
