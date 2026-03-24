@@ -32,13 +32,6 @@ def gateway_mcp() -> FastMCP:
     return create_dj_mcp()
 
 
-@pytest.fixture
-def ym_mcp() -> FastMCP:
-    """Yandex Music MCP sub-server (~30 OpenAPI-generated tools)."""
-    from app.mcp.yandex_music import create_yandex_music_mcp
-
-    return create_yandex_music_mcp()
-
 
 @pytest.fixture
 async def workflow_mcp_with_db(_connection) -> AsyncIterator[FastMCP]:

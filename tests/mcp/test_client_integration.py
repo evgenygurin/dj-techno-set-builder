@@ -114,14 +114,13 @@ async def test_client_lists_resources(workflow_mcp: FastMCP):
 
 
 async def test_gateway_client_sees_namespaced_tools(gateway_mcp: FastMCP):
-    """Gateway client sees both dj_ and ym_ namespaced tools."""
+    """Gateway client sees dj_ namespaced tools."""
     async with Client(gateway_mcp) as client:
         tools = await client.list_tools()
         tool_names = {t.name for t in tools}
         dj_tools = {n for n in tool_names if n.startswith("dj_")}
-        ym_tools = {n for n in tool_names if n.startswith("ym_")}
         assert len(dj_tools) >= 12, f"Expected >=12 dj_ tools, got {len(dj_tools)}"
-        assert len(ym_tools) > 0, "No ym_ tools found"
+        # ym_ namespace removed
 
 
 # ---------------------------------------------------------------------------

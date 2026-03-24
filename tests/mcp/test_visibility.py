@@ -56,12 +56,12 @@ async def test_gateway_preserves_all_dj_tools(gateway_mcp: FastMCP):
     assert "dj_export_set_rekordbox" in tool_names
 
 
-async def test_gateway_preserves_ym_tools(gateway_mcp: FastMCP):
-    """Adding transforms should not remove any existing ym_ tools."""
+async def test_gateway_no_ym_tools(gateway_mcp: FastMCP):
+    """ym_ namespace removed — only dj_ tools."""
     tools = await gateway_mcp.list_tools()
     tool_names = {t.name for t in tools}
     ym_tools = {n for n in tool_names if n.startswith("ym_")}
-    assert len(ym_tools) > 0, f"No ym_ tools found. Available: {tool_names}"
+    assert len(ym_tools) == 0
 
 
 async def test_activate_ym_raw_tool_exists(workflow_mcp: FastMCP):
