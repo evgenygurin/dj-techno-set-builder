@@ -15,8 +15,8 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.clients.yandex_music.client import YandexMusicClient
-from app.clients.yandex_music.types import ParsedYmTrack, parse_ym_track
+from app.clients.yandex_music import YandexMusicClient
+from app.clients.yandex_music import ParsedYmTrack, parse_ym_track
 from app.errors import NotFoundError
 from app.models.catalog import (
     Artist,

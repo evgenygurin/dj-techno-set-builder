@@ -211,7 +211,7 @@ class WorkflowOrchestrator:
         # Import services
         from app.config import settings
         from app.database import session_factory
-        from app.clients.yandex_music.downloader import DownloadService
+        from app.services.yandex_downloader import DownloadService
         from app.clients.yandex_music import create_ym_client
 
         # Create download service

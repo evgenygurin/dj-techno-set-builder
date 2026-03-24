@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.mcp.dependencies import get_session, get_ym_client
-from app.clients.yandex_music.downloader import DownloadResult, DownloadService
+from app.services.yandex_downloader import DownloadResult, DownloadService
 from app.clients.yandex_music import YandexMusicClient
 
 
