@@ -26,7 +26,7 @@ from app.models.ingestion import ProviderTrackId, RawProviderResponse
 from app.repositories.providers import ProviderRepository
 from app.repositories.yandex_metadata import YandexMetadataRepository
 from app.services.base import BaseService
-from app.services.yandex_music_client import ParsedYmTrack, YandexMusicClient, parse_ym_track
+from app.clients.yandex_music import ParsedYmTrack, YandexMusicClient, parse_ym_track
 from app.utils.text_sort import sort_key
 
 _PROVIDER_CODE = "ym"

@@ -61,7 +61,7 @@ from app.models.features import TrackAudioFeaturesComputed
 from app.models.ingestion import ProviderTrackId
 from app.models.metadata_yandex import YandexMetadata
 from app.models.runs import FeatureExtractionRun
-from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+from app.clients.yandex_music import YandexMusicClient, parse_ym_track
 from app.utils.audio.mood_classifier import TrackMood, classify_track
 
 # ── Config ───────────────────────────────────────────────────────────────────

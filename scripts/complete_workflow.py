@@ -63,7 +63,7 @@ class WorkflowOrchestrator:
 
         # Import here to avoid circular dependency
         from app.config import settings
-        from app.services.yandex_music_client import YandexMusicClient
+        from app.clients.yandex_music import YandexMusicClient
 
         ym_client = YandexMusicClient(token=settings.yandex_music_token)
 
@@ -127,7 +127,7 @@ class WorkflowOrchestrator:
         from app.database import session_factory
         from app.models.ingestion import ProviderTrackId
         from app.repositories.tracks import TrackRepository
-        from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+        from app.clients.yandex_music import YandexMusicClient, parse_ym_track
 
         imported = 0
         skipped = 0
@@ -212,7 +212,7 @@ class WorkflowOrchestrator:
         from app.config import settings
         from app.database import session_factory
         from app.services.download import DownloadService
-        from app.services.yandex_music_client import YandexMusicClient
+        from app.clients.yandex_music import YandexMusicClient
 
         # Create download service
         async with session_factory() as session:

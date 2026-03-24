@@ -22,7 +22,7 @@ from app.models.dj import DjPlaylistItem
 from app.models.ingestion import ProviderTrackId
 from app.models.providers import Provider
 from app.repositories.dj_library_items import DjLibraryItemRepository
-from app.services.yandex_music_client import YandexMusicClient
+from app.clients.yandex_music import YandexMusicClient
 
 logging.basicConfig(
     level=logging.INFO,

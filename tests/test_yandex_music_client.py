@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
+from app.clients.yandex_music import YandexMusicClient, parse_ym_track
 
 
 async def test_search_tracks():
@@ -31,7 +31,7 @@ async def test_search_tracks():
         }
     }
 
-    with patch.object(client, "_get_json", return_value=mock_response):
+    with patch.object(client, "_get", return_value=mock_response):
         tracks = await client.search_tracks("Jouska Octopus Neuroplasticity")
         assert len(tracks) == 1
         assert tracks[0]["id"] == 103119407

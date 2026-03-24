@@ -151,14 +151,10 @@ class TestGetDownloadUrl:
 
 
 class TestPlaylistWrite:
-    """Playlist write operations are stubs for now (YM API is complex)."""
+    """Playlist write operations use the unified client."""
 
-    async def test_create_playlist_not_supported(self, adapter: YandexMusicAdapter) -> None:
-        assert PlatformCapability.PLAYLIST_WRITE not in adapter.capabilities
-
-    async def test_create_playlist_raises(self, adapter: YandexMusicAdapter) -> None:
-        with pytest.raises(NotImplementedError):
-            await adapter.create_playlist("test", ["1", "2"])
+    async def test_playlist_write_capability(self, adapter: YandexMusicAdapter) -> None:
+        assert PlatformCapability.PLAYLIST_WRITE in adapter.capabilities
 
 
 class TestClose:

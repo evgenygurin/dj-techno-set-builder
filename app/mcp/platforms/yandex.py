@@ -6,13 +6,12 @@ import contextlib
 import logging
 from typing import Any
 
-from app.clients.yandex_music import YandexMusicClient as YMApiClient
+from app.clients.yandex_music import YandexMusicClient, parse_ym_track
 from app.mcp.platforms.protocol import (
     PlatformCapability,
     PlatformPlaylist,
     PlatformTrack,
 )
-from app.services.yandex_music_client import YandexMusicClient, parse_ym_track
 
 logger = logging.getLogger(__name__)
 
@@ -21,19 +20,16 @@ class YandexMusicAdapter:
     """Adapter wrapping YandexMusicClient to the MusicPlatform interface.
 
     Converts raw YM API responses to PlatformTrack/PlatformPlaylist.
-    When api_client (thin HTTP client) is provided, playlist write
-    operations are supported via diff-based YM API.
+    Uses a single unified YandexMusicClient for all operations.
     """
 
     def __init__(
         self,
         client: YandexMusicClient,
         user_id: str,
-        api_client: YMApiClient | None = None,
     ) -> None:
         self._client = client
         self._user_id = user_id
-        self._api_client = api_client
 
     @property
     def name(self) -> str:
@@ -41,15 +37,13 @@ class YandexMusicAdapter:
 
     @property
     def capabilities(self) -> frozenset[PlatformCapability]:
-        caps = {
+        return frozenset({
             PlatformCapability.SEARCH,
             PlatformCapability.DOWNLOAD,
             PlatformCapability.PLAYLIST_READ,
+            PlatformCapability.PLAYLIST_WRITE,
             PlatformCapability.LIKES,
-        }
-        if self._api_client is not None:
-            caps.add(PlatformCapability.PLAYLIST_WRITE)
-        return frozenset(caps)
+        })
 
     async def search_tracks(self, query: str, *, limit: int = 20) -> list[PlatformTrack]:
         """Search YM for tracks."""
@@ -85,22 +79,18 @@ class YandexMusicAdapter:
 
         Returns the playlist kind (numeric ID) as string.
         """
-        if self._api_client is None:
-            raise NotImplementedError("API client not configured for write operations")
         uid = int(self._user_id)
-        kind = await self._api_client.create_playlist(uid, name)
+        kind = await self._client.create_playlist(uid, name)
         if track_ids:
             ym_tracks = [{"id": tid, "albumId": ""} for tid in track_ids]
-            await self._api_client.add_tracks_to_playlist(uid, kind, ym_tracks)
+            await self._client.add_tracks_to_playlist(uid, kind, ym_tracks)
         return str(kind)
 
     async def add_tracks_to_playlist(self, playlist_id: str, track_ids: list[str]) -> None:
         """Add tracks to an existing YM playlist via diff insert."""
-        if self._api_client is None:
-            raise NotImplementedError("API client not configured for write operations")
         uid = int(self._user_id)
         ym_tracks = [{"id": tid, "albumId": ""} for tid in track_ids]
-        await self._api_client.add_tracks_to_playlist(uid, int(playlist_id), ym_tracks)
+        await self._client.add_tracks_to_playlist(uid, int(playlist_id), ym_tracks)
 
     async def remove_tracks_from_playlist(self, playlist_id: str, track_ids: list[str]) -> None:
         """Not yet supported — requires revision tracking and index-based deletion."""
