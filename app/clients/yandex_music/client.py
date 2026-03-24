@@ -28,31 +28,54 @@ class YandexMusicClient:
 
     # ── Search ────────────────────────────────────────────
 
-    async def search_tracks(
-        self, query: str, *, page: int = 0, nocorrect: bool = False
-    ) -> list[dict[str, Any]]:
-        """Search tracks by text query.
+    async def search(
+        self,
+        query: str,
+        *,
+        type: str = "track",
+        page: int = 0,
+        nocorrect: bool = False,
+    ) -> dict[str, Any]:
+        """Universal search. Returns full result dict.
 
         Args:
             query: Search text.
+            type: One of 'track', 'album', 'artist', 'playlist', 'all'.
             page: Page number (0-based, 20 results per page).
             nocorrect: If True, disable YM's auto-correction of typos.
         """
         data = await self._http.get(
-            "/search", text=query, type="track", page=page, nocorrect=nocorrect
+            "/search", text=query, type=type, page=page, nocorrect=nocorrect
         )
-        return cast(list[dict[str, Any]], data.get("result", {}).get("tracks", {}).get("results", []))
+        return cast(dict[str, Any], data.get("result", {}))
+
+    async def search_tracks(
+        self, query: str, *, page: int = 0, nocorrect: bool = False
+    ) -> list[dict[str, Any]]:
+        """Search tracks by text query. Convenience wrapper over search()."""
+        result = await self.search(query, type="track", page=page, nocorrect=nocorrect)
+        return cast(list[dict[str, Any]], result.get("tracks", {}).get("results", []))
 
     # ── Tracks ────────────────────────────────────────────
 
-    async def fetch_tracks(self, track_ids: list[str]) -> dict[str, dict[str, Any]]:
+    async def fetch_tracks(
+        self, track_ids: list[str], *, with_positions: bool = False
+    ) -> dict[str, dict[str, Any]]:
         """Batch fetch tracks by IDs. Returns dict keyed by track ID."""
-        data = await self._http.post_form("/tracks", {"track-ids": ",".join(track_ids)})
+        form: dict[str, Any] = {"track-ids": ",".join(track_ids)}
+        if with_positions:
+            form["with-positions"] = "true"
+        data = await self._http.post_form("/tracks", form)
         return {str(t["id"]): t for t in data.get("result", [])}
 
-    async def fetch_tracks_metadata(self, track_ids: list[str]) -> list[dict[str, Any]]:
+    async def fetch_tracks_metadata(
+        self, track_ids: list[str], *, with_positions: bool = False
+    ) -> list[dict[str, Any]]:
         """Batch fetch track metadata. Returns list."""
-        data = await self._http.post_form("/tracks", {"track-ids": ",".join(track_ids)})
+        form: dict[str, Any] = {"track-ids": ",".join(track_ids)}
+        if with_positions:
+            form["with-positions"] = "true"
+        data = await self._http.post_form("/tracks", form)
         return cast(list[dict[str, Any]], data.get("result", []))
 
     async def get_similar_tracks(self, track_id: str) -> list[dict[str, Any]]:
@@ -77,19 +100,37 @@ class YandexMusicClient:
         data = await self._http.get(f"/albums/{album_id}/with-tracks")
         return cast(dict[str, Any], data.get("result", {}))
 
+    async def fetch_albums(self, album_ids: list[int]) -> list[dict[str, Any]]:
+        """Batch fetch albums by IDs."""
+        data = await self._http.post_form(
+            "/albums", {"album-ids": ",".join(str(a) for a in album_ids)}
+        )
+        return cast(list[dict[str, Any]], data.get("result", []))
+
     # ── Artists ───────────────────────────────────────────
 
     async def get_artist_tracks(
         self, artist_id: int, *, page: int = 0, page_size: int = 20
     ) -> list[dict[str, Any]]:
-        """Fetch tracks by artist ID."""
+        """Fetch tracks by artist ID with pagination."""
         data = await self._http.get(
             f"/artists/{artist_id}/tracks", page=page, **{"page-size": page_size}
         )
         return cast(list[dict[str, Any]], data.get("result", {}).get("tracks", []))
 
+    async def get_artist_albums(
+        self, artist_id: int, *, page: int = 0, page_size: int = 20, sort_by: str = "year"
+    ) -> list[dict[str, Any]]:
+        """Fetch albums by artist ID with pagination."""
+        data = await self._http.get(
+            f"/artists/{artist_id}/direct-albums",
+            page=page,
+            **{"page-size": page_size, "sort-by": sort_by},
+        )
+        return cast(list[dict[str, Any]], data.get("result", {}).get("albums", []))
+
     async def get_popular_tracks(self, artist_id: int) -> list[dict[str, Any]]:
-        """Fetch popular tracks for an artist."""
+        """Fetch popular tracks for an artist (sorted by rating)."""
         data = await self._http.get(f"/artists/{artist_id}/track-ids-by-rating")
         return cast(list[dict[str, Any]], data.get("result", {}).get("tracks", []))
 
@@ -102,14 +143,28 @@ class YandexMusicClient:
 
     # ── Playlists ─────────────────────────────────────────
 
+    async def fetch_playlist(self, user_id: str, kind: str) -> dict[str, Any]:
+        """Fetch full playlist object (metadata + tracks)."""
+        data = await self._http.get(f"/users/{user_id}/playlists/{kind}")
+        return cast(dict[str, Any], data.get("result", {}))
+
     async def fetch_playlist_tracks(self, user_id: str, kind: str) -> list[dict[str, Any]]:
         """Fetch all tracks from a playlist."""
-        data = await self._http.get(f"/users/{user_id}/playlists/{kind}")
-        return cast(list[dict[str, Any]], data.get("result", {}).get("tracks", []))
+        result = await self.fetch_playlist(user_id, kind)
+        return cast(list[dict[str, Any]], result.get("tracks", []))
 
     async def fetch_user_playlists(self, user_id: str) -> list[dict[str, Any]]:
         """List all playlists for a user."""
         data = await self._http.get(f"/users/{user_id}/playlists/list")
+        return cast(list[dict[str, Any]], data.get("result", []))
+
+    async def fetch_playlists_by_ids(
+        self, playlist_ids: list[str]
+    ) -> list[dict[str, Any]]:
+        """Batch fetch playlists by 'uid:kind' pairs."""
+        data = await self._http.post_form(
+            "/playlists/list", {"playlistIds": _json.dumps(playlist_ids)}
+        )
         return cast(list[dict[str, Any]], data.get("result", []))
 
     async def get_playlist_recommendations(
@@ -148,7 +203,7 @@ class YandexMusicClient:
     async def add_tracks_to_playlist(
         self, user_id: int, kind: int, tracks: list[dict[str, str]], revision: int = 1
     ) -> None:
-        """Add tracks via diff insert."""
+        """Add tracks via diff insert. Each track needs 'id' and 'albumId'."""
         diff = [{"op": "insert", "at": 0, "tracks": tracks}]
         await self._http.post_form(
             f"/users/{user_id}/playlists/{kind}/change",
@@ -158,7 +213,7 @@ class YandexMusicClient:
     async def remove_tracks_from_playlist(
         self, user_id: int, kind: int, from_idx: int, to_idx: int, revision: int
     ) -> None:
-        """Remove tracks from playlist by index range (from inclusive, to exclusive)."""
+        """Remove tracks by index range (from inclusive, to exclusive)."""
         diff = [{"op": "delete", "from": from_idx, "to": to_idx}]
         await self._http.post_form(
             f"/users/{user_id}/playlists/{kind}/change",
@@ -173,10 +228,7 @@ class YandexMusicClient:
 
     async def get_liked_track_ids(self, user_id: int) -> list[str]:
         """Fetch IDs of liked tracks."""
-        data = await self._http.get(
-            f"/users/{user_id}/likes/tracks",
-            **{"if_modified_since_revision": 0},
-        )
+        data = await self._http.get(f"/users/{user_id}/likes/tracks")
         library = data.get("result", {}).get("library", {})
         tracks = library.get("tracks", [])
         return [str(t.get("id", t)) for t in tracks]
@@ -197,10 +249,7 @@ class YandexMusicClient:
 
     async def get_disliked_track_ids(self, user_id: int) -> list[str]:
         """Fetch IDs of disliked tracks."""
-        data = await self._http.get(
-            f"/users/{user_id}/dislikes/tracks",
-            **{"if_modified_since_revision": 0},
-        )
+        data = await self._http.get(f"/users/{user_id}/dislikes/tracks")
         library = data.get("result", {}).get("library", {})
         tracks = library.get("tracks", [])
         return [str(t.get("id", t)) for t in tracks]
