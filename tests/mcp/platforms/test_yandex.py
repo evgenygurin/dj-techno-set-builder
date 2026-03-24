@@ -37,11 +37,15 @@ def mock_ym_client() -> AsyncMock:
             }
         ]
     )
-    client.fetch_playlist_tracks = AsyncMock(
-        return_value=[
-            {"track": {"id": 111, "title": "A", "artists": [{"name": "X", "various": False}]}},
-            {"track": {"id": 222, "title": "B", "artists": [{"name": "Y", "various": False}]}},
-        ]
+    client.fetch_playlist = AsyncMock(
+        return_value={
+            "title": "Test Playlist",
+            "tracks": [
+                {"track": {"id": 111, "title": "A", "artists": [{"name": "X", "various": False}]}},
+                {"track": {"id": 222, "title": "B", "artists": [{"name": "Y", "various": False}]}},
+            ],
+            "revision": 1,
+        }
     )
     client.fetch_tracks_metadata = AsyncMock(
         return_value=[
@@ -122,16 +126,18 @@ class TestGetPlaylist:
         pl = await adapter.get_playlist("1003")
 
         assert pl.platform_id == "1003"
+        assert pl.name == "Test Playlist"
         assert pl.track_ids == ["111", "222"]
         assert pl.owner_id == "250905515"
-        mock_ym_client.fetch_playlist_tracks.assert_called_once_with("250905515", "1003")
+        mock_ym_client.fetch_playlist.assert_called_once_with("250905515", "1003")
 
     async def test_get_playlist_empty(
         self, adapter: YandexMusicAdapter, mock_ym_client: AsyncMock
     ) -> None:
-        mock_ym_client.fetch_playlist_tracks.return_value = []
+        mock_ym_client.fetch_playlist.return_value = {"title": "Empty", "tracks": [], "revision": 1}
         pl = await adapter.get_playlist("1003")
         assert pl.track_ids == []
+        assert pl.name == "Empty"
 
 
 class TestGetDownloadUrl:

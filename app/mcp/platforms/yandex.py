@@ -17,17 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 class YandexMusicAdapter:
-    """Adapter wrapping YandexMusicClient to the MusicPlatform interface.
+    """Adapter wrapping YandexMusicClient to the MusicPlatform interface."""
 
-    Converts raw YM API responses to PlatformTrack/PlatformPlaylist.
-    Uses a single unified YandexMusicClient for all operations.
-    """
-
-    def __init__(
-        self,
-        client: YandexMusicClient,
-        user_id: str,
-    ) -> None:
+    def __init__(self, client: YandexMusicClient, user_id: str) -> None:
         self._client = client
         self._user_id = user_id
 
@@ -46,12 +38,10 @@ class YandexMusicAdapter:
         })
 
     async def search_tracks(self, query: str, *, limit: int = 20) -> list[PlatformTrack]:
-        """Search YM for tracks."""
         raw_tracks = await self._client.search_tracks(query)
         return [self._to_platform_track(t) for t in raw_tracks[:limit]]
 
     async def get_track(self, platform_id: str) -> PlatformTrack:
-        """Fetch a single track by YM track ID."""
         raw_list = await self._client.fetch_tracks_metadata([platform_id])
         if not raw_list:
             msg = f"YM track {platform_id} not found"
@@ -59,60 +49,80 @@ class YandexMusicAdapter:
         return self._to_platform_track(raw_list[0])
 
     async def get_playlist(self, platform_id: str) -> PlatformPlaylist:
-        """Fetch playlist tracks by playlist kind (ID)."""
-        raw_items = await self._client.fetch_playlist_tracks(self._user_id, platform_id)
+        result = await self._client.fetch_playlist(self._user_id, platform_id)
         track_ids: list[str] = []
-        for item in raw_items:
+        for item in result.get("tracks", []):
             track_data = item.get("track", item)
             track_id = track_data.get("id")
             if track_id is not None:
                 track_ids.append(str(track_id))
         return PlatformPlaylist(
             platform_id=platform_id,
-            name="",  # YM fetch_playlist_tracks doesn't return playlist name
+            name=result.get("title", ""),
             track_ids=track_ids,
             owner_id=self._user_id,
         )
 
     async def create_playlist(self, name: str, track_ids: list[str]) -> str:
-        """Create a YM playlist and optionally populate with tracks.
-
-        Returns the playlist kind (numeric ID) as string.
-        """
         uid = int(self._user_id)
         kind = await self._client.create_playlist(uid, name)
         if track_ids:
-            ym_tracks = [{"id": tid, "albumId": ""} for tid in track_ids]
-            await self._client.add_tracks_to_playlist(uid, kind, ym_tracks)
+            # Resolve albumIds — YM API requires non-empty albumId
+            ym_tracks = await self._resolve_track_albums(track_ids)
+            if ym_tracks:
+                await self._client.add_tracks_to_playlist(uid, kind, ym_tracks)
         return str(kind)
 
     async def add_tracks_to_playlist(self, playlist_id: str, track_ids: list[str]) -> None:
-        """Add tracks to an existing YM playlist via diff insert."""
         uid = int(self._user_id)
-        ym_tracks = [{"id": tid, "albumId": ""} for tid in track_ids]
-        await self._client.add_tracks_to_playlist(uid, int(playlist_id), ym_tracks)
+        ym_tracks = await self._resolve_track_albums(track_ids)
+        if ym_tracks:
+            await self._client.add_tracks_to_playlist(uid, int(playlist_id), ym_tracks)
 
     async def remove_tracks_from_playlist(self, playlist_id: str, track_ids: list[str]) -> None:
-        """Not yet supported — requires revision tracking and index-based deletion."""
-        raise NotImplementedError("YM playlist track removal not yet implemented")
+        """Remove tracks by finding their indices in the playlist."""
+        uid = int(self._user_id)
+        kind = int(playlist_id)
+        result = await self._client.fetch_playlist(self._user_id, playlist_id)
+        revision = result.get("revision", 1)
+        items = result.get("tracks", [])
+
+        remove_set = set(track_ids)
+        # Delete in reverse order to keep indices stable
+        for i in range(len(items) - 1, -1, -1):
+            track_data = items[i].get("track", items[i])
+            if str(track_data.get("id", "")) in remove_set:
+                await self._client.remove_tracks_from_playlist(uid, kind, i, i + 1, revision)
+                revision += 1
 
     async def delete_playlist(self, playlist_id: str) -> None:
-        """Not yet supported."""
-        raise NotImplementedError("YM playlist deletion not yet implemented")
+        await self._client.delete_playlist(int(self._user_id), int(playlist_id))
 
     async def get_download_url(self, track_id: str, *, bitrate: int = 320) -> str | None:
-        """Resolve a direct download URL for a YM track."""
         with contextlib.suppress(Exception):
             return await self._client.resolve_download_url(track_id, prefer_bitrate=bitrate)
         return None
 
     async def close(self) -> None:
-        """Close the underlying HTTP client."""
         await self._client.close()
+
+    # --- Internal ---
+
+    async def _resolve_track_albums(self, track_ids: list[str]) -> list[dict[str, str]]:
+        """Fetch albumId for each track — YM API rejects empty albumId."""
+        data = await self._client.fetch_tracks(track_ids)
+        result: list[dict[str, str]] = []
+        for tid in track_ids:
+            track = data.get(tid)
+            if not track:
+                continue
+            albums = track.get("albums", [])
+            album_id = str(albums[0]["id"]) if albums else ""
+            result.append({"id": tid, "albumId": album_id})
+        return result
 
     @staticmethod
     def _to_platform_track(raw: dict[str, Any]) -> PlatformTrack:
-        """Convert raw YM track dict to PlatformTrack."""
         parsed = parse_ym_track(raw)
         return PlatformTrack(
             platform_id=parsed.yandex_track_id,
