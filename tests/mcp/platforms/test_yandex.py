@@ -93,7 +93,9 @@ class TestSearchTracks:
         assert results[0].title == "Gravity"
         assert results[0].artists == "Boris Brejcha"
         assert results[0].duration_ms == 360000
-        mock_ym_client.search_tracks.assert_called_once_with("Boris Brejcha")
+        mock_ym_client.search_tracks.assert_called_once_with(
+            "Boris Brejcha", page=0, nocorrect=False
+        )
 
     async def test_search_empty(
         self, adapter: YandexMusicAdapter, mock_ym_client: AsyncMock

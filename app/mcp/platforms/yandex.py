@@ -37,8 +37,15 @@ class YandexMusicAdapter:
             PlatformCapability.LIKES,
         })
 
-    async def search_tracks(self, query: str, *, limit: int = 20) -> list[PlatformTrack]:
-        raw_tracks = await self._client.search_tracks(query)
+    async def search_tracks(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        page: int = 0,
+        nocorrect: bool = False,
+    ) -> list[PlatformTrack]:
+        raw_tracks = await self._client.search_tracks(query, page=page, nocorrect=nocorrect)
         return [self._to_platform_track(t) for t in raw_tracks[:limit]]
 
     async def get_track(self, platform_id: str) -> PlatformTrack:

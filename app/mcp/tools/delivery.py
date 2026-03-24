@@ -329,9 +329,9 @@ async def _sync_to_ym(
     for tr in tracks:
         tid = tr["track_id"]
         row = ym_map.get(tid)
-        if row and row.yandex_track_id:
+        if row and row.yandex_track_id and row.yandex_album_id:
             ym_tracks.append(
-                {"id": str(row.yandex_track_id), "albumId": str(row.yandex_album_id or "")}
+                {"id": str(row.yandex_track_id), "albumId": str(row.yandex_album_id)}
             )
         else:
             # YM-native track: track_id IS the ym_track_id (large int > 1_000_000)
