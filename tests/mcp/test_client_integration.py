@@ -62,7 +62,6 @@ async def test_client_lists_all_workflow_tools(workflow_mcp: FastMCP):
             "download_tracks",
             # Admin / visibility
             "activate_heavy_mode",
-            "activate_ym_raw",
             "list_platforms",
             # Phase 1: Search
             "search",

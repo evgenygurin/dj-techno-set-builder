@@ -29,6 +29,7 @@ from app.mcp.tools.setbuilder import register_setbuilder_tools
 from app.mcp.tools.sync import register_sync_tools
 from app.mcp.tools.track import register_track_tools
 from app.mcp.tools.unified_export import register_unified_export_tools
+from app.mcp.tools.yandex import register_yandex_tools
 
 
 def _register_visibility_tools(mcp: FastMCP) -> None:
@@ -43,16 +44,6 @@ def _register_visibility_tools(mcp: FastMCP) -> None:
         """
         await ctx.enable_components(tags={"heavy"})
         return "Heavy analysis tools are now available."
-
-    @mcp.tool(tags={"admin"})
-    async def activate_ym_raw(ctx: Context) -> str:
-        """Enable raw Yandex Music API tools.
-
-        Unlocks the full YM API namespace for advanced queries
-        not covered by the DJ workflow tools.
-        """
-        await ctx.enable_components(tags={"ym_raw"})
-        return "Raw YM API tools are now available."
 
     @mcp.tool(
         annotations={"readOnlyHint": True},
@@ -105,6 +96,9 @@ def create_workflow_mcp() -> FastMCP:
     register_curation_discovery_tools(mcp)
     register_sync_tools(mcp)
     register_delivery_tools(mcp)
+
+    # === Yandex Music API (via client @tool decorators) ===
+    register_yandex_tools(mcp)
 
     # === Prompts & Resources ===
     register_prompts(mcp)

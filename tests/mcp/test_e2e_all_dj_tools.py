@@ -342,14 +342,6 @@ async def test_activate_heavy_mode(workflow_mcp_with_db: FastMCP):
         assert "heavy" in text.lower() or "Heavy" in text
 
 
-async def test_activate_ym_raw(workflow_mcp_with_db: FastMCP):
-    """activate_ym_raw returns success message."""
-    async with Client(workflow_mcp_with_db) as c:
-        raw = await c.call_tool("activate_ym_raw", {})
-        text = _text(raw)
-        assert "ym" in text.lower() or "YM" in text
-
-
 # ---------------------------------------------------------------------------
 # 9. Discovery tools
 # ---------------------------------------------------------------------------
