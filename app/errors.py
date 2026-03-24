@@ -1,7 +1,10 @@
-from typing import Any
+"""Application error hierarchy.
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+Framework-free exception classes with structured error data.
+Used by services and MCP tools.
+"""
+
+from typing import Any
 
 
 class AppError(Exception):
@@ -48,12 +51,3 @@ class ConflictError(AppError):
             message=message,
             details=kwargs or None,
         )
-
-
-def register_error_handlers(app: FastAPI) -> None:
-    @app.exception_handler(AppError)
-    async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
-        body: dict[str, Any] = {"code": exc.code, "message": exc.message}
-        if exc.details:
-            body["details"] = exc.details
-        return JSONResponse(status_code=exc.status_code, content=body)

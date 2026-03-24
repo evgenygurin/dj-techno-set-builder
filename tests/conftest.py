@@ -2,7 +2,6 @@ import os
 from collections.abc import AsyncIterator
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -11,8 +10,6 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import StaticPool
 
-from app.database import get_session
-from app.main import create_app
 from app.models import Base
 
 
@@ -75,11 +72,7 @@ async def _connection(engine) -> AsyncIterator[AsyncConnection]:
 
 @pytest.fixture
 async def seed_providers(session: AsyncSession) -> None:
-    """Seed standard providers into the test session.
-
-    Uses merge() to handle cases where the provider already exists
-    (e.g., created by the test itself before requesting this fixture).
-    """
+    """Seed standard providers into the test session."""
     from app.models.providers import Provider
 
     for pid, code, name in [
@@ -97,10 +90,7 @@ async def session(_connection) -> AsyncIterator[AsyncSession]:
     """Function-scoped session with automatic rollback.
 
     Bound to the shared connection's outer transaction via
-    ``join_transaction_mode="create_savepoint"``.  Every
-    ``session.commit()`` only releases a SAVEPOINT (not the real
-    transaction).  On teardown the outer transaction is rolled back,
-    so each test sees a clean database.
+    ``join_transaction_mode="create_savepoint"``.
     """
     sess = AsyncSession(
         bind=_connection,
@@ -109,32 +99,3 @@ async def session(_connection) -> AsyncIterator[AsyncSession]:
     )
     yield sess
     await sess.close()
-
-
-@pytest.fixture
-async def client(_connection) -> AsyncIterator[AsyncClient]:
-    """Function-scoped HTTP client with full rollback after each test.
-
-    Overrides FastAPI's ``get_session`` dependency to yield sessions
-    bound to the same connection and outer transaction as the
-    ``session`` fixture, so all data written through the API is
-    rolled back after the test.
-    """
-
-    async def _override_session() -> AsyncIterator[AsyncSession]:
-        sess = AsyncSession(
-            bind=_connection,
-            join_transaction_mode="create_savepoint",
-            expire_on_commit=False,
-        )
-        try:
-            yield sess
-        finally:
-            await sess.close()
-
-    application = create_app()
-    application.dependency_overrides[get_session] = _override_session
-
-    transport = ASGITransport(app=application)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac

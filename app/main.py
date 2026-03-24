@@ -1,12 +1,14 @@
+"""Application entry point — standalone FastMCP server.
+
+No FastAPI, no REST API. Pure MCP over StreamableHTTP or stdio.
+Per FastMCP v3 docs: mcp.run() handles all transport configuration.
+"""
+
 from __future__ import annotations
 
-# Note: TypeForm compat patch applied in app/__init__.py (runs before this module)
 import logging
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 
 import sentry_sdk
-from fastapi import FastAPI
 
 from app.config import settings
 
@@ -24,9 +26,8 @@ def _init_sentry() -> None:
         return
 
     from sentry_sdk.integrations import Integration
-    from sentry_sdk.integrations.fastapi import FastApiIntegration
 
-    integrations: list[Integration] = [FastApiIntegration()]
+    integrations: list[Integration] = []
 
     try:
         from sentry_sdk.integrations.mcp import MCPIntegration
@@ -48,36 +49,9 @@ def _init_sentry() -> None:
 # Initialize Sentry BEFORE importing FastMCP
 _init_sentry()
 
-from fastmcp.utilities.lifespan import combine_lifespans  # noqa: E402
-
-from app.database import close_db, init_db  # noqa: E402
-from app.errors import register_error_handlers  # noqa: E402
 from app.mcp import create_dj_mcp  # noqa: E402
-from app.middleware import apply_middleware  # noqa: E402
-from app.routers import register_routers  # noqa: E402
 
+mcp = create_dj_mcp()
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    await init_db()
-    yield
-    await close_db()
-
-
-def create_app() -> FastAPI:
-    mcp = create_dj_mcp()
-    mcp_app = mcp.http_app(path="/mcp")
-
-    application = FastAPI(
-        title=settings.app_name,
-        debug=settings.debug,
-        lifespan=combine_lifespans(lifespan, mcp_app.lifespan),
-    )
-    application.mount("/mcp", mcp_app)
-    apply_middleware(application)
-    register_error_handlers(application)
-    register_routers(application)
-    return application
-
-
-app = create_app()
+if __name__ == "__main__":
+    mcp.run(transport="http", host="0.0.0.0", port=8000)

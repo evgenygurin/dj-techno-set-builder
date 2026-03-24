@@ -87,15 +87,19 @@ async def mcp_lifespan(server: Any):  # type: ignore[no-untyped-def]  # fastmcp 
 
     Yields context dict accessible via ctx.lifespan_context in tools.
     """
+    from app.database import close_db, init_db
+
     started_at = datetime.now(tz=UTC).isoformat()
     logger.info(
         "MCP server starting",
         extra={"server": getattr(server, "name", "unknown"), "started_at": started_at},
     )
     otel_provider = _init_otel()
+    await init_db()
     try:
         yield {"started_at": started_at}
     finally:
+        await close_db()
         _shutdown_otel(otel_provider)
         logger.info(
             "MCP server shutting down",
