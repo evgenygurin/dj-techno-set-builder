@@ -7,6 +7,7 @@ paths:
   - "app/services/camelot_lookup.py"
   - "app/services/set_export.py"
   - "app/services/set_curation.py"
+  - "app/services/transition_type.py"
 ---
 
 # Audio Analysis & Set Generation
@@ -83,6 +84,25 @@ hypnotic, driving, tribal, breakbeat, peak_time, acid, raw, industrial, hard_tec
 ## Dependencies
 
 Audio analysis requires the `audio` extra: `uv sync --extra audio` (essentia, soundfile, scipy, numpy, librosa). Stem separation requires the `ml` extra: `uv sync --extra ml` (demucs, torch).
+
+## Transition types (djay Pro AI)
+
+`TransitionType` (`app/utils/audio/_types.py`) — `StrEnum` with 16 real Algoriddim Crossfader FX names:
+
+**9 Classic FX**: `FADE`, `FILTER`, `EQ`, `ECHO`, `DISSOLVE`, `TREMOLO`, `LUNAR_ECHO`, `RISER`, `SHUFFLE`
+
+**7 Neural Mix FX**: `NM_FADE`, `NM_ECHO_OUT`, `NM_VOCAL_SUSTAIN`, `NM_HARMONIC_SUSTAIN`, `NM_DRUM_SWAP`, `NM_VOCAL_CUT`, `NM_DRUM_CUT`
+
+`recommend_transition()` (`app/services/transition_type.py`) — priority-based recommender, 13 rules:
+- Mood-aware: Neural Mix types preferred for harmonic/ambient moods; Classic for peak/industrial
+- Position-aware: intro uses FADE/FILTER; peak uses NM_DRUM_SWAP/EQ; outro uses DISSOLVE/NM_FADE
+- Inputs: `kick_prominence`, `bpm_diff`, `camelot_dist`, `set_position`, `energy_direction`, `mood`
+- Returns `TransitionRecommendation` with `type`, `alt_type`, `djay_bars`, `djay_bpm_mode`, `reason`
+
+`_get_mix_points()` helper populates `mix_in_ms`/`mix_out_ms` from `track_sections` data:
+- Searches for outro section of outgoing track → `mix_out_ms = section.start_ms`
+- Searches for intro section of incoming track → `mix_in_ms = section.end_ms`
+- Falls back to `None` if sections not available
 
 ## Transition scoring
 

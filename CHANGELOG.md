@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Section-based mix points**: `_get_mix_points()` helper populates `mix_in_ms`/`mix_out_ms` from `track_sections` intro/outro data as fallback when not set on items
+- **Batch section loading**: `SectionsRepository.get_latest_by_track_ids()` used in `score_consecutive_transitions()` — single IN-query instead of N+1
+- **Crossfader FX legend** in cheat sheet footer: 8 FX type descriptions for quick DJ reference
+
+### Changed
+
+- **TransitionType enum**: expanded from 7 generic to 16 real djay Pro AI Crossfader FX types (9 Classic + 7 Neural Mix) in `app/utils/audio/_types.py`
+- **Transition recommender**: rewritten as 13-rule priority-based algorithm with mood-aware + position-aware logic for all 16 FX types (`app/services/transition_type.py`)
+- **`recommend_transition()` signature**: `camelot_compatible: bool` → `camelot_dist: int`, added `set_position`, `energy_direction`, `mood` params
+- **`score_consecutive_transitions()`**: derives `set_position`, `energy_direction` per pair; populates `djay_bars`, `djay_bpm_mode`, `mix_out_ms`, `mix_in_ms`
+- **Cheat sheet djay block**: expanded from single line to multi-line box with FX name, bars, BPM mode, mix points, alt type, reason (tree-character formatting)
+
 ## [0.3.0] - 2026-03-22
 
 ### Added
