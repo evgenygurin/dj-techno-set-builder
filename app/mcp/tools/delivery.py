@@ -158,6 +158,38 @@ def _generate_cheat_sheet(
             if tx.from_key and tx.to_key and tx.from_key != tx.to_key:
                 meta += f" {tx.from_key}>{tx.to_key}"
             lines.append(f"     [{bar}] {tx.total:.2f}{warn}  {typ}{alt}{meta}")
+            # djay Pro AI Crossfader FX block
+            if tx.recommended_type:
+                djay_bars = tx.djay_bars or 16
+                djay_mode = tx.djay_bpm_mode or "Sync"
+                reason = tx.reason or ""
+
+                lines.append("     \U0001f4f1 djay Pro AI:")
+                lines.append(f"     \u250c\u2500 FX: {tx.recommended_type}")
+
+                bar_mode = f"{djay_bars} bars \u00b7 BPM: {djay_mode}"
+                lines.append(f"     \u251c\u2500 {bar_mode}")
+
+                # Mix points line (if available)
+                mix_parts: list[str] = []
+                if tx.mix_out_ms is not None:
+                    mix_parts.append(f"out@{tx.mix_out_ms // 1000}s")
+                if tx.mix_in_ms is not None:
+                    mix_parts.append(f"in@{tx.mix_in_ms // 1000}s")
+                if mix_parts:
+                    lines.append(f"     \u251c\u2500 Mix: {' \u2192 '.join(mix_parts)}")
+
+                # Alt type
+                if tx.alt_type:
+                    lines.append(f"     \u251c\u2500 Alt: {tx.alt_type}")
+
+                # Reason (last line with └─)
+                if reason:
+                    lines.append(f"     \u2514\u2500 {reason}")
+                else:
+                    # Close the box
+                    if lines[-1].startswith("     \u251c\u2500"):
+                        lines[-1] = lines[-1].replace("\u251c\u2500", "\u2514\u2500", 1)
         elif tx is not None:
             lines.append("     [XXXXX] 0.00 !  CONFLICT")
 
