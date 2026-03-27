@@ -8,18 +8,15 @@ from numpy.typing import NDArray
 
 
 class TransitionType(StrEnum):
-    """djay Pro Crossfader FX transition types for Neural Mix."""
+    """djay Pro AI Crossfader FX transition types (exact UI names)."""
 
-    DRUM_CUT = "drum_cut"
-    DRUM_SWAP = "drum_swap"
-    HARMONIC_SUSTAIN = "harmonic_sustain"
-    VOCAL_SUSTAIN = "vocal_sustain"
-    NEURAL_ECHO_OUT = "neural_echo_out"
-    NEURAL_FADE = "neural_fade"
-    EQ = "eq"
-    FILTER = "filter"
-    ECHO = "echo"
-    FADE = "fade"
+    NEURAL_MIX = "Neural Mix"
+    TECHNO = "Techno"
+    FILTER = "Filter"
+    ECHO = "Echo"
+    RISER = "Riser"
+    REPEATER = "Repeater"
+    BEAT_MATCH = "Beat Match"
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,3 +175,5 @@ class TransitionRecommendation:
     confidence: float  # [0, 1]
     reason: str
     alt_type: TransitionType | None = None
+    djay_bars: int = 16  # 4 | 8 | 16 | 32
+    djay_bpm_mode: str = "Sync"  # "Sync" | "Sync + Tempo Blend" | "Automatic"

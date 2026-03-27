@@ -4,43 +4,55 @@ from app.utils.audio._types import TransitionRecommendation, TransitionType
 
 
 def test_transition_type_is_str_enum():
-    """TransitionType values should be lowercase strings."""
-    assert TransitionType.DRUM_CUT == "drum_cut"
-    assert TransitionType.DRUM_SWAP == "drum_swap"
-    assert TransitionType.HARMONIC_SUSTAIN == "harmonic_sustain"
-    assert TransitionType.VOCAL_SUSTAIN == "vocal_sustain"
-    assert TransitionType.NEURAL_ECHO_OUT == "neural_echo_out"
-    assert TransitionType.NEURAL_FADE == "neural_fade"
-    assert TransitionType.EQ == "eq"
-    assert TransitionType.FILTER == "filter"
-    assert TransitionType.ECHO == "echo"
-    assert TransitionType.FADE == "fade"
+    """TransitionType values must match exact djay Pro AI Crossfader FX names."""
+    assert TransitionType.NEURAL_MIX == "Neural Mix"
+    assert TransitionType.TECHNO == "Techno"
+    assert TransitionType.FILTER == "Filter"
+    assert TransitionType.ECHO == "Echo"
+    assert TransitionType.RISER == "Riser"
+    assert TransitionType.REPEATER == "Repeater"
+    assert TransitionType.BEAT_MATCH == "Beat Match"
 
 
-def test_transition_type_has_10_members():
-    """Should have exactly 10 transition types."""
-    assert len(TransitionType) == 10
+def test_transition_type_has_7_members():
+    """Should have exactly 7 djay Pro AI transition types."""
+    assert len(TransitionType) == 7
 
 
 def test_transition_recommendation_frozen():
     """TransitionRecommendation should be a frozen dataclass."""
     rec = TransitionRecommendation(
-        transition_type=TransitionType.DRUM_CUT,
+        transition_type=TransitionType.BEAT_MATCH,
         confidence=0.85,
-        reason="Both tracks are drum-heavy",
+        reason="Стандартный битматч",
     )
-    assert rec.transition_type == TransitionType.DRUM_CUT
+    assert rec.transition_type == TransitionType.BEAT_MATCH
     assert rec.confidence == 0.85
-    assert rec.reason == "Both tracks are drum-heavy"
+    assert rec.reason == "Стандартный битматч"
     assert rec.alt_type is None
+    assert rec.djay_bars == 16
+    assert rec.djay_bpm_mode == "Sync"
 
 
 def test_transition_recommendation_with_alt():
     """TransitionRecommendation should support alt_type."""
     rec = TransitionRecommendation(
-        transition_type=TransitionType.DRUM_CUT,
-        confidence=0.85,
+        transition_type=TransitionType.NEURAL_MIX,
+        confidence=0.90,
         reason="Both drum-heavy",
-        alt_type=TransitionType.EQ,
+        alt_type=TransitionType.TECHNO,
     )
-    assert rec.alt_type == TransitionType.EQ
+    assert rec.alt_type == TransitionType.TECHNO
+
+
+def test_transition_recommendation_djay_fields():
+    """djay_bars and djay_bpm_mode can be set explicitly."""
+    rec = TransitionRecommendation(
+        transition_type=TransitionType.RISER,
+        confidence=0.80,
+        reason="Pre-peak riser",
+        djay_bars=8,
+        djay_bpm_mode="Sync + Tempo Blend",
+    )
+    assert rec.djay_bars == 8
+    assert rec.djay_bpm_mode == "Sync + Tempo Blend"
