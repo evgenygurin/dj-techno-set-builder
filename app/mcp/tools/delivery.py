@@ -202,6 +202,18 @@ def _generate_cheat_sheet(
         safe_lo = max(bpm_min - 2, 120)
         lines.append(f"BPM   {bpm_min:.0f}-{bpm_max:.0f}  safe {safe_lo:.0f}-{bpm_max + 2:.0f}")
 
+    # Crossfader FX legend
+    lines.append("")
+    lines.append("Crossfader FX:")
+    lines.append("  Filter \u2014 LPF/HPF sweep (masks key conflicts)")
+    lines.append("  EQ \u2014 3-band swap (clean bass transition)")
+    lines.append("  NM Drum Swap \u2014 AI drum exchange (best for techno)")
+    lines.append("  NM Drum Cut \u2014 drums out \u2192 breakdown \u2192 drop")
+    lines.append("  NM Fade \u2014 AI stem-aware crossfade")
+    lines.append("  Riser \u2014 noise sweep build-up")
+    lines.append("  Echo/Lunar Echo \u2014 delay/shimmer reverb")
+    lines.append("  Fade \u2014 simple volume crossfade")
+
     return "\n".join(lines) + "\n"
 
 
