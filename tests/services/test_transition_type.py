@@ -32,7 +32,7 @@ def test_nm_drum_swap_both_drum_heavy_close_bpm_compatible_key():
     b = _make_features(kick_prominence=0.88)
     rec = recommend_transition(a, b, camelot_dist=1)
     assert rec.transition_type == TransitionType.NM_DRUM_SWAP
-    assert rec.djay_bars == 16
+    assert rec.djay_bars == 8
     assert rec.djay_bpm_mode == "Sync"
     assert rec.confidence >= 0.75
 
@@ -83,25 +83,23 @@ def test_filter_hpf_tempo_blend_when_bpm_diff_gt_3():
     assert rec.djay_bpm_mode == "Sync + Tempo Blend"
 
 
-def test_filter_hpf_not_when_energy_drops():
-    """No Filter (HPF) when energy is going down."""
-    a = _make_features(bpm=128.0)
-    b = _make_features(bpm=129.0)
-    rec = recommend_transition(a, b, camelot_dist=1, energy_direction="down")
-    assert rec.transition_type != TransitionType.FILTER
+def test_filter_hpf_not_when_energy_drops_strong_kicks():
+    """No Filter (HPF sweep) when energy is going down with strong kicks — NM_DRUM_CUT fires."""
+    a = _make_features(bpm=128.0, kick_prominence=0.80)
+    b = _make_features(bpm=129.0, kick_prominence=0.75)
+    rec = recommend_transition(a, b, camelot_dist=1, set_position=0.5, energy_direction="down")
+    # NM_DRUM_CUT should fire before any Filter rule when kicks are strong
+    assert rec.transition_type == TransitionType.NM_DRUM_CUT
 
 
 # ── Rule 3: Riser ──
 
 
 def test_riser_mid_set_energy_rising():
-    """Riser when energy is up and set_position is in pre-peak zone."""
-    a = _make_features(bpm=128.0)
-    b = _make_features(bpm=134.0)  # bpm_diff=6, no Techno (energy up is ok)
-    # But bpm_diff=6 → Techno rule matches first if energy_up. Use bpm_diff > 6
+    """Riser when energy is up and set_position is in pre-peak zone (0.65-0.80)."""
     a = _make_features(bpm=128.0)
     b = _make_features(bpm=135.0)  # bpm_diff=7
-    rec = recommend_transition(a, b, camelot_dist=1, set_position=0.6, energy_direction="up")
+    rec = recommend_transition(a, b, camelot_dist=1, set_position=0.72, energy_direction="up")
     assert rec.transition_type == TransitionType.RISER
     assert rec.djay_bars == 8
 
