@@ -70,9 +70,9 @@ from app.services.transition_scoring import TrackFeatures  # noqa: E402
 from app.services.transition_type import recommend_transition  # noqa: E402
 
 
-def _make_features(**overrides) -> TrackFeatures:
+def _make_features(**overrides: object) -> TrackFeatures:
     """Helper to create TrackFeatures with techno defaults."""
-    defaults = dict(
+    defaults: dict[str, object] = dict(
         bpm=130.0,
         energy_lufs=-8.0,
         key_code=0,
@@ -85,7 +85,7 @@ def _make_features(**overrides) -> TrackFeatures:
         spectral_slope=-0.02,
     )
     defaults.update(overrides)
-    return TrackFeatures(**defaults)
+    return TrackFeatures(**defaults)  # type: ignore[arg-type]
 
 
 class TestNeuralMixDrumSwap:
@@ -202,3 +202,37 @@ class TestFallbackFade:
         assert rec.transition_type in TransitionType
         assert 0.0 <= rec.confidence <= 1.0
         assert rec.djay_bars in (4, 8, 16, 32)
+
+
+# ── Section-based mix points ─────────────────────────────────────────────────
+
+
+def test_get_section_mix_points():
+    """Helper should extract intro/outro ms from section data."""
+    from app.mcp.tools._scoring_helpers import _get_mix_points
+
+    # Simulate section data: [(section_type, start_ms, end_ms), ...]
+    sections = [
+        (0, 0, 32000),  # INTRO: 0-32s
+        (2, 32000, 96000),  # DROP
+        (4, 180000, 210000),  # OUTRO: 180-210s
+    ]
+    mix_in, mix_out = _get_mix_points(sections)
+    assert mix_in == 0  # INTRO start
+    assert mix_out == 180000  # OUTRO start
+
+
+def test_get_section_mix_points_missing():
+    """Helper returns None when sections are missing."""
+    from app.mcp.tools._scoring_helpers import _get_mix_points
+
+    # No intro or outro
+    sections = [(2, 32000, 96000)]  # DROP only
+    mix_in, mix_out = _get_mix_points(sections)
+    assert mix_in is None
+    assert mix_out is None
+
+    # Empty list
+    mix_in, mix_out = _get_mix_points([])
+    assert mix_in is None
+    assert mix_out is None

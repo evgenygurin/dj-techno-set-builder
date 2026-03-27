@@ -12,10 +12,35 @@ from typing import Any
 
 from app.errors import NotFoundError
 from app.mcp.types.workflows import TransitionScoreResult
+from app.models.enums import SectionType
 from app.services.features import AudioFeaturesService
 from app.services.tracks import TrackService
 from app.services.transition_scoring_unified import UnifiedTransitionScoringService
 from app.utils.audio.camelot import key_code_to_camelot
+
+# ── Section mix-point extraction ──────────────────────────────────────────────
+
+
+def _get_mix_points(
+    sections: list[tuple[int, int, int]],
+) -> tuple[int | None, int | None]:
+    """Extract mix-in (intro start) and mix-out (outro start) from sections.
+
+    Args:
+        sections: List of (section_type, start_ms, end_ms) tuples.
+
+    Returns:
+        (mix_in_ms, mix_out_ms) — None if section not found.
+    """
+    mix_in: int | None = None
+    mix_out: int | None = None
+    for sec_type, start_ms, _end_ms in sections:
+        if sec_type == SectionType.INTRO and mix_in is None:
+            mix_in = start_ms
+        if sec_type == SectionType.OUTRO and (mix_out is None or start_ms > mix_out):
+            mix_out = start_ms
+    return mix_in, mix_out
+
 
 # ── Path sanitisation ─────────────────────────────────────────────────────────
 
@@ -66,6 +91,24 @@ async def score_consecutive_transitions(
             track = await track_svc.get(item.track_id)
             title_map[item.track_id] = track.title
 
+    # Batch-load sections for mix points (single query, not N+1)
+    from app.repositories.sections import SectionsRepository
+
+    section_map: dict[int, list[tuple[int, int, int]]] = {}
+    try:
+        session = features_svc._repo._session  # type: ignore[attr-defined]
+        sections_repo = SectionsRepository(session)
+        all_track_ids = [item.track_id for item in items]
+        raw_map = await sections_repo.get_latest_by_track_ids(
+            all_track_ids,
+        )
+        section_map = {
+            tid: [(s.section_type, s.start_ms, s.end_ms) for s in secs]
+            for tid, secs in raw_map.items()
+        }
+    except Exception:
+        pass  # sections are optional enrichment
+
     results: list[TransitionScoreResult] = []
     for i in range(len(items) - 1):
         from_item = items[i]
@@ -107,6 +150,22 @@ async def score_consecutive_transitions(
         cam_dist_val: int | None = None
         bpm_delta_val: float | None = None
 
+        # djay Pro AI fields
+        djay_bars_val: int | None = None
+        djay_bpm_mode_val: str | None = None
+        mix_out_ms_val: int | None = getattr(from_item, "mix_out_ms", None)
+        mix_in_ms_val: int | None = getattr(to_item, "mix_in_ms", None)
+
+        # Fallback: populate from section data if not set on item
+        if mix_out_ms_val is None and from_item.track_id in section_map:
+            _, mix_out_ms_val = _get_mix_points(
+                section_map[from_item.track_id],
+            )
+        if mix_in_ms_val is None and to_item.track_id in section_map:
+            mix_in_ms_val, _ = _get_mix_points(
+                section_map[to_item.track_id],
+            )
+
         try:
             from app.services.transition_type import recommend_transition
             from app.utils.audio.camelot import camelot_distance
@@ -118,11 +177,27 @@ async def score_consecutive_transitions(
             tf_b = orm_features_to_track_features(feat_b)  # type: ignore[arg-type]
             cam_dist = camelot_distance(tf_a.key_code, tf_b.key_code)
 
-            rec = recommend_transition(tf_a, tf_b, camelot_compatible=cam_dist <= 1)
+            # Compute set_position (0.0 = first transition, 1.0 = last)
+            n_transitions = len(items) - 1
+            set_pos = i / n_transitions if n_transitions > 0 else 0.5
+
+            # Compute energy_direction from LUFS (more positive = louder)
+            lufs_diff = tf_b.energy_lufs - tf_a.energy_lufs
+            energy_dir = "up" if lufs_diff > 0.5 else "down" if lufs_diff < -0.5 else "stable"
+
+            rec = recommend_transition(
+                tf_a,
+                tf_b,
+                camelot_dist=cam_dist,
+                set_position=set_pos,
+                energy_direction=energy_dir,
+            )
             rec_type = str(rec.transition_type)
             rec_confidence = rec.confidence
             rec_reason = rec.reason
             rec_alt = str(rec.alt_type) if rec.alt_type else None
+            djay_bars_val = rec.djay_bars
+            djay_bpm_mode_val = rec.djay_bpm_mode
 
             # Audio context fields
             from_bpm_val = tf_a.bpm
@@ -159,6 +234,10 @@ async def score_consecutive_transitions(
                 to_key=to_key_val,
                 camelot_distance=cam_dist_val,
                 bpm_delta=bpm_delta_val,
+                djay_bars=djay_bars_val,
+                djay_bpm_mode=djay_bpm_mode_val,
+                mix_out_ms=mix_out_ms_val,
+                mix_in_ms=mix_in_ms_val,
             )
         )
 
