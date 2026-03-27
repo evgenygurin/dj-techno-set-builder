@@ -23,72 +23,72 @@ def _make_features(**overrides: object) -> TrackFeatures:
     return TrackFeatures(**defaults)  # type: ignore[arg-type]
 
 
-# ── Rule 1: Neural Mix ──
+# ── Rule 1: NM_DRUM_SWAP ──
 
 
-def test_neural_mix_both_drum_heavy_close_bpm_compatible_key():
-    """Neural Mix when both tracks have strong kick, close BPM, and compatible key."""
+def test_nm_drum_swap_both_drum_heavy_close_bpm_compatible_key():
+    """NM_DRUM_SWAP when both tracks have strong kick, close BPM, and compatible key."""
     a = _make_features(kick_prominence=0.82)
     b = _make_features(kick_prominence=0.88)
     rec = recommend_transition(a, b, camelot_dist=1)
-    assert rec.transition_type == TransitionType.NEURAL_MIX
+    assert rec.transition_type == TransitionType.NM_DRUM_SWAP
     assert rec.djay_bars == 16
     assert rec.djay_bpm_mode == "Sync"
     assert rec.confidence >= 0.75
 
 
-def test_neural_mix_not_when_bpm_too_far():
-    """No Neural Mix when BPM diff > 4."""
+def test_nm_drum_swap_not_when_bpm_too_far():
+    """No NM_DRUM_SWAP when BPM diff > 4."""
     a = _make_features(bpm=128.0, kick_prominence=0.82)
     b = _make_features(bpm=133.0, kick_prominence=0.88)
     rec = recommend_transition(a, b, camelot_dist=1)
-    assert rec.transition_type != TransitionType.NEURAL_MIX
+    assert rec.transition_type != TransitionType.NM_DRUM_SWAP
 
 
-def test_neural_mix_not_when_camelot_too_far():
-    """No Neural Mix when Camelot distance > 2."""
+def test_nm_drum_swap_not_when_camelot_too_far():
+    """No NM_DRUM_SWAP when Camelot distance > 2."""
     a = _make_features(kick_prominence=0.82)
     b = _make_features(kick_prominence=0.88)
     rec = recommend_transition(a, b, camelot_dist=3)
-    assert rec.transition_type != TransitionType.NEURAL_MIX
+    assert rec.transition_type != TransitionType.NM_DRUM_SWAP
 
 
-# ── Rule 2: Techno ──
+# ── Rule 2: Filter (HPF sweep) ──
 
 
-def test_techno_stable_energy_close_bpm():
-    """Techno for close BPM with stable energy direction."""
+def test_filter_hpf_stable_energy_close_bpm():
+    """Filter (HPF sweep) for close BPM with stable energy direction."""
     a = _make_features(bpm=128.0, kick_prominence=0.4)
     b = _make_features(bpm=130.0, kick_prominence=0.4)
     rec = recommend_transition(a, b, camelot_dist=1, energy_direction="stable")
-    assert rec.transition_type == TransitionType.TECHNO
+    assert rec.transition_type == TransitionType.FILTER
     assert rec.djay_bars == 16
 
 
-def test_techno_sync_when_bpm_diff_le_3():
+def test_filter_hpf_sync_when_bpm_diff_le_3():
     """BPM mode is Sync when diff <= 3."""
     a = _make_features(bpm=128.0)
     b = _make_features(bpm=130.0)  # diff = 2
     rec = recommend_transition(a, b, camelot_dist=1, energy_direction="stable")
-    assert rec.transition_type == TransitionType.TECHNO
+    assert rec.transition_type == TransitionType.FILTER
     assert rec.djay_bpm_mode == "Sync"
 
 
-def test_techno_tempo_blend_when_bpm_diff_gt_3():
+def test_filter_hpf_tempo_blend_when_bpm_diff_gt_3():
     """BPM mode is Sync + Tempo Blend when diff > 3."""
     a = _make_features(bpm=128.0)
     b = _make_features(bpm=132.5)  # diff = 4.5
     rec = recommend_transition(a, b, camelot_dist=1, energy_direction="up")
-    assert rec.transition_type == TransitionType.TECHNO
+    assert rec.transition_type == TransitionType.FILTER
     assert rec.djay_bpm_mode == "Sync + Tempo Blend"
 
 
-def test_techno_not_when_energy_drops():
-    """No Techno when energy is going down."""
+def test_filter_hpf_not_when_energy_drops():
+    """No Filter (HPF) when energy is going down."""
     a = _make_features(bpm=128.0)
     b = _make_features(bpm=129.0)
     rec = recommend_transition(a, b, camelot_dist=1, energy_direction="down")
-    assert rec.transition_type != TransitionType.TECHNO
+    assert rec.transition_type != TransitionType.FILTER
 
 
 # ── Rule 3: Riser ──
@@ -160,30 +160,30 @@ def test_echo_at_end_of_set():
     assert rec.transition_type == TransitionType.ECHO
 
 
-# ── Rule 6: Repeater ──
+# ── Rule 6: Tremolo ──
 
 
-def test_repeater_high_onset_mid_set():
-    """Repeater for high onset rate + strong kick in mid-set."""
+def test_tremolo_high_onset_mid_set():
+    """Tremolo for high onset rate + strong kick in mid-set."""
     a = _make_features(bpm=128.0, onset_rate=6.0, kick_prominence=0.85, centroid_hz=2500.0)
     b = _make_features(bpm=136.0)  # bpm_diff=8 → Riser needs energy_up which we won't set
     rec = recommend_transition(a, b, camelot_dist=2, set_position=0.5, energy_direction="stable")
-    # Filter applies first (camelot_dist=2 < 3, so no), Echo (hp_ratio=1.0 < 2.5, pos < 0.85, centroid 2500>2200)
-    # → Repeater should fire
-    assert rec.transition_type == TransitionType.REPEATER
+    # Filter: dist=2 < 3 → no. Echo: hp_ratio=1.0 < 2.5, pos < 0.85, centroid 2500>2200 → no.
+    # → Tremolo fires
+    assert rec.transition_type == TransitionType.TREMOLO
     assert rec.djay_bars == 8
 
 
-# ── Rule 7: Beat Match (fallback) ──
+# ── Rule 7: Fade (fallback) ──
 
 
-def test_beat_match_fallback():
-    """Beat Match is the default fallback."""
-    # high bpm_diff → no Techno, low onset/kick → no Repeater, no camelot issue
+def test_fade_fallback():
+    """Fade is the default fallback."""
+    # high bpm_diff → no Filter(HPF), low onset/kick → no Tremolo, no camelot issue
     a = _make_features(bpm=128.0, centroid_hz=2500.0, kick_prominence=0.5, onset_rate=3.0)
     b = _make_features(bpm=136.0, centroid_hz=2500.0)  # bpm_diff=8
     rec = recommend_transition(a, b, camelot_dist=2, set_position=0.5, energy_direction="stable")
-    assert rec.transition_type == TransitionType.BEAT_MATCH
+    assert rec.transition_type == TransitionType.FADE
     assert rec.djay_bpm_mode == "Automatic"
     assert rec.djay_bars == 16
 

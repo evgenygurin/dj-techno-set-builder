@@ -10,13 +10,24 @@ from numpy.typing import NDArray
 class TransitionType(StrEnum):
     """djay Pro AI Crossfader FX transition types (exact UI names)."""
 
-    NEURAL_MIX = "Neural Mix"
-    TECHNO = "Techno"
+    # Classic FX
+    FADE = "Fade"
     FILTER = "Filter"
+    EQ = "EQ"
     ECHO = "Echo"
+    DISSOLVE = "Dissolve"
+    TREMOLO = "Tremolo"
+    LUNAR_ECHO = "Lunar Echo"
     RISER = "Riser"
-    REPEATER = "Repeater"
-    BEAT_MATCH = "Beat Match"
+    SHUFFLE = "Shuffle"
+    # Neural Mix FX
+    NM_FADE = "Neural Mix (Fade)"
+    NM_ECHO_OUT = "Neural Mix (Echo Out)"
+    NM_VOCAL_SUSTAIN = "Neural Mix (Vocal Sustain)"
+    NM_HARMONIC_SUSTAIN = "Neural Mix (Harmonic Sustain)"
+    NM_DRUM_SWAP = "Neural Mix (Drum Swap)"
+    NM_VOCAL_CUT = "Neural Mix (Vocal Cut)"
+    NM_DRUM_CUT = "Neural Mix (Drum Cut)"
 
 
 @dataclass(frozen=True, slots=True)

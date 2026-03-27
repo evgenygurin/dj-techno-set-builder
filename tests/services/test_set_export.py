@@ -622,10 +622,10 @@ class TestJsonGuideBasic:
                     "energy_delta": 0.5,
                     "camelot": "5A -> 5A",
                     "recommendation": TransitionRecommendation(
-                        transition_type=TransitionType.NEURAL_MIX,
+                        transition_type=TransitionType.NM_DRUM_SWAP,
                         confidence=0.82,
                         reason="Compatible kick patterns",
-                        alt_type=TransitionType.TECHNO,
+                        alt_type=TransitionType.FILTER,
                     ),
                 }
             ],
@@ -651,10 +651,10 @@ class TestJsonGuideBasic:
         assert t["bpm_delta"] == 2.0
         assert t["energy_delta"] == 0.5
         assert t["camelot"] == "5A -> 5A"
-        assert t["type"] == "Neural Mix"
+        assert t["type"] == "Neural Mix (Drum Swap)"
         assert t["type_confidence"] == 0.82
         assert t["reason"] == "Compatible kick patterns"
-        assert t["alt_type"] == "Techno"
+        assert t["alt_type"] == "Filter"
 
     def test_transition_without_recommendation(self):
         data = self._make_simple_guide(
@@ -1062,10 +1062,10 @@ class TestJsonGuideComprehensive:
                 "mix_out_s": 400.0,
                 "mix_in_s": 8.0,
                 "recommendation": TransitionRecommendation(
-                    transition_type=TransitionType.NEURAL_MIX,
+                    transition_type=TransitionType.NM_DRUM_SWAP,
                     confidence=0.88,
                     reason="Compatible kick + close key",
-                    alt_type=TransitionType.TECHNO,
+                    alt_type=TransitionType.FILTER,
                 ),
             }
         ]
@@ -1097,7 +1097,7 @@ class TestJsonGuideComprehensive:
         tr = data["transitions"][0]
         assert tr["from"] == "Slam - Industrial Strength"
         assert tr["to"] == "Rebekah - Fear Tactics"
-        assert tr["type"] == "Neural Mix"
+        assert tr["type"] == "Neural Mix (Drum Swap)"
         assert tr["mix_out_s"] == 400.0
         assert tr["mix_in_s"] == 8.0
 

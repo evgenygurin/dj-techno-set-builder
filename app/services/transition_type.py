@@ -1,19 +1,19 @@
 """Transition type recommender for djay Pro AI.
 
-Selects the best Crossfader FX transition type from 7 djay Pro AI options
+Selects the best Crossfader FX transition type from 16 djay Pro AI options
 based on audio features of the outgoing and incoming tracks.
 
 Priority-based selection logic — first matching rule wins.
 Pure function, no DB dependencies.
 
 Rules match djay Pro AI (Algoriddim) Automix AI behaviour:
-  1. Neural Mix  — чёткие барабаны на обоих → стемы дадут чистый drum swap
-  2. Techno      — BPM близкий + энергия стабильна/растёт
-  3. Riser       — энергия растёт в середине сета (0.4-0.75 set_position)
-  4. Filter      — Camelot конфликт (dist >= 3)
-  5. Echo        — мелодичный/atmospheric трек или конец сета
-  6. Repeater    — высокий onset rate в середине сета
-  7. Beat Match  — fallback
+  1. NM_DRUM_SWAP  — чёткие барабаны на обоих → стемы дадут чистый drum swap
+  2. FILTER        — BPM близкий + энергия стабильна/растёт (HPF sweep)
+  3. RISER         — энергия растёт в середине сета (0.4-0.75 set_position)
+  4. FILTER        — Camelot конфликт (dist >= 3)
+  5. ECHO          — мелодичный/atmospheric трек или конец сета
+  6. TREMOLO       — высокий onset rate в середине сета
+  7. FADE          — fallback
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ def recommend_transition(
     ):
         kick_min = min(track_a.kick_prominence, track_b.kick_prominence)
         return TransitionRecommendation(
-            transition_type=TransitionType.NEURAL_MIX,
+            transition_type=TransitionType.NM_DRUM_SWAP,
             confidence=kick_min,
             reason=(
                 f"Чёткие барабаны (kick {track_a.kick_prominence:.2f}/"
@@ -71,7 +71,7 @@ def recommend_transition(
         bpm_mode = "Sync" if bpm_diff <= 3.0 else "Sync + Tempo Blend"
         conf = max(0.60, 0.85 - bpm_diff * 0.04)
         return TransitionRecommendation(
-            transition_type=TransitionType.TECHNO,
+            transition_type=TransitionType.FILTER,
             confidence=conf,
             reason=f"BPM diff {bpm_diff:.1f} — HPF sweep + resonance peak",
             djay_bars=16,
@@ -114,7 +114,7 @@ def recommend_transition(
     # 6. Repeater — гипнотические переходы в середине сета
     if track_a.onset_rate > 5.5 and track_a.kick_prominence > 0.8 and 0.2 < set_position < 0.7:
         return TransitionRecommendation(
-            transition_type=TransitionType.REPEATER,
+            transition_type=TransitionType.TREMOLO,
             confidence=0.70,
             reason=(
                 f"Высокий onset rate {track_a.onset_rate:.1f}/s — "
@@ -124,11 +124,11 @@ def recommend_transition(
             djay_bpm_mode="Sync",
         )
 
-    # 7. Beat Match — fallback для любой ситуации
+    # 7. Fade — fallback для любой ситуации
     return TransitionRecommendation(
-        transition_type=TransitionType.BEAT_MATCH,
+        transition_type=TransitionType.FADE,
         confidence=0.60,
-        reason="Стандартный битматч кроссфейд",
+        reason="Стандартный кроссфейд",
         djay_bars=16,
         djay_bpm_mode="Automatic",
     )
