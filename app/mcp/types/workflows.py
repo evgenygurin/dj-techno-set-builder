@@ -100,6 +100,11 @@ class TransitionScoreResult(BaseModel):
     to_key: str | None = None
     camelot_distance: int | None = None  # 0-6 (0=same, 6=worst)
     bpm_delta: float | None = None  # abs(from_bpm - to_bpm)
+    # djay Pro AI Crossfader FX parameters
+    djay_bars: int | None = None  # 4 | 8 | 16 | 32
+    djay_bpm_mode: str | None = None  # "Sync" | "Sync + Tempo Blend" | "Automatic"
+    mix_out_ms: int | None = None  # outro start from track_sections
+    mix_in_ms: int | None = None  # intro end from track_sections
 
 
 class ExportResult(BaseModel):

@@ -429,6 +429,50 @@ class TransitionScoringService:
             + w["structure"] * structure_s
         )
 
+    def djay_compatibility_score(
+        self,
+        track_a: TrackFeatures,
+        track_b: TrackFeatures,
+    ) -> float:
+        """Bonus/penalty multiplier for djay Pro AI stem separation quality.
+
+        Returns a multiplier clamped to [0.0, 1.5] that adjusts the base
+        transition score based on how well djay Pro AI's Neural Mix will
+        perform.  Apply as: final_score = score * djay_compatibility_score().
+
+        Args:
+            track_a: Outgoing track features.
+            track_b: Incoming track features.
+
+        Returns:
+            Multiplier in [0.0, 1.5].  1.0 = neutral, >1 = bonus, <1 = penalty.
+        """
+        score = 1.0
+
+        # Neural Mix bonus: strong kick on both = clean drum stem swap
+        if track_a.kick_prominence > 0.75 and track_b.kick_prominence > 0.75:
+            score += 0.05
+
+        # Breakbeat penalty: weak kick → Neural Mix drum stem will be muddy
+        if track_a.kick_prominence < 0.35 or track_b.kick_prominence < 0.35:
+            score -= 0.10
+
+        # Timbral jump penalty: large centroid shift is jarring even with FX
+        centroid_diff = abs(track_a.centroid_hz - track_b.centroid_hz)
+        if centroid_diff > 1200:
+            score -= 0.08
+
+        # Critical jump: industrial→melodic-deep (e.g. 3730→1812 Hz)
+        if track_a.centroid_hz > 3200 and track_b.centroid_hz < 2000:
+            score -= 0.15
+
+        # Ideal djay transition: near-identical BPM + adjacent key + strong kick
+        bpm_diff = abs(track_a.bpm - track_b.bpm)
+        if bpm_diff < 1.0 and track_a.kick_prominence > 0.75 and track_b.kick_prominence > 0.75:
+            score += 0.08
+
+        return min(max(score, 0.0), 1.5)
+
     # ------------------------------------------------------------------
     # Private
     # ------------------------------------------------------------------
